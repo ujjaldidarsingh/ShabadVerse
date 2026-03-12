@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Occasions - Parkaran Helper{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-100">Occasion-Based Suggestions</h1>
+    <p class="text-gray-500 text-sm mt-1">Find the right shabads from your collection for any occasion</p>
+</div>
+
+<!-- Occasions Grid -->
+<div id="occasionGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <div class="loading-pulse text-gray-500 text-center py-8 col-span-full">Loading occasions...</div>
+</div>
+
+<!-- Suggestions Panel (hidden initially) -->
+<div id="suggestionsPanel" class="hidden">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-xl font-bold text-gray-100" id="occasionTitle"></h2>
+            <p class="text-gray-500 text-sm" id="occasionDesc"></p>
+        </div>
+        <button onclick="closeSuggestions()" class="text-gray-500 hover:text-gray-300 text-lg">&times; Close</button>
+    </div>
+
+    <div id="occasionSuggestions" class="space-y-3">
+    </div>
+
+    <div class="mt-6">
+        <button onclick="startParkaran()" class="btn-primary">
+            Start a Parkaran with These &rarr;
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ICONS = {
+    rings: "&#128141;",
+    book: "&#128214;",
+    sun: "&#9728;&#65039;",
+    shield: "&#128737;&#65039;",
+    flag: "&#127987;&#65039;",
+    dove: "&#128330;&#65039;",
+    heart: "&#128153;",
+    lamp: "&#128367;&#65039;",
+    music: "&#127925;",
+    droplet: "&#128167;",
+};
+
+let currentOccasion = null;
+let currentSuggestions = [];
+
+async function init() {
+    try {
+        const occasions = await API.get("/api/occasions");
+        const grid = document.getElementById("occasionGrid");
+
+        grid.innerHTML = occasions.map(o => `
+            <div class="occasion-card" onclick="loadOccasion('${o.id}')">
+                <div class="text-3xl mb-3">${ICONS[o.icon] || "&#127775;"}</div>
+                <h3 class="font-semibold text-gray-100 text-lg">${escapeHtml(o.name)}</h3>
+                <p class="text-gray-500 text-sm mt-1">${escapeHtml(o.description)}</p>
+            </div>
+        `).join("");
+    } catch (err) {
+        document.getElementById("occasionGrid").innerHTML =
+            `<p class="text-red-400 text-center py-8 col-span-full">Error: ${escapeHtml(err.message)}</p>`;
+    }
+}
+
+async function loadOccasion(id) {
+    currentOccasion = id;
+    const panel = document.getElementById("suggestionsPanel");
+    const grid = document.getElementById("occasionGrid");
+    const sugDiv = document.getElementById("occasionSuggestions");
+
+    panel.classList.remove("hidden");
+    grid.classList.add("hidden");
+    sugDiv.innerHTML = '<div class="loading-pulse text-gray-500 text-center py-8">Finding matching shabads...</div>';
+
+    try {
+        const result = await API.get(`/api/occasions/${id}/suggest?count=10`);
+        currentSuggestions = result.suggestions;
+
+        document.getElementById("occasionTitle").textContent = result.occasion.name;
+        document.getElementById("occasionDesc").textContent = result.occasion.description;
+
+        if (result.suggestions.length === 0) {
+            sugDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No matching shabads found in your collection.</p>';
+            return;
+        }
+
+        sugDiv.innerHTML = result.suggestions.map((s, i) => `
+            <div class="card">
+                <div class="flex items-start gap-3">
+                    <span class="text-gray-600 text-sm font-mono mt-1">${i + 1}.</span>
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-100">${escapeHtml(s.title)}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">
+                            ${escapeHtml(s.keertani || "")}
+                            ${s.sggs_raag ? ` &middot; ${escapeHtml(s.sggs_raag)}` : ""}
+                            ${s.ang_number ? ` &middot; Ang ${s.ang_number}` : ""}
+                            ${s.writer ? ` &middot; ${escapeHtml(s.writer)}` : ""}
+                        </div>
+                        ${s.primary_theme ? `<div class="text-sm text-gold-400/80 mt-1">${escapeHtml(s.primary_theme)}</div>` : ""}
+                        ${s.brief_meaning ? `<div class="text-xs text-gray-500 mt-1">${escapeHtml(s.brief_meaning)}</div>` : ""}
+                        <div class="flex items-center gap-2 mt-2">
+                            ${s.mood ? `<span class="badge badge-theme">${escapeHtml(s.mood)}</span>` : ""}
+                            ${s.link ? `<a href="${escapeHtml(s.link)}" target="_blank" class="text-gold-600 text-xs hover:underline">Listen &rarr;</a>` : ""}
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <div class="text-xs text-gray-600">Relevance</div>
+                        <div class="text-lg font-bold text-indigo-400">${s.relevance}</div>
+                    </div>
+                </div>
+            </div>
+        `).join("");
+    } catch (err) {
+        sugDiv.innerHTML = `<p class="text-red-400 text-center py-8">Error: ${escapeHtml(err.message)}</p>`;
+    }
+}
+
+function closeSuggestions() {
+    document.getElementById("suggestionsPanel").classList.add("hidden");
+    document.getElementById("occasionGrid").classList.remove("hidden");
+}
+
+function startParkaran() {
+    if (currentSuggestions.length >= 2) {
+        // Send top 2 as seeds to builder
+        sessionStorage.setItem("builderSeeds", JSON.stringify(currentSuggestions.slice(0, 2).map(s => s.id)));
+        window.location.href = "/builder";
+    }
+}
+
+init();
+</script>
+{% endblock %}

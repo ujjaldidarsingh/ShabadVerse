@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Parkaran Reviewer - Parkaran Helper{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Parkaran Reviewer</h1>
+    <p class="page-subtitle">Check if your parkaran's theme truly connects or if it's surface-level</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <!-- Left: Input -->
+    <div class="lg:col-span-2">
+        <h2 class="section-label mb-3">Your Parkaran</h2>
+
+        <div class="relative mb-3">
+            <input type="text" id="addShabadSearch" class="search-input" placeholder="Search and add shabads...">
+            <div id="addDropdown" class="autocomplete-dropdown hidden"></div>
+        </div>
+
+        <p class="text-gray-600 text-sm mb-2" id="reviewEmpty">Add shabads in your parkaran's order</p>
+        <div id="reviewList" class="space-y-2 mb-4"></div>
+
+        <button id="reviewBtn" class="btn-primary w-full" disabled onclick="reviewParkaran()">
+            Review Parkaran
+        </button>
+    </div>
+
+    <!-- Right: Results -->
+    <div class="lg:col-span-3">
+        <h2 class="section-label mb-3">Analysis</h2>
+        <div id="reviewResults">
+            <p class="text-gray-600 text-sm text-center py-12">Add at least 2 shabads and click "Review Parkaran"</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/parkaran-reviewer.js') }}"></script>
+{% endblock %}

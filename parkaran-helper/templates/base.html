@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Parkaran Helper{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: { 50: '#f0f3ff', 100: '#dde3ff', 200: '#c2cbff', 300: '#97a3ff', 400: '#6b72ff', 500: '#4945ff', 600: '#3525f5', 700: '#2a1ae0', 800: '#1a1540', 900: '#12102e', 950: '#0a0914' },
+                        gold: { 50: '#fefce8', 100: '#fef9c3', 200: '#fef08a', 300: '#fde047', 400: '#facc15', 500: '#daa520', 600: '#b8860b', 700: '#8b6914', 800: '#6d5318', 900: '#5a451a', 950: '#332609' },
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-navy-950 text-gray-100 font-['Inter'] min-h-screen">
+    <!-- Ambient gradient bg -->
+    <div class="fixed inset-0 pointer-events-none z-0">
+        <div class="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gold-500/[0.03] rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/[0.04] rounded-full blur-[100px]"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-glass sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+            <div class="flex items-center justify-between h-16">
+                <a href="/" class="flex items-center gap-2.5 group">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-500 to-gold-700 flex items-center justify-center text-navy-950 font-bold text-sm">P</div>
+                    <div>
+                        <span class="text-gold-400 text-lg font-semibold tracking-tight group-hover:text-gold-300 transition-colors">Parkaran</span>
+                        <span class="text-gray-500 text-sm ml-1">Helper</span>
+                    </div>
+                </a>
+                <div class="flex gap-0.5">
+                    <a href="/database" class="nav-link {% if request.path == '/database' %}active{% endif %}">Database</a>
+                    <a href="/discover" class="nav-link {% if request.path == '/discover' %}active{% endif %}">Discover</a>
+                    <a href="/builder" class="nav-link {% if request.path == '/builder' %}active{% endif %}">Builder</a>
+                    <a href="/reviewer" class="nav-link {% if request.path == '/reviewer' %}active{% endif %}">Reviewer</a>
+                    <a href="/occasions" class="nav-link {% if request.path == '/occasions' %}active{% endif %}">Occasions</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 relative z-10">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Parkaran Helper{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[70vh] text-center">
+    <div class="mb-3">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold-500 to-gold-700 flex items-center justify-center text-navy-950 font-bold text-2xl mx-auto shadow-lg shadow-gold-500/20">P</div>
+    </div>
+    <h1 class="text-5xl font-bold mb-2 tracking-tight">
+        <span class="text-gold-400">Parkaran</span> <span class="text-gray-300">Helper</span>
+    </h1>
+    <p class="text-gray-500 text-lg mb-12 max-w-xl leading-relaxed">
+        Build meaningful keertan parkarans by connecting shabads through their deeper spiritual themes and meanings.
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 max-w-5xl w-full">
+        <a href="/database" class="card group text-left">
+            <div class="text-2xl mb-3 opacity-60 group-hover:opacity-100 transition-opacity">&#128218;</div>
+            <h3 class="font-semibold text-gray-100 group-hover:text-gold-400 transition-colors">Database</h3>
+            <p class="text-gray-500 text-sm mt-1.5 leading-relaxed">Browse and search your shabad collection.</p>
+        </a>
+
+        <a href="/discover" class="card group text-left">
+            <div class="text-2xl mb-3 opacity-60 group-hover:opacity-100 transition-opacity">&#128270;</div>
+            <h3 class="font-semibold text-gray-100 group-hover:text-gold-400 transition-colors">Discover</h3>
+            <p class="text-gray-500 text-sm mt-1.5 leading-relaxed">Search the full SGGS for any shabad.</p>
+        </a>
+
+        <a href="/builder" class="card group text-left">
+            <div class="text-2xl mb-3 opacity-60 group-hover:opacity-100 transition-opacity">&#128296;</div>
+            <h3 class="font-semibold text-gray-100 group-hover:text-gold-400 transition-colors">Builder</h3>
+            <p class="text-gray-500 text-sm mt-1.5 leading-relaxed">AI-powered thematic shabad suggestions.</p>
+        </a>
+
+        <a href="/reviewer" class="card group text-left">
+            <div class="text-2xl mb-3 opacity-60 group-hover:opacity-100 transition-opacity">&#9878;&#65039;</div>
+            <h3 class="font-semibold text-gray-100 group-hover:text-gold-400 transition-colors">Reviewer</h3>
+            <p class="text-gray-500 text-sm mt-1.5 leading-relaxed">Analyze your parkaran's thematic flow.</p>
+        </a>
+
+        <a href="/occasions" class="card group text-left">
+            <div class="text-2xl mb-3 opacity-60 group-hover:opacity-100 transition-opacity">&#127775;</div>
+            <h3 class="font-semibold text-gray-100 group-hover:text-gold-400 transition-colors">Occasions</h3>
+            <p class="text-gray-500 text-sm mt-1.5 leading-relaxed">Shabads for Sikh occasions and events.</p>
+        </a>
+    </div>
+</div>
+{% endblock %}

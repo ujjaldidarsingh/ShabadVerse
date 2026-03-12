@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Shabad Database - Parkaran Helper{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Shabad Database</h1>
+    <p class="page-subtitle">Browse your enriched shabad collection</p>
+</div>
+
+<!-- Search and Filters -->
+<div class="flex flex-wrap gap-3 mb-6">
+    <div class="flex gap-2 flex-1 min-w-[300px]">
+        <input type="text" id="search" class="search-input flex-1" placeholder="First letters e.g. 'h k s j k'...">
+        <select id="searchType" class="filter-select w-40">
+            <option value="1">First letter</option>
+            <option value="2">First letter (any)</option>
+            <option value="4">English keyword</option>
+            <option value="6">Transliteration</option>
+            <option value="local">Local filter</option>
+        </select>
+    </div>
+    <select id="filterKeertani" class="filter-select">
+        <option value="">All Keertanis</option>
+    </select>
+    <select id="filterRaag" class="filter-select">
+        <option value="">All Raags</option>
+    </select>
+    <select id="filterConfidence" class="filter-select">
+        <option value="">All Confidence</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+    </select>
+</div>
+
+<!-- Stats bar -->
+<div id="stats" class="text-gray-500 text-sm mb-4"></div>
+
+<!-- Shabad Table -->
+<div id="shabadList" class="space-y-2">
+    <div class="loading-pulse text-gray-500 text-center py-12">Loading shabads...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/database-view.js') }}"></script>
+{% endblock %}

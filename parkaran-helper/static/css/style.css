@@ -1,0 +1,505 @@
+/* ============================================
+   Parkaran Helper — Premium Dark Theme
+   Inspired by darkmodedesign.com aesthetics
+   ============================================ */
+
+/* --- Global typography --- */
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #f3f4f6;
+    letter-spacing: -0.02em;
+}
+.page-subtitle {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+.section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.detail-label {
+    font-size: 0.6875rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.25rem;
+}
+
+/* --- Navigation --- */
+.nav-glass {
+    background: rgba(10, 9, 20, 0.75);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.nav-link {
+    padding: 0.4rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    position: relative;
+}
+.nav-link:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.04);
+}
+.nav-link.active {
+    color: #daa520;
+    background: rgba(218, 165, 32, 0.08);
+}
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1rem;
+    height: 2px;
+    background: #daa520;
+    border-radius: 2px;
+}
+
+/* --- Cards --- */
+.card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.875rem;
+    padding: 1.25rem;
+    transition: all 0.25s ease;
+    backdrop-filter: blur(10px);
+}
+.card:hover {
+    border-color: rgba(218, 165, 32, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+}
+
+/* Glass card variants */
+.glass-card-gold {
+    background: rgba(218, 165, 32, 0.06);
+    border: 1px solid rgba(218, 165, 32, 0.12);
+    border-radius: 0.75rem;
+    padding: 0.875rem 1rem;
+    backdrop-filter: blur(8px);
+}
+
+/* --- Badges --- */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+.badge-high { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.15); }
+.badge-medium { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.15); }
+.badge-low { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.15); }
+.badge-raag { background: rgba(139, 92, 246, 0.1); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.12); }
+.badge-theme { background: rgba(218, 165, 32, 0.1); color: #daa520; border: 1px solid rgba(218, 165, 32, 0.15); }
+
+/* Source badges */
+.badge-sggs {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem 0.4375rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    background: rgba(96, 165, 250, 0.1);
+    color: #93c5fd;
+    border: 1px solid rgba(96, 165, 250, 0.15);
+    letter-spacing: 0.04em;
+}
+.badge-library {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem 0.4375rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    background: rgba(218, 165, 32, 0.1);
+    color: #daa520;
+    border: 1px solid rgba(218, 165, 32, 0.15);
+    letter-spacing: 0.04em;
+}
+
+/* --- Score gauge --- */
+.score-gauge {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.score-high { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 2px solid rgba(34, 197, 94, 0.3); }
+.score-mid { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 2px solid rgba(251, 191, 36, 0.3); }
+.score-low { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 2px solid rgba(239, 68, 68, 0.3); }
+
+/* --- Transition ratings --- */
+.transition-strong { border-left: 3px solid #4ade80; }
+.transition-moderate { border-left: 3px solid #fbbf24; }
+.transition-weak { border-left: 3px solid #f87171; }
+
+/* --- Loading --- */
+.loading-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* --- Shabad expand/collapse --- */
+.shabad-details {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease-out;
+}
+.shabad-details.open {
+    max-height: 700px;
+}
+
+/* --- Seed card --- */
+.seed-card {
+    background: rgba(218, 165, 32, 0.06);
+    border: 1px solid rgba(218, 165, 32, 0.15);
+    border-radius: 0.625rem;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s;
+}
+.seed-card:hover {
+    background: rgba(218, 165, 32, 0.1);
+}
+
+/* --- Suggestion card --- */
+.suggestion-card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.875rem;
+    padding: 1rem 1.25rem;
+    transition: all 0.25s ease;
+}
+.suggestion-card:hover {
+    border-color: rgba(218, 165, 32, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 2px 16px -2px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Position tags --- */
+.position-tag {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+}
+.position-opening { background: rgba(96, 165, 250, 0.1); color: #93c5fd; border: 1px solid rgba(96, 165, 250, 0.15); }
+.position-building { background: rgba(167, 139, 250, 0.1); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.15); }
+.position-climax { background: rgba(251, 146, 60, 0.1); color: #fdba74; border: 1px solid rgba(251, 146, 60, 0.15); }
+.position-resolution { background: rgba(74, 222, 128, 0.1); color: #86efac; border: 1px solid rgba(74, 222, 128, 0.15); }
+
+/* --- Occasion card --- */
+.occasion-card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.875rem;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.occasion-card:hover {
+    border-color: rgba(218, 165, 32, 0.2);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px -8px rgba(218, 165, 32, 0.08);
+}
+
+/* --- Form inputs --- */
+.search-input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.625rem;
+    padding: 0.625rem 1rem;
+    color: #f3f4f6;
+    width: 100%;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+.search-input:focus {
+    outline: none;
+    border-color: rgba(218, 165, 32, 0.4);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 0 3px rgba(218, 165, 32, 0.08);
+}
+.search-input::placeholder {
+    color: #4b5563;
+}
+.search-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.filter-select {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    color: #e5e7eb;
+    font-size: 0.8125rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.filter-select:focus {
+    outline: none;
+    border-color: rgba(218, 165, 32, 0.4);
+    box-shadow: 0 0 0 3px rgba(218, 165, 32, 0.08);
+}
+.filter-select option {
+    background: #12102e;
+    color: #e5e7eb;
+}
+
+/* --- Buttons --- */
+.btn-primary {
+    background: linear-gradient(135deg, #daa520, #b8860b);
+    color: #0a0914;
+    font-weight: 600;
+    padding: 0.625rem 1.5rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 12px -2px rgba(218, 165, 32, 0.3);
+}
+.btn-primary:hover {
+    box-shadow: 0 4px 20px -2px rgba(218, 165, 32, 0.4);
+    transform: translateY(-1px);
+}
+.btn-primary:active {
+    transform: translateY(0);
+}
+.btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.04);
+    color: #c4b5fd;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 0.625rem;
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    font-size: 0.8125rem;
+    transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.25);
+}
+
+.btn-ghost {
+    color: #9ca3af;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: transparent;
+}
+.btn-ghost:hover {
+    color: #daa520;
+    border-color: rgba(218, 165, 32, 0.2);
+    background: rgba(218, 165, 32, 0.06);
+}
+
+.btn-add {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(218, 165, 32, 0.08);
+    border: 1px solid rgba(218, 165, 32, 0.15);
+    color: #daa520;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.btn-add:hover {
+    background: rgba(218, 165, 32, 0.2);
+    border-color: rgba(218, 165, 32, 0.35);
+    transform: scale(1.05);
+}
+
+/* --- Gurmukhi text --- */
+.gurmukhi {
+    font-family: 'Noto Sans Gurmukhi', serif;
+    font-size: 1.125rem;
+    line-height: 2;
+    color: #fde047;
+}
+
+/* --- Parkaran list item --- */
+.parkaran-item {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.625rem;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+.parkaran-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+.parkaran-item.dragging {
+    opacity: 0.4;
+    border-color: rgba(218, 165, 32, 0.3);
+}
+.parkaran-item.drag-over {
+    border-color: rgba(218, 165, 32, 0.5);
+    background: rgba(218, 165, 32, 0.06);
+    box-shadow: 0 0 0 2px rgba(218, 165, 32, 0.15);
+}
+.parkaran-item:active {
+    cursor: grabbing;
+}
+.drag-handle {
+    color: #374151;
+    cursor: grab;
+    font-size: 1rem;
+    user-select: none;
+    transition: color 0.2s;
+}
+.drag-handle:hover {
+    color: #9ca3af;
+}
+.parkaran-num {
+    color: #4b5563;
+    font-size: 0.8125rem;
+    font-family: ui-monospace, monospace;
+    width: 1.5rem;
+    flex-shrink: 0;
+}
+
+/* --- Autocomplete dropdown --- */
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(18, 16, 46, 0.96);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.625rem;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 100;
+    margin-top: 0.25rem;
+    box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.5);
+}
+.autocomplete-item {
+    padding: 0.625rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.15s ease;
+}
+.autocomplete-item:hover {
+    background: rgba(218, 165, 32, 0.08);
+}
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+/* --- Tab buttons --- */
+.tab-btn {
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.tab-btn:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.04);
+}
+.tab-btn.active {
+    color: #daa520;
+    background: rgba(218, 165, 32, 0.08);
+    border-color: rgba(218, 165, 32, 0.2);
+}
+
+/* --- Discover card --- */
+.discover-card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.875rem;
+    padding: 1.125rem 1.25rem;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+.discover-card:hover {
+    border-color: rgba(218, 165, 32, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* --- Line clamp --- */
+.line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* --- Selection --- */
+::selection {
+    background: rgba(218, 165, 32, 0.25);
+    color: #fef9c3;
+}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Discover - Parkaran Helper{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="page-title">Discover Shabads</h1>
+    <p class="page-subtitle">Search the entire Sri Guru Granth Sahib Ji to find shabads for your parkarans</p>
+</div>
+
+<!-- Search bar -->
+<div class="flex gap-2 mb-6">
+    <input type="text" id="discoverSearch" class="search-input flex-1" placeholder="First letters e.g. 'h k s j k' for Har Kar Simran Jo Karai...">
+    <select id="searchType" class="filter-select w-48">
+        <option value="1">First letter (start)</option>
+        <option value="2">First letter (anywhere)</option>
+        <option value="4">English keyword</option>
+        <option value="6">Transliteration</option>
+    </select>
+    <button id="searchBtn" class="btn-primary px-6" onclick="doSearch()">Search</button>
+</div>
+
+<!-- Results -->
+<div id="resultsCount" class="text-gray-500 text-sm mb-3 hidden"></div>
+
+<div id="results" class="space-y-3">
+    <div class="text-center py-16">
+        <div class="text-gray-500 text-lg mb-2">Search the SGGS</div>
+        <p class="text-gray-600 text-sm max-w-md mx-auto">Type the first letter of each word to find shabads — e.g. <span class="text-gray-400 font-mono">h k s j k</span> for <span class="text-gray-400">Har Kar Simran Jo Karai</span>. You can also search by English keyword or transliteration.</p>
+    </div>
+</div>
+
+<!-- Shabad detail modal -->
+<div id="detailModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-navy-900 border border-white/[0.06] rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h3 id="detailTitle" class="text-lg font-semibold text-gray-100"></h3>
+                <div id="detailMeta" class="text-sm text-gray-500 mt-1"></div>
+            </div>
+            <button onclick="closeDetail()" class="text-gray-500 hover:text-gray-300 text-2xl leading-none transition-colors">&times;</button>
+        </div>
+
+        <div id="detailGurmukhi" class="gurmukhi text-xl leading-relaxed mb-4"></div>
+        <div id="detailTranslation" class="text-sm text-gray-300 leading-relaxed mb-4"></div>
+
+        <!-- Theme section (hidden until enriched) -->
+        <div id="detailThemes" class="hidden mb-4 glass-card-gold">
+            <div class="detail-label text-gold-500 mb-2">Themes</div>
+            <div id="detailThemeContent"></div>
+        </div>
+
+        <div class="flex gap-2 mt-4">
+            <button id="enrichBtn" class="btn-secondary text-sm" onclick="enrichCurrent()">
+                Extract Themes (AI)
+            </button>
+            <button class="btn-primary text-sm" onclick="useAsSeed()">
+                Use as Seed in Builder &rarr;
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/discover.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c:*)",
+      "Bash(brew install:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:www.banidb.com)",
+      "Bash(python3:*)",
+      "Bash(node --version:*)",
+      "Bash(npm:*)",
+      "Bash(pip3 list:*)",
+      "WebFetch(domain:api.banidb.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:banidbpy.readthedocs.io)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:codesandbox.io)",
+      "Bash(pip3 install:*)",
+      "Bash(echo:*)",
+      "Bash(open:*)",
+      "Bash(pkill:*)",
+      "Bash(curl:*)",
+      "Bash(/opt/anaconda3/bin/python3:*)",
+      "Bash(# Test \"\"d d h d\"\" \\(Dhan Dhan Har Dhan\\) and also try a Gurmukhi-related search curl -s \"\"http://127.0.0.1:5050/api/discover/search?q=d+d+h+d&searchtype=1\"\" | python3 -m json.tool)",
+      "WebFetch(domain:www.darkmodedesign.com)",
+      "WebFetch(domain:www.auraprotocol.com)",
+      "WebFetch(domain:gigantic.is)",
+      "WebFetch(domain:reallygooddesigns.com)"
+    ]
+  }
+}
