@@ -128,19 +128,23 @@ def build_graph():
             neighbors[sid] = []
             continue
 
-        # Score ALL candidates per tag (not globally)
-        # This prevents dominant tags from starving minority tags
+        # Score candidates per tag with BRANCHING diversity
+        # For each tag, find two pools:
+        #   1. "core" — shares this tag + high embedding similarity (the obvious matches)
+        #   2. "branching" — shares this tag but brings DIFFERENT other tags (the surprises)
         per_tag_candidates = {}  # {tag: [(cid, score, shared_tags), ...]}
 
         for tag in my_tags:
             tag_candidates = tag_index.get(tag, [])
-            scored_for_tag = []
+            core_pool = []     # High overlap candidates
+            branch_pool = []   # Different-direction candidates
 
             for cid in tag_candidates:
                 if cid == sid:
                     continue
                 their_tags = shabad_tags.get(cid, set())
-                tag_sim = jaccard_similarity(my_tags, their_tags)
+                shared = my_tags & their_tags
+                different = their_tags - my_tags  # Tags they have that we don't
 
                 embed_sim = 0.0
                 if my_emb is not None:
@@ -153,16 +157,41 @@ def build_graph():
                 else:
                     embed_misses += 1
 
-                score = TAG_WEIGHT * tag_sim + EMBED_WEIGHT * embed_sim
-                shared = list(my_tags & their_tags)
+                # Core score: tag overlap + embedding (same as before)
+                tag_sim = jaccard_similarity(my_tags, their_tags)
+                core_score = TAG_WEIGHT * tag_sim + EMBED_WEIGHT * embed_sim
 
-                if score > 0.05:
-                    scored_for_tag.append((cid, round(score, 3), shared))
+                # Branching score: embedding similarity + bonus for bringing new tags
+                # A candidate that shares 1 tag but has 2 different tags gets a diversity boost
+                diversity_bonus = min(len(different) * 0.1, 0.3)  # Up to +0.3 for new tags
+                branch_score = embed_sim * 0.7 + diversity_bonus + 0.1  # base relevance
 
-            scored_for_tag.sort(key=lambda x: x[1], reverse=True)
-            per_tag_candidates[tag] = scored_for_tag
+                shared_list = list(shared)
 
-            if not scored_for_tag:
+                if len(shared) == len(my_tags):
+                    # Shares ALL our tags — core candidate (same direction)
+                    if core_score > 0.05:
+                        core_pool.append((cid, round(core_score, 3), shared_list))
+                else:
+                    # Shares SOME but not all — branching candidate (different direction)
+                    if branch_score > 0.15:
+                        branch_pool.append((cid, round(branch_score, 3), shared_list))
+
+            core_pool.sort(key=lambda x: x[1], reverse=True)
+            branch_pool.sort(key=lambda x: x[1], reverse=True)
+
+            # Merge: take top core + top branching
+            # This guarantees at least some branching neighbors per tag
+            merged = []
+            n_core = min(len(core_pool), 3)  # Max 3 "same direction" per tag
+            n_branch = max(3, 6 - n_core)     # Rest is branching
+            merged.extend(core_pool[:n_core])
+            merged.extend(branch_pool[:n_branch])
+            merged.sort(key=lambda x: x[1], reverse=True)
+
+            per_tag_candidates[tag] = merged
+
+            if not merged:
                 empty_tag_clusters += 1
 
         # Allocate slots: each tag gets max(PER_TAG_MIN, K_MAX / n_tags) slots
