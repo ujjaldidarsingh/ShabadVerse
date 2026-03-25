@@ -121,9 +121,9 @@ function getStyles() {
                 "border-width": 0,
                 color: "rgba(200,200,210,0.45)",
                 "font-family": "'Noto Sans Gurmukhi', sans-serif",
-                "font-size": "6px",
+                "font-size": "7px",
                 "text-wrap": "ellipsis",
-                "text-max-width": "65px",
+                "text-max-width": "70px",
                 width: 8,
                 height: 8,
                 "text-valign": "bottom",
@@ -461,7 +461,7 @@ function showTooltip(shabadId, nodeEl) {
 
     // Selected tuk for this shabad (if any)
     const tuk = State.selectedTuk[sid];
-    const tukHtml = tuk ? `<div style="font-family:'Noto Sans Gurmukhi';color:rgba(16,185,129,0.6);font-size:10px;margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.04);border-radius:3px;border-left:2px solid rgba(16,185,129,0.3);">${escapeHtml((tuk.gurmukhi || "").substring(0, 50))}</div>` : "";
+    const tukHtml = tuk ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:rgba(16,185,129,0.6);font-size:10px;margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.04);border-radius:3px;border-left:2px solid rgba(16,185,129,0.3);">${escapeHtml((tuk.gurmukhi || "").substring(0, 50))}</div>` : "";
 
     tooltip.innerHTML = `
         <div class="tt-body">
@@ -564,7 +564,7 @@ async function loadPreview(shabadId) {
         const english = v.english || "";
         const rahaoStyle = isRahao ? "border-left:2px solid rgba(245,158,11,0.4);padding-left:4px;background:rgba(245,158,11,0.03);" : "";
         return `<div style="margin-bottom:3px;${rahaoStyle}">
-            ${gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi';color:rgba(251,191,36,0.7);font-size:7px;">${escapeHtml(gurmukhi)}</div>` : ""}
+            ${gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:rgba(251,191,36,0.7);font-size:7px;">${escapeHtml(gurmukhi)}</div>` : ""}
             ${english ? `<div style="font-family:'IBM Plex Mono';color:rgba(200,200,210,0.35);font-size:6px;">${escapeHtml(english)}</div>` : ""}
         </div>`;
     }).join("");
@@ -621,7 +621,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
             <div data-action="select-verse" data-sid="${escAttr(sid)}" data-vidx="${i}"
                  style="padding:3px 6px;margin-bottom:2px;cursor:pointer;border-left:2px solid ${borderColor};background:${bg};border-radius:0 2px 2px 0;"
                  onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='${bg}'">
-                <div style="font-family:'Noto Sans Gurmukhi';color:${isSelected ? 'rgba(16,185,129,0.7)' : 'rgba(251,191,36,0.5)'};font-size:10px;">${escapeHtml(v.gurmukhi.substring(0, 45))}</div>
+                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:${isSelected ? 'rgba(16,185,129,0.7)' : 'rgba(251,191,36,0.5)'};font-size:10px;">${escapeHtml(v.gurmukhi.substring(0, 45))}</div>
                 ${isRahao ? '<span style="font-family:\'IBM Plex Mono\';font-size:7px;color:rgba(245,158,11,0.3);">RAHAO</span>' : ""}
             </div>
         `;
@@ -755,7 +755,7 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
     const engAttr = matchedEnglish ? escAttr(matchedEnglish.substring(0, 150)) : "";
     return `
         <div class="autocomplete-item" onclick="selectSearch('${escAttr(sid)}', '${verseAttr}', '${engAttr}')">
-            ${m.gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
+            ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
             <div style="font-family:'IBM Plex Mono';color:#374151;font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
                 ${m.is_repertoire ? " &#9733;" : ""}
@@ -811,7 +811,7 @@ async function selectTag(tag) {
         const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=20`);
         list.innerHTML = data.shabads.map((s) => `
             <div class="autocomplete-item" onclick="closeTagBrowser(); expandShabad('${escAttr(s.id)}')">
-                <div style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
+                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
                 <div style="font-family:'IBM Plex Mono';color:#4b5563;font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
             </div>
         `).join("");
@@ -914,7 +914,7 @@ function renderParkaran() {
             <div class="parkaran-sidebar-item" draggable="true" data-idx="${i}" data-id="${escAttr(s.id)}">
                 <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.3);font-size:10px;width:14px;flex-shrink:0;">${i + 1}</span>
                 <div style="flex:1;min-width:0;user-select:none;">
-                    ${s.gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
+                    ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
                     <div style="font-family:'IBM Plex Mono';color:#4b5563;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
                 </div>
                 <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:#374151;cursor:pointer;font-size:12px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#374151'">&times;</button>

@@ -3,8 +3,8 @@
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-100">Occasion-Based Suggestions</h1>
-    <p class="text-gray-500 text-sm mt-1">Find the right shabads from your collection for any occasion</p>
+    <h1 class="page-title">Occasion-Based Suggestions</h1>
+    <p class="page-subtitle">Find the right shabads from your collection for any occasion</p>
 </div>
 
 <!-- Occasions Grid -->
@@ -35,17 +35,18 @@
 
 {% block scripts %}
 <script>
+// Simple amber HUD-style icons (no emoji)
 const ICONS = {
-    rings: "&#128141;",
-    book: "&#128214;",
-    sun: "&#9728;&#65039;",
-    shield: "&#128737;&#65039;",
-    flag: "&#127987;&#65039;",
-    dove: "&#128330;&#65039;",
-    heart: "&#128153;",
-    lamp: "&#128367;&#65039;",
-    music: "&#127925;",
-    droplet: "&#128167;",
+    rings: "&#9775;",    // ☯ — union
+    book: "&#9776;",     // ☰ — text lines
+    sun: "&#10022;",     // ✦ — star
+    shield: "&#9670;",   // ◆ — diamond
+    flag: "&#9650;",     // ▲ — triangle
+    dove: "&#10023;",    // ✧ — light star
+    heart: "&#10084;",   // ❤ — heart (simple, not emoji)
+    lamp: "&#9702;",     // ◦ — circle
+    music: "&#9835;",    // ♫ — notes
+    droplet: "&#9679;",  // ● — filled circle
 };
 
 let currentOccasion = null;
@@ -58,7 +59,7 @@ async function init() {
 
         grid.innerHTML = occasions.map(o => `
             <div class="occasion-card" onclick="loadOccasion('${o.id}')">
-                <div class="text-3xl mb-3">${ICONS[o.icon] || "&#127775;"}</div>
+                <div class="text-2xl mb-3" style="color:var(--star-core);font-family:'Space Mono',monospace;">${ICONS[o.icon] || "&#10022;"}</div>
                 <h3 class="font-semibold text-gray-100 text-lg">${escapeHtml(o.name)}</h3>
                 <p class="text-gray-500 text-sm mt-1">${escapeHtml(o.description)}</p>
             </div>
