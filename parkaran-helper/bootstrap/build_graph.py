@@ -181,10 +181,10 @@ def build_graph():
             branch_pool.sort(key=lambda x: x[1], reverse=True)
 
             # Merge: take top core + top branching
-            # This guarantees at least some branching neighbors per tag
+            # Guarantees branching neighbors per tag for genuine variety
             merged = []
-            n_core = min(len(core_pool), 3)  # Max 3 "same direction" per tag
-            n_branch = max(3, 6 - n_core)     # Rest is branching
+            n_core = min(len(core_pool), 4)   # Max 4 "same direction" per tag
+            n_branch = max(4, 8 - n_core)     # Rest is branching — aim for 8 per tag total
             merged.extend(core_pool[:n_core])
             merged.extend(branch_pool[:n_branch])
             merged.sort(key=lambda x: x[1], reverse=True)
