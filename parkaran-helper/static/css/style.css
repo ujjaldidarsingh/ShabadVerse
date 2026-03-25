@@ -4,9 +4,11 @@
    ============================================ */
 
 :root {
-    --void: #030712;
-    --deep: #0a0f1a;
-    --mid: #111827;
+    /* Celestial Observatory: warm purple-black space */
+    --void: #0f0d13;
+    --deep: #161420;
+    --mid: #1e1a2a;
+    --space-surface: #272236;
     --star-core: #f59e0b;
     --star-glow: #fbbf24;
     --star-corona: rgba(245, 158, 11, 0.12);
@@ -15,11 +17,13 @@
     --nebula-cyan: #06b6d4;
     --signal-green: #10b981;
     --signal-red: #ef4444;
-    --text-primary: #e5e7eb;
-    --text-secondary: #9ca3af;
-    --text-dim: #4b5563;
+    /* Warm parchment text scale */
+    --text-scripture: #f5e6c8;
+    --text-primary: #e8dcc8;
+    --text-secondary: #a89b8a;
+    --text-dim: #6b5f52;
     --grid-line: rgba(255, 255, 255, 0.03);
-    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-subtle: #3d3552;
     --border-hover: rgba(245, 158, 11, 0.2);
 }
 
@@ -106,7 +110,7 @@
 
 /* --- Navigation --- */
 .nav-bar {
-    background: rgba(3, 7, 18, 0.92);
+    background: rgba(15, 13, 19, 0.92);
     backdrop-filter: blur(16px) saturate(120%);
     -webkit-backdrop-filter: blur(16px) saturate(120%);
     border-bottom: 1px solid var(--border-subtle);
@@ -289,7 +293,7 @@
 .search-input:focus {
     outline: none;
     border-color: rgba(245, 158, 11, 0.35);
-    background: rgba(10, 15, 26, 0.8);
+    background: rgba(22, 20, 32, 0.8);
     box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.06), 0 0 12px -4px rgba(245, 158, 11, 0.1);
 }
 .search-input::placeholder {
@@ -543,7 +547,7 @@
     top: 100%;
     left: 0;
     right: 0;
-    background: rgba(10, 15, 26, 0.97);
+    background: rgba(22, 20, 32, 0.97);
     backdrop-filter: blur(16px);
     border: 1px solid var(--border-subtle);
     border-radius: 0.375rem;
@@ -656,7 +660,7 @@
 }
 .mission-panel-header {
     font-family: 'Space Mono', monospace;
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -695,7 +699,7 @@
 
 /* Tag modal */
 .tag-modal-overlay {
-    background: rgba(3, 7, 18, 0.88);
+    background: rgba(15, 13, 19, 0.88);
     backdrop-filter: blur(8px);
 }
 
@@ -754,68 +758,70 @@
 
 /* HUD tooltip */
 .hud-tooltip {
-    background: rgba(8, 12, 24, 0.96);
+    background: rgba(18, 16, 28, 0.96);
+    backdrop-filter: blur(12px);
     border: 1px solid rgba(245, 158, 11, 0.1);
     border-top: 2px solid var(--star-core);
-    border-radius: 0.375rem;
+    border-radius: 0.5rem;
     padding: 0;
     box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6), 0 0 16px -4px rgba(245, 158, 11, 0.06);
     font-family: 'IBM Plex Mono', monospace;
-    width: 240px;
+    width: 280px;
     pointer-events: auto;
 }
 
 /* Tooltip internal elements */
-.tt-body { padding: 0.625rem 0.75rem; }
+.tt-body { padding: 0.75rem 1rem; }
 .tt-gurmukhi {
-    font-family: 'Noto Sans Gurmukhi', serif;
-    color: #fbbf24;
-    font-size: 13px;
-    line-height: 1.4;
+    font-family: 'Noto Serif Gurmukhi', 'Noto Sans Gurmukhi', serif;
+    color: var(--text-scripture);
+    font-size: 18px;
+    line-height: 1.8;
 }
 .tt-meta {
-    color: #374151;
-    font-size: 8px;
-    margin-top: 4px;
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-top: 6px;
     letter-spacing: 0.03em;
 }
 .tt-summary {
-    color: #9ca3af;
-    font-size: 9px;
-    margin-top: 6px;
-    line-height: 1.4;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: 8px;
+    line-height: 1.5;
 }
 .tt-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
-    margin-top: 6px;
+    gap: 4px;
+    margin-top: 8px;
 }
 .tt-tag {
-    font-size: 7px;
-    padding: 1px 5px;
+    font-size: 10px;
+    padding: 2px 7px;
     border-radius: 3px;
     background: rgba(245, 158, 11, 0.06);
-    color: rgba(245, 158, 11, 0.45);
-    border: 1px solid rgba(245, 158, 11, 0.08);
+    color: rgba(245, 158, 11, 0.55);
+    border: 1px solid rgba(245, 158, 11, 0.1);
 }
 .tt-actions {
-    margin-top: 8px;
-    padding-top: 6px;
+    margin-top: 10px;
+    padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
     display: flex;
     gap: 6px;
 }
 .tt-btn {
     font-family: 'Space Mono', monospace;
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 0.06em;
-    padding: 3px 8px;
-    border-radius: 3px;
+    padding: 6px 10px;
+    border-radius: 4px;
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.12s;
     background: none;
+    min-height: 32px;
 }
 .tt-btn-add {
     color: var(--star-core);
@@ -826,11 +832,11 @@
     border-color: rgba(245, 158, 11, 0.3);
 }
 .tt-btn-explore {
-    color: #6b7280;
-    border-color: rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+    border-color: var(--border-subtle);
 }
 .tt-btn-explore:hover {
-    color: #e5e7eb;
+    color: var(--text-primary);
     border-color: rgba(255, 255, 255, 0.15);
 }
 
@@ -870,7 +876,7 @@
 
 /* --- Force Panel (Obsidian-style) --- */
 .force-panel {
-    background: rgba(5, 10, 20, 0.85);
+    background: rgba(14, 12, 22, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 4px;
     backdrop-filter: blur(8px);
@@ -905,8 +911,8 @@ details[open] > .force-panel-header::before {
 }
 .force-row label {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 8px;
-    color: rgba(200, 200, 210, 0.3);
+    font-size: 10px;
+    color: var(--text-dim);
     letter-spacing: 0.05em;
     width: 52px;
     flex-shrink: 0;
@@ -933,8 +939,8 @@ details[open] > .force-panel-header::before {
 }
 .force-row span {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 8px;
-    color: rgba(245, 158, 11, 0.3);
+    font-size: 10px;
+    color: rgba(245, 158, 11, 0.4);
     width: 34px;
     text-align: right;
     flex-shrink: 0;

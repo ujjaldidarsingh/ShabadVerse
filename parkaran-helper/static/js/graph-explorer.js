@@ -24,7 +24,7 @@ const State = {
         center: 0.08,   // gravity: 0.01-0.5 (low = spread out)
         repel: 50000,   // nodeRepulsion: 5000-200000 (high = push apart)
         link: 0.20,     // edgeElasticity: 0.01-1.0 (low = loose springs)
-        distance: 200,  // idealEdgeLength: 50-500 (high = long edges)
+        distance: 250,  // idealEdgeLength: 50-500 (high = long edges)
     },
     tagClusters: {},    // {tag: [nodeId, ...]} for post-layout label positioning
 };
@@ -32,6 +32,22 @@ const State = {
 /** Escape for safe insertion into onclick attribute string literals. */
 function escAttr(s) {
     return escapeHtml(String(s)).replace(/'/g, "&#39;").replace(/\\/g, "&#92;").replace(/\n/g, "&#10;");
+}
+
+/** Map a shabad's primary theme to a node color. */
+function themeColor(theme) {
+    if (!theme) return "rgba(200,195,185,0.5)";
+    const t = theme.toLowerCase();
+    if (t.includes("devotion") || t.includes("prem") || t.includes("love")) return "#f59e0b";
+    if (t.includes("birha") || t.includes("longing") || t.includes("separation")) return "#e879a0";
+    if (t.includes("vismad") || t.includes("awe") || t.includes("wonder")) return "#a78bfa";
+    if (t.includes("shanti") || t.includes("peace") || t.includes("calm")) return "#2dd4bf";
+    if (t.includes("grace") || t.includes("kirpa") || t.includes("nadar")) return "#fbbf24";
+    if (t.includes("maya") || t.includes("attachment") || t.includes("world")) return "#8a7d6c";
+    if (t.includes("anand") || t.includes("joy") || t.includes("celeb")) return "#fb923c";
+    if (t.includes("hukam") || t.includes("will") || t.includes("command")) return "#60a5fa";
+    if (t.includes("surrender") || t.includes("humility")) return "#d4850a";
+    return "rgba(200,195,185,0.5)";
 }
 
 /** Generation counter for loadVerseSelector race condition guard. */
@@ -112,98 +128,119 @@ function initCytoscape() {
 
 function getStyles() {
     return [
-        // ── Shabad node (small filled dot, larger hit area for tapping) ──
+        // ── Shabad node (theme-colored dot) ──
         {
             selector: "node[type='shabad']",
             style: {
                 label: "data(label)",
-                "background-color": "rgba(170,170,190,0.6)",
+                "background-color": "data(themeColor)",
                 "border-width": 0,
-                color: "rgba(200,200,210,0.45)",
-                "font-family": "'Noto Sans Gurmukhi', sans-serif",
-                "font-size": "7px",
+                color: "rgba(232,220,200,0.5)",
+                "font-family": "Noto Sans Gurmukhi, sans-serif",
+                "font-size": "13px",
                 "text-wrap": "ellipsis",
-                "text-max-width": "70px",
-                width: 8,
-                height: 8,
+                "text-max-width": "100px",
+                width: 10,
+                height: 10,
                 "text-valign": "bottom",
-                "text-margin-y": 3,
-                // Larger overlay for easier tapping (visual is 8px, hit area is 20px)
+                "text-margin-y": 4,
                 "overlay-opacity": 0,
-                "overlay-padding": 6,
+                "overlay-padding": 8,
+                "text-outline-width": 2,
+                "text-outline-color": "#0f0d13",
+                "text-outline-opacity": 0.7,
             },
         },
-        // Repertoire node (amber fill)
+        // Repertoire node (amber ring)
         {
             selector: "node[type='shabad'][?isRepertoire]",
             style: {
-                "background-color": "rgba(245,158,11,0.7)",
-                width: 10,
-                height: 10,
+                "border-color": "rgba(245,158,11,0.8)",
+                "border-width": 2,
+                width: 12,
+                height: 12,
             },
         },
-        // Hover state
+        // Active/hover state
         {
             selector: "node[type='shabad']:active",
             style: {
-                "background-color": "rgba(245,158,11,0.8)",
-                width: 12,
-                height: 12,
-                color: "rgba(251,191,36,0.9)",
-                "font-size": "7px",
+                width: 14,
+                height: 14,
+                color: "#f5e6c8",
+                "font-size": "13px",
             },
         },
         // Selected node
         {
             selector: "node[type='shabad']:selected",
             style: {
-                "background-color": "rgba(245,158,11,0.8)",
-                width: 12,
-                height: 12,
-                color: "rgba(251,191,36,0.9)",
-                "font-size": "7px",
+                width: 14,
+                height: 14,
+                color: "#f5e6c8",
+                "font-size": "13px",
             },
         },
-        // ── Center node (larger, bright) ──
+        // ── Center node (star — largest, brightest) ──
         {
             selector: "node.center",
             style: {
                 "background-color": "rgba(245,158,11,0.9)",
-                width: 14,
-                height: 14,
-                color: "rgba(251,191,36,1)",
-                "font-size": "8px",
+                width: 18,
+                height: 18,
+                color: "#f5e6c8",
+                "font-size": "14px",
                 "font-weight": "bold",
-                "text-max-width": "90px",
+                "text-max-width": "120px",
+                "border-color": "rgba(245,158,11,0.6)",
+                "border-width": 2,
             },
         },
-        // ── Tag label (hub node — same visual weight as shabads) ──
+        // ── Tag label (same visual weight as node labels) ──
         {
             selector: "node[type='tagLabel']",
             style: {
                 label: "data(label)",
-                "background-color": "rgba(245,158,11,0.15)",
+                "background-color": "rgba(245,158,11,0.08)",
                 "border-width": 0,
-                color: "rgba(245,158,11,0.5)",
-                "font-family": "'IBM Plex Mono', monospace",
-                "font-size": "6px",
+                color: "rgba(245,158,11,0.45)",
+                "font-family": "IBM Plex Mono, monospace",
+                "font-size": "13px",
                 "font-weight": 600,
                 "text-halign": "center",
                 "text-valign": "center",
-                "text-max-width": "80px",
+                "text-max-width": "100px",
                 "text-wrap": "ellipsis",
                 width: 6,
                 height: 6,
                 "overlay-opacity": 0,
                 events: "no",
+                "text-outline-width": 2,
+                "text-outline-color": "#0f0d13",
+                "text-outline-opacity": 0.6,
             },
         },
-        // ── Edge (curved bezier, clustered look) ──
+        // ── Edge with score-based strength ──
         {
-            selector: "edge",
+            selector: "edge[score]",
+            style: {
+                width: "mapData(score, 0, 1, 0.3, 2.0)",
+                "line-color": "data(targetTheme)",
+                "line-opacity": "mapData(score, 0, 1, 0.06, 0.4)",
+                "curve-style": "unbundled-bezier",
+                "control-point-distances": [12],
+                "control-point-weights": [0.5],
+                "target-arrow-shape": "none",
+                "overlay-opacity": 0,
+            },
+        },
+        // Edge fallback (no score data)
+        {
+            selector: "edge[!score]",
             style: {
                 width: 0.6,
-                "line-color": "rgba(170,170,190,0.18)",
+                "line-color": "rgba(200,195,185,0.15)",
+                "line-opacity": 0.15,
                 "curve-style": "unbundled-bezier",
                 "control-point-distances": [12],
                 "control-point-weights": [0.5],
@@ -214,14 +251,16 @@ function getStyles() {
         // ── Faded (previous expansions) ──
         {
             selector: ".faded",
-            style: { opacity: 0.08 },
+            style: { opacity: 0.06 },
         },
-        // ── In parkaran (green dot) ──
+        // ── In parkaran (emerald) ──
         {
             selector: "node.in-parkaran",
             style: {
                 "background-color": "rgba(16,185,129,0.8)",
-                width: 10,
+                "border-color": "rgba(16,185,129,0.6)",
+                "border-width": 2,
+                width: 12,
                 height: 10,
             },
         },
@@ -286,6 +325,7 @@ async function expandShabad(shabadId) {
                 type: "shabad",
                 label: centerLabel,
                 isRepertoire: meta.is_repertoire || false,
+                themeColor: themeColor(meta.primary_theme || ""),
             },
             position: { x: 0, y: 0 },
         });
@@ -362,8 +402,9 @@ async function expandShabad(shabadId) {
             const ny = centerPos.y + Math.sin(neighborAngle) * clusterRadius * jitter;
 
             let nodeEl = cy.getElementById(nid);
+            const nmeta = State.metadata[nid] || {};
+            const nTheme = nmeta.primary_theme || n.primary_theme || "";
             if (nodeEl.length === 0) {
-                const nmeta = State.metadata[nid] || {};
                 cy.add({
                     group: "nodes",
                     data: {
@@ -372,6 +413,7 @@ async function expandShabad(shabadId) {
                         type: "shabad",
                         label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 9),
                         isRepertoire: n.is_repertoire || nmeta.is_repertoire || false,
+                        themeColor: themeColor(nTheme),
                     },
                     position: { x: nx, y: ny },
                 });
@@ -380,12 +422,18 @@ async function expandShabad(shabadId) {
                 nodeEl.animate({ position: { x: nx, y: ny } }, { duration: 400, easing: "ease-out-cubic" });
             }
 
-            // Edge: center → shabad (curved bezier within the tag slice)
+            // Edge: center → shabad (curved bezier, strength-encoded)
             const edgeId = `e_${sid}_${nid}`;
             if (cy.getElementById(edgeId).length === 0) {
                 cy.add({
                     group: "edges",
-                    data: { id: edgeId, source: sid, target: nid },
+                    data: {
+                        id: edgeId,
+                        source: sid,
+                        target: nid,
+                        score: n.score || 0,
+                        targetTheme: themeColor(nTheme),
+                    },
                 });
             }
             cy.getElementById(edgeId).removeClass("faded");
@@ -400,13 +448,14 @@ async function expandShabad(shabadId) {
         if (el.length) el.addClass("in-parkaran").removeClass("faded");
     });
 
-    // Smooth fit to visible nodes
+    // Fit to visible nodes — immediate fit first, then smooth refine
     const visibleNodes = cy.nodes().not(".faded").not("[type='tagLabel']");
     if (visibleNodes.length > 0) {
+        cy.fit(visibleNodes, 50); // immediate fit so nodes are visible
         cy.animate({
-            fit: { eles: visibleNodes, padding: 50 },
+            fit: { eles: visibleNodes, padding: 60 },
         }, {
-            duration: 450,
+            duration: 400,
             easing: "ease-out-cubic",
             complete: () => { State.expanding = false; },
         });
@@ -504,8 +553,8 @@ function showTooltip(shabadId, nodeEl) {
     // Position tooltip near node, clamped to viewport
     const pos = nodeEl.renderedPosition();
     const container = document.getElementById("cy").getBoundingClientRect();
-    const ttWidth = 240;
-    const ttHeight = 220;
+    const ttWidth = 280;
+    const ttHeight = 280;
 
     let left = pos.x + 24;
     let top = pos.y - 30;
@@ -538,7 +587,7 @@ async function loadPreview(shabadId) {
         return;
     }
     container.classList.remove("hidden");
-    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#374151;font-size:7px;">LOADING...</div>';
+    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#4a3f35;font-size:7px;">LOADING...</div>';
 
     // Use cached verses if available
     if (!State.verseCache[sid]) {
@@ -553,7 +602,7 @@ async function loadPreview(shabadId) {
 
     const verses = State.verseCache[sid];
     if (!verses.length) {
-        container.innerHTML = '<div style="color:#374151;font-size:7px;">No verse data available</div>';
+        container.innerHTML = '<div style="color:#4a3f35;font-size:7px;">No verse data available</div>';
         return;
     }
 
@@ -582,7 +631,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
     }
 
     container.classList.remove("hidden");
-    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#374151;font-size:8px;">LOADING...</div>';
+    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#4a3f35;font-size:8px;">LOADING...</div>';
 
     // Race condition guard: if tooltip changes during fetch, abort
     const gen = ++verseLoadGeneration;
@@ -756,11 +805,11 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
     return `
         <div class="autocomplete-item" onclick="selectSearch('${escAttr(sid)}', '${verseAttr}', '${engAttr}')">
             ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
-            <div style="font-family:'IBM Plex Mono';color:#374151;font-size:9px;">
+            <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
                 ${m.is_repertoire ? " &#9733;" : ""}
             </div>
-            ${summary ? `<div style="font-family:'IBM Plex Mono';color:#6b7280;font-size:9px;margin-top:2px;">${escapeHtml(summary.substring(0, 80))}</div>` : ""}
+            ${summary ? `<div style="font-family:'IBM Plex Mono';color:#8a7d6c;font-size:9px;margin-top:2px;">${escapeHtml(summary.substring(0, 80))}</div>` : ""}
         </div>
     `;
 }
@@ -805,14 +854,14 @@ async function selectTag(tag) {
 
     title.textContent = `${tag} — pick a shabad`;
     detail.classList.remove("hidden");
-    list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#374151;font-size:10px;">LOADING...</div>';
+    list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#4a3f35;font-size:10px;">LOADING...</div>';
 
     try {
         const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=20`);
         list.innerHTML = data.shabads.map((s) => `
             <div class="autocomplete-item" onclick="closeTagBrowser(); expandShabad('${escAttr(s.id)}')">
                 <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
-                <div style="font-family:'IBM Plex Mono';color:#4b5563;font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
+                <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
             </div>
         `).join("");
     } catch (err) {
@@ -915,9 +964,9 @@ function renderParkaran() {
                 <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.3);font-size:10px;width:14px;flex-shrink:0;">${i + 1}</span>
                 <div style="flex:1;min-width:0;user-select:none;">
                     ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
-                    <div style="font-family:'IBM Plex Mono';color:#4b5563;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
+                    <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
                 </div>
-                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:#374151;cursor:pointer;font-size:12px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#374151'">&times;</button>
+                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:#4a3f35;cursor:pointer;font-size:12px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
             </div>
         `;
     });

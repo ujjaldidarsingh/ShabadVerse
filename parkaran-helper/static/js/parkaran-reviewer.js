@@ -75,8 +75,8 @@ function renderFlow() {
                 <div style="display:flex;align-items:flex-start;gap:8px;">
                     <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.25);font-size:9px;width:14px;flex-shrink:0;padding-top:2px;">${i + 1}</span>
                     <div style="flex:1;min-width:0;">
-                        ${gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi','GurbaniWeb';color:${isSelected ? "#fbbf24" : "rgba(251,191,36,0.6)"};font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isRep ? "&#9733; " : ""}${escapeHtml(gurmukhi.substring(0, 35))}</div>` : ""}
-                        <div style="font-family:'IBM Plex Mono';color:#4b5563;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title.substring(0, 40))}</div>
+                        ${gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi','GurbaniWeb';color:${isSelected ? "#f5e6c8" : "rgba(245,230,200,0.5)"};font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isRep ? "&#9733; " : ""}${escapeHtml(gurmukhi.substring(0, 35))}</div>` : ""}
+                        <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title.substring(0, 40))}</div>
                         <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px;">
                             ${(s.tags || []).slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:7px;color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.04);padding:1px 4px;border-radius:2px;">${escapeHtml(t)}</span>`).join("")}
                         </div>
@@ -131,7 +131,7 @@ function selectShabad(idx) {
     const gurmukhiLines = (s.gurmukhi_text || "").split("\n").filter(Boolean);
     const gurmukhiHtml = gurmukhiLines.length > 0
         ? gurmukhiLines.map((line) => `<div style="margin-bottom:6px;">${escapeHtml(line)}</div>`).join("")
-        : '<div style="color:#374151;font-style:italic;">Gurmukhi text not available</div>';
+        : '<div style="color:#4a3f35;font-style:italic;">Gurmukhi text not available</div>';
 
     // Format English translation
     const translationText = s.english_translation || "";
@@ -143,7 +143,7 @@ function selectShabad(idx) {
                 <span style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.3);font-weight:700;">${idx + 1} / ${ReviewState.fullData.length}</span>
                 ${s.is_repertoire ? '<span style="font-family:\'IBM Plex Mono\';font-size:8px;color:rgba(245,158,11,0.5);border:1px solid rgba(245,158,11,0.15);padding:1px 5px;border-radius:2px;">&#9733; REPERTOIRE</span>' : ""}
             </div>
-            <div style="font-family:'IBM Plex Mono';font-size:9px;color:#4b5563;">
+            <div style="font-family:'IBM Plex Mono';font-size:9px;color:#6b5f52;">
                 ${escapeHtml([s.raag, s.writer, s.ang ? "Ang " + s.ang : ""].filter(Boolean).join(" / "))}
             </div>
         </div>
@@ -152,16 +152,16 @@ function selectShabad(idx) {
         ${s.rahao_gurmukhi ? `
         <div style="margin-bottom:20px;padding:12px 16px;background:rgba(245,158,11,0.03);border-left:2px solid rgba(245,158,11,0.2);border-radius:0 4px 4px 0;">
             <div style="font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.35);letter-spacing:0.1em;margin-bottom:6px;">RAHAO</div>
-            <div style="font-family:'Noto Sans Gurmukhi','GurbaniWeb';font-size:16px;color:rgba(251,191,36,0.8);line-height:1.6;">${escapeHtml(s.rahao_gurmukhi)}</div>
-            ${s.rahao_english ? `<div style="font-family:'IBM Plex Mono';font-size:10px;color:#6b7280;margin-top:6px;line-height:1.5;">${escapeHtml(s.rahao_english)}</div>` : ""}
+            <div style="font-family:'Noto Serif Gurmukhi','Noto Sans Gurmukhi','GurbaniWeb';font-size:20px;color:#f5e6c8;line-height:1.8;">${escapeHtml(s.rahao_gurmukhi)}</div>
+            ${s.rahao_english ? `<div style="font-family:'IBM Plex Mono';font-size:13px;color:#8a7d6c;margin-top:6px;line-height:1.5;">${escapeHtml(s.rahao_english)}</div>` : ""}
         </div>
         ` : ""}
 
         <!-- Theme & Mood -->
         ${s.primary_theme || s.mood ? `
         <div style="margin-bottom:16px;display:flex;gap:16px;">
-            ${s.primary_theme ? `<div><div style="font-family:'IBM Plex Mono';font-size:8px;color:#374151;letter-spacing:0.05em;margin-bottom:2px;">THEME</div><div style="font-family:'IBM Plex Mono';font-size:10px;color:#9ca3af;">${escapeHtml(s.primary_theme)}</div></div>` : ""}
-            ${s.mood ? `<div><div style="font-family:'IBM Plex Mono';font-size:8px;color:#374151;letter-spacing:0.05em;margin-bottom:2px;">MOOD</div><div style="font-family:'IBM Plex Mono';font-size:10px;color:#9ca3af;">${escapeHtml(s.mood)}</div></div>` : ""}
+            ${s.primary_theme ? `<div><div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:2px;">THEME</div><div style="font-family:'IBM Plex Mono';font-size:13px;color:#a89b8a;">${escapeHtml(s.primary_theme)}</div></div>` : ""}
+            ${s.mood ? `<div><div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:2px;">MOOD</div><div style="font-family:'IBM Plex Mono';font-size:13px;color:#a89b8a;">${escapeHtml(s.mood)}</div></div>` : ""}
         </div>
         ` : ""}
 
@@ -171,22 +171,22 @@ function selectShabad(idx) {
         <!-- Brief meaning -->
         ${s.brief_meaning ? `
         <div style="margin-bottom:20px;padding:10px 14px;background:rgba(255,255,255,0.015);border-radius:4px;border:1px solid rgba(255,255,255,0.03);">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#374151;letter-spacing:0.05em;margin-bottom:4px;">SUMMARY</div>
-            <div style="font-family:'IBM Plex Mono';font-size:10px;color:#9ca3af;line-height:1.6;">${escapeHtml(s.brief_meaning)}</div>
+            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:4px;">SUMMARY</div>
+            <div style="font-family:'IBM Plex Mono';font-size:13px;color:#a89b8a;line-height:1.6;">${escapeHtml(s.brief_meaning)}</div>
         </div>
         ` : ""}
 
         <!-- Full Gurmukhi text -->
         <div style="margin-bottom:20px;">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#374151;letter-spacing:0.05em;margin-bottom:8px;">GURBANI</div>
-            <div style="font-family:'Noto Sans Gurmukhi','GurbaniWeb';font-size:15px;color:rgba(200,200,210,0.6);line-height:2;">${gurmukhiHtml}</div>
+            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:8px;">GURBANI</div>
+            <div style="font-family:'Noto Serif Gurmukhi','Noto Sans Gurmukhi','GurbaniWeb';font-size:20px;color:rgba(245,230,200,0.7);line-height:2;">${gurmukhiHtml}</div>
         </div>
 
         <!-- English translation -->
         ${translationText ? `
         <div style="margin-bottom:20px;">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#374151;letter-spacing:0.05em;margin-bottom:8px;">TRANSLATION</div>
-            <div style="font-family:'IBM Plex Mono';font-size:10px;color:#6b7280;line-height:1.8;">${escapeHtml(translationText)}</div>
+            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:8px;">TRANSLATION</div>
+            <div style="font-family:'IBM Plex Mono';font-size:13px;color:#8a7d6c;line-height:1.8;">${escapeHtml(translationText)}</div>
         </div>
         ` : ""}
 
@@ -195,7 +195,7 @@ function selectShabad(idx) {
 
         <!-- Nav buttons -->
         <div style="display:flex;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.03);">
-            ${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" style="font-family:'IBM Plex Mono';font-size:9px;color:#6b7280;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);padding:6px 14px;border-radius:4px;cursor:pointer;">&larr; PREVIOUS</button>` : ""}
+            ${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" style="font-family:'IBM Plex Mono';font-size:9px;color:#8a7d6c;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);padding:6px 14px;border-radius:4px;cursor:pointer;">&larr; PREVIOUS</button>` : ""}
             ${idx < ReviewState.fullData.length - 1 ? `<button onclick="selectShabad(${idx + 1})" style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.6);background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);padding:6px 14px;border-radius:4px;cursor:pointer;">NEXT &rarr;</button>` : ""}
         </div>
     `;
@@ -219,7 +219,7 @@ function renderConnectionDetail(current, next, idx) {
             </div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                 <span style="font-family:'Noto Sans Gurmukhi';font-size:11px;color:rgba(251,191,36,0.4);">${escapeHtml(nextGurmukhi.substring(0, 30))}</span>
-                <span style="font-family:'IBM Plex Mono';font-size:8px;color:#4b5563;">${escapeHtml(nextTitle.substring(0, 30))}</span>
+                <span style="font-family:'IBM Plex Mono';font-size:8px;color:#6b5f52;">${escapeHtml(nextTitle.substring(0, 30))}</span>
             </div>
             ${shared.length > 0
                 ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${shared.map((t) => `<span style="font-family:'IBM Plex Mono';font-size:8px;color:${color};background:rgba(255,255,255,0.02);padding:2px 6px;border-radius:2px;border:1px solid ${borderColor};">${escapeHtml(t)}</span>`).join("")}</div>`

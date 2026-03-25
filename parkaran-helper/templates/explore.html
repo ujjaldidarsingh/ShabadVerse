@@ -12,10 +12,10 @@
         <button class="btn-ghost" onclick="openTagBrowser()">TAGS</button>
         <button class="btn-ghost" onclick="surpriseMe()">RANDOM</button>
         <div class="threshold-slider" id="thresholdControl" style="display:none;">
-            <span style="font-family:'IBM Plex Mono';font-size:8px;color:#4b5563;letter-spacing:0.05em;">MORE</span>
+            <span style="font-family:'IBM Plex Mono';font-size:8px;color:#6b5f52;letter-spacing:0.05em;">MORE</span>
             <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35"
                    style="width:100px;accent-color:#f59e0b;height:2px;">
-            <span style="font-family:'IBM Plex Mono';font-size:8px;color:#4b5563;letter-spacing:0.05em;">SELECTIVE</span>
+            <span style="font-family:'IBM Plex Mono';font-size:8px;color:#6b5f52;letter-spacing:0.05em;">SELECTIVE</span>
         </div>
         <div class="flex-1"></div>
         <span class="font-['IBM_Plex_Mono'] text-[10px] text-gray-700 tracking-wider" id="graphStats"></span>
@@ -47,7 +47,7 @@
             <div class="absolute bottom-3 left-3 flex items-center gap-2">
                 <div class="force-panel" style="padding:4px 8px;display:flex;align-items:center;gap:6px;">
                     <label style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.4);letter-spacing:0.1em;">SPREAD</label>
-                    <input type="range" id="forceDistance" min="80" max="400" step="10" value="200" style="width:100px;accent-color:#f59e0b;">
+                    <input type="range" id="forceDistance" min="80" max="400" step="10" value="250" style="width:100px;accent-color:#f59e0b;">
                     <span id="forceDistanceVal" style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.5);width:24px;">200</span>
                 </div>
                 <button onclick="State.cy && State.cy.fit(50)" class="btn-ghost text-[10px] px-1.5 py-0.5">FIT</button>
@@ -80,7 +80,7 @@
 <!-- Tag browser modal -->
 <div id="tagModal" class="fixed inset-0 z-50 hidden">
     <div class="tag-modal-overlay absolute inset-0" onclick="closeTagBrowser()"></div>
-    <div class="relative z-10 mx-auto mt-16 max-w-2xl max-h-[75vh] overflow-y-auto rounded-md bg-[#0a0f1a] border border-white/[0.06] p-5">
+    <div class="relative z-10 mx-auto mt-16 max-w-2xl max-h-[75vh] overflow-y-auto rounded-md bg-[#161420] border border-white/[0.06] p-5">
         <div class="flex items-center justify-between mb-4">
             <span class="font-['Space_Mono'] text-[11px] text-star-500 tracking-[0.15em] uppercase font-bold">CONSTELLATION MAP</span>
             <button onclick="closeTagBrowser()" class="text-gray-600 hover:text-gray-400 text-sm">&times;</button>
