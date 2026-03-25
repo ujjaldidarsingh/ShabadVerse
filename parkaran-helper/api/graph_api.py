@@ -183,9 +183,12 @@ def graph_neighbors(shabad_id):
     # Filter by threshold
     neighbors = [n for n in raw_neighbors if n["score"] >= threshold]
 
-    # Group neighbors by shared tag, enrich with metadata
+    # Group neighbors by thematic direction
+    # Core neighbors (same tag set) go under shared tags
+    # Branching neighbors go under the NEW tag they bring
+    my_tags_set = set(my_tags)
     by_tag = defaultdict(list)
-    seen_in_tag = defaultdict(set)
+    seen_globally = set()
 
     for n in neighbors:
         nid = str(n["id"])
@@ -207,10 +210,23 @@ def graph_neighbors(shabad_id):
             "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or "",
         }
 
-        for tag in n.get("shared_tags", []):
-            if nid not in seen_in_tag[tag]:
+        if nid in seen_globally:
+            continue
+        seen_globally.add(nid)
+
+        shared = set(n.get("shared_tags", []))
+        n_all_tags = set(n_meta.get("tags", []))
+        new_tags = n_all_tags - my_tags_set  # Tags this neighbor brings that we don't have
+
+        if shared == my_tags_set or not new_tags:
+            # Core neighbor — group under shared tags
+            for tag in shared:
                 by_tag[tag].append(enriched)
-                seen_in_tag[tag].add(nid)
+        else:
+            # Branching neighbor — group under the most specific NEW tag they bring
+            # This creates visible thematic branches in the graph
+            best_new = min(new_tags, key=lambda t: len(graph.get("tag_index", {}).get(t, [])))
+            by_tag[best_new].append(enriched)
 
     # Cap each cluster, sorted by score
     for tag in by_tag:
