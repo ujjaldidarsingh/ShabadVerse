@@ -133,30 +133,34 @@ class BaniDBMatcher:
             return []
 
     def get_shabad(self, shabad_id):
-        """Get full shabad from BaniDB with caching."""
+        """Get full shabad from BaniDB with caching and retry."""
         row = self.conn.execute(
             "SELECT response FROM shabad_cache WHERE shabad_id = ?", (shabad_id,)
         ).fetchone()
         if row:
             return json.loads(row[0])
 
-        time.sleep(0.3)
-
         url = f"{self.base_url}/shabads/{shabad_id}"
-        try:
-            resp = self.session.get(url, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
+        for attempt in range(4):
+            time.sleep(0.5 * (2**attempt))  # 0.5, 1, 2, 4 seconds
 
-            self.conn.execute(
-                "INSERT OR REPLACE INTO shabad_cache (shabad_id, response, timestamp) VALUES (?, ?, ?)",
-                (shabad_id, json.dumps(data), time.time()),
-            )
-            self.conn.commit()
-            return data
-        except Exception as e:
-            print(f"  BaniDB shabad error for ID {shabad_id}: {e}")
-            return None
+            try:
+                resp = self.session.get(url, timeout=15)
+                if resp.status_code == 429:
+                    continue  # retry with longer backoff
+                resp.raise_for_status()
+                data = resp.json()
+
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO shabad_cache (shabad_id, response, timestamp) VALUES (?, ?, ?)",
+                    (shabad_id, json.dumps(data), time.time()),
+                )
+                self.conn.commit()
+                return data
+            except Exception as e:
+                if attempt == 3:
+                    print(f"  BaniDB shabad error for ID {shabad_id}: {e}")
+                    return None
 
     def extract_enrichment(self, shabad_data, confidence=1.0):
         """Extract enrichment fields from a BaniDB shabad response."""

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "parkaran",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+      "runtimeArgs": ["-c", "import sys; sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5050)"],
+      "port": 5050
+    }
+  ]
+}

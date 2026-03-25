@@ -15,7 +15,7 @@ _builder = None
 _reviewer = None
 _occasion_suggester = None
 _banidb_matcher = None
-_claude_enricher = None
+_theme_enricher = None
 
 
 def _get_data():
@@ -57,12 +57,12 @@ def _get_banidb_matcher():
     return _banidb_matcher
 
 
-def _get_claude_enricher():
-    global _claude_enricher
-    if _claude_enricher is None:
-        from enrichment.claude_enricher import ClaudeEnricher
-        _claude_enricher = ClaudeEnricher()
-    return _claude_enricher
+def _get_theme_enricher():
+    global _theme_enricher
+    if _theme_enricher is None:
+        from enrichment.claude_enricher import ThemeEnricher
+        _theme_enricher = ThemeEnricher()
+    return _theme_enricher
 
 
 # --- Shabad endpoints ---
@@ -108,6 +108,7 @@ def list_shabads():
             "mood": s.get("mood"),
             "confidence": s.get("confidence"),
             "enrichment_status": s.get("enrichment_status"),
+            "banidb_shabad_id": s.get("banidb_shabad_id"),
         }
         for s in filtered
     ])
@@ -120,6 +121,64 @@ def get_shabad(shabad_id):
         if s["id"] == shabad_id:
             return jsonify(s)
     return jsonify({"error": "Shabad not found"}), 404
+
+
+@api_bp.route("/shabads/<int:shabad_id>/verses")
+def get_shabad_verses(shabad_id):
+    """Get verse-level data for a personal library shabad via its BaniDB ID."""
+    shabads, _ = _get_data()
+    shabad = None
+    for s in shabads:
+        if s["id"] == shabad_id:
+            shabad = s
+            break
+    if not shabad:
+        return jsonify({"error": "Shabad not found"}), 404
+
+    banidb_id = shabad.get("banidb_shabad_id")
+    if not banidb_id:
+        return jsonify({"verses": [], "rahao_index": -1, "note": "No BaniDB match for this shabad"})
+
+    # Delegate to BaniDB verse fetch
+    matcher = _get_banidb_matcher()
+    shabad_data = matcher.get_shabad(banidb_id)
+    if not shabad_data:
+        return jsonify({"verses": [], "rahao_index": -1})
+
+    verses = []
+    rahao_index = -1
+    for i, v in enumerate(shabad_data.get("verses", [])):
+        translit = v.get("transliteration", {})
+        eng_translit = translit.get("en", "") if isinstance(translit, dict) else ""
+
+        translation = v.get("translation", {})
+        en_trans = translation.get("en", {}) if isinstance(translation, dict) else {}
+        if isinstance(en_trans, dict):
+            eng = en_trans.get("bdb") or en_trans.get("ms") or en_trans.get("ssk") or ""
+        else:
+            eng = ""
+
+        gurmukhi = v.get("verse", {})
+        gur_text = gurmukhi.get("unicode", "") if isinstance(gurmukhi, dict) else ""
+
+        is_rahao = "rahaau" in eng_translit.lower()
+        if is_rahao and rahao_index == -1:
+            rahao_index = i
+
+        verses.append({
+            "index": i,
+            "transliteration": eng_translit,
+            "english": eng,
+            "gurmukhi": gur_text,
+            "is_rahao": is_rahao,
+        })
+
+    return jsonify({
+        "shabad_id": shabad_id,
+        "banidb_shabad_id": banidb_id,
+        "verses": verses,
+        "rahao_index": rahao_index,
+    })
 
 
 @api_bp.route("/keertanis")
@@ -232,6 +291,50 @@ def discover_shabad(banidb_shabad_id):
     return jsonify(result)
 
 
+@api_bp.route("/discover/shabad/<int:banidb_shabad_id>/verses")
+def discover_shabad_verses(banidb_shabad_id):
+    """Get verse-level data for a BaniDB shabad with rahao detection."""
+    matcher = _get_banidb_matcher()
+    shabad_data = matcher.get_shabad(banidb_shabad_id)
+
+    if not shabad_data:
+        return jsonify({"error": "Shabad not found in BaniDB"}), 404
+
+    verses = []
+    rahao_index = -1
+    for i, v in enumerate(shabad_data.get("verses", [])):
+        translit = v.get("transliteration", {})
+        eng_translit = translit.get("en", "") if isinstance(translit, dict) else ""
+
+        translation = v.get("translation", {})
+        en_trans = translation.get("en", {}) if isinstance(translation, dict) else {}
+        if isinstance(en_trans, dict):
+            eng = en_trans.get("bdb") or en_trans.get("ms") or en_trans.get("ssk") or ""
+        else:
+            eng = ""
+
+        gurmukhi = v.get("verse", {})
+        gur_text = gurmukhi.get("unicode", "") if isinstance(gurmukhi, dict) else ""
+
+        is_rahao = "rahaau" in eng_translit.lower()
+        if is_rahao and rahao_index == -1:
+            rahao_index = i
+
+        verses.append({
+            "index": i,
+            "transliteration": eng_translit,
+            "english": eng,
+            "gurmukhi": gur_text,
+            "is_rahao": is_rahao,
+        })
+
+    return jsonify({
+        "banidb_shabad_id": banidb_shabad_id,
+        "verses": verses,
+        "rahao_index": rahao_index,
+    })
+
+
 @api_bp.route("/discover/enrich", methods=["POST"])
 def discover_enrich():
     """On-the-fly Claude theme extraction for a discovered shabad."""
@@ -256,7 +359,7 @@ def discover_enrich():
         "writer": data.get("writer", ""),
     }
 
-    enricher = _get_claude_enricher()
+    enricher = _get_theme_enricher()
     results = enricher.extract_themes_batch([shabad_for_enrichment])
 
     if results and results[0]:
@@ -276,12 +379,17 @@ def build_parkaran():
     banidb_seeds = data.get("seed_banidb_shabads", [])
     max_results = data.get("max_results", 10)
     filters = data.get("filters")
+    source = data.get("source", "personal")
+    mukhra_texts = data.get("mukhra_texts", [])
 
     if not seed_ids and not banidb_seeds:
         return jsonify({"error": "Provide at least 1 seed shabad"}), 400
 
     builder = _get_builder()
-    result = builder.build(seed_ids, max_results, filters, banidb_seeds=banidb_seeds)
+    result = builder.build(
+        seed_ids, max_results, filters,
+        banidb_seeds=banidb_seeds, source=source, mukhra_texts=mukhra_texts
+    )
     return jsonify(result)
 
 

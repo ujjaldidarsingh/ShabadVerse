@@ -1,14 +1,13 @@
 """Review a parkaran for thematic flow and coherence."""
 
 import json
-import anthropic
-import config
+from llm.ollama_client import OllamaClient
 
 
 class ParkaranReviewer:
     def __init__(self, shabads_data):
         self.shabads = {s["id"]: s for s in shabads_data}
-        self.claude = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        self.llm = OllamaClient()
 
     def review(self, shabad_ids):
         """
@@ -18,6 +17,11 @@ class ParkaranReviewer:
         shabads = [self.shabads[sid] for sid in shabad_ids if sid in self.shabads]
         if len(shabads) < 2:
             return {"error": "Need at least 2 shabads to review a parkaran."}
+
+        if not self.llm.is_available():
+            return {
+                "error": "Local LLM (Ollama) is not available. Please start Ollama to use the reviewer.",
+            }
 
         shabad_text = "\n\n".join(
             f"{i + 1}. \"{s['title']}\"\n"
@@ -44,33 +48,18 @@ Analyze this parkaran and return ONLY valid JSON with these keys:
    - "explanation": Why this transition works or doesn't (1-2 sentences using Gurbani concepts)
 4. "strongest_moment": Object with "transition" (e.g., "2 → 3") and "explanation"
 5. "weakest_moment": Object with "transition" and "explanation" and "suggestion" (what kind of shabad could bridge the gap)
-6. "overall_assessment": 2-3 sentences on the parkaran as a whole — is the musician connecting on meaning or just on surface words?
-
-No markdown formatting."""
-
-        response = self.claude.messages.create(
-            model=config.CLAUDE_MODEL,
-            max_tokens=2500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        text = response.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1]
-            if text.endswith("```"):
-                text = text[: text.rfind("```")]
-            text = text.strip()
+6. "overall_assessment": 2-3 sentences on the parkaran as a whole — is the musician connecting on meaning or just on surface words?"""
 
         try:
-            review = json.loads(text)
-        except json.JSONDecodeError:
+            review = self.llm.generate_json(prompt, max_tokens=2500)
+        except Exception:
             review = {
-                "overall_theme": "Unable to parse review.",
+                "overall_theme": "Unable to generate review.",
                 "flow_score": 0,
                 "transitions": [],
                 "strongest_moment": {},
                 "weakest_moment": {},
-                "overall_assessment": text[:500],
+                "overall_assessment": "LLM returned an invalid response. Try again.",
             }
 
         # Add the shabad list for reference

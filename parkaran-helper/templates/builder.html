@@ -44,7 +44,7 @@
 
         <!-- Selected seeds -->
         <p class="text-gray-600 text-sm mb-2" id="seedEmpty">Add 1-3 shabads to start building your parkaran</p>
-        <div id="seedList" class="space-y-2 mb-4"></div>
+        <div id="seedList" class="space-y-3 mb-4"></div>
 
         <!-- Optional filters -->
         <details class="mb-4">
@@ -58,6 +58,19 @@
                 </select>
             </div>
         </details>
+
+        <!-- Suggestion source toggle -->
+        <div class="mb-3">
+            <label class="text-gray-500 text-xs uppercase tracking-wider mb-1 block">Suggest from</label>
+            <div class="flex gap-1">
+                <button id="sourcePersonal" class="tab-btn active" onclick="switchSuggestionSource('personal')">
+                    My Library
+                </button>
+                <button id="sourceSggs" class="tab-btn" onclick="switchSuggestionSource('sggs')">
+                    All SGGS
+                </button>
+            </div>
+        </div>
 
         <button id="buildBtn" class="btn-primary w-full" disabled onclick="buildParkaran()">
             Build Parkaran

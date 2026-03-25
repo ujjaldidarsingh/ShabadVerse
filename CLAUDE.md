@@ -2,6 +2,9 @@
 
 Sikh keertan (devotional music) management app for building, discovering, and reviewing parkaran (keertan sets). Combines a personal shabad database with BaniDB search, AI-powered theme extraction, and vector similarity matching.
 
+## Quick Start
+Read `architecture.md` and `state.md` before making changes — they map the full system so you don't need to re-explore.
+
 ## Stack
 - **Backend**: Python, Flask 3.1, Anthropic SDK, Voyage AI (embeddings), ChromaDB (vector store)
 - **Frontend**: HTML templates (Jinja2), served by Flask

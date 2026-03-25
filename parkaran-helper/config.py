@@ -3,8 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
+# Ollama local LLM
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:14b")
 
 BANIDB_BASE_URL = "https://api.banidb.com/v2"
 BANIDB_SEARCH_TYPE = 1  # First letter (start) — default for discover/builder
@@ -17,5 +18,12 @@ CHROMA_DB_PATH = os.path.join(DATA_DIR, "chroma_db")
 ENRICHED_DATA_PATH = os.path.join(DATA_DIR, "enriched_shabads.json")
 CACHE_DB_PATH = os.path.join(DATA_DIR, "shabad_cache.db")
 
-VOYAGE_MODEL = "voyage-3.5-lite"
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+# Local embedding model (sentence-transformers)
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
+# ChromaDB collection names
+PERSONAL_COLLECTION_NAME = "shabads"
+SGGS_COLLECTION_NAME = "sggs_shabads"
+
+# SGGS data
+SGGS_DATA_PATH = os.path.join(DATA_DIR, "sggs_all_shabads.json")

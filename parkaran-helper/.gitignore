@@ -1,0 +1,16 @@
+# Data files (generated, large)
+data/chroma_db/
+data/sggs_all_shabads.json
+data/similarity_graph.json
+data/shabad_cache.db
+data/tag_vocabulary.json
+data/tag_validation_*.json
+data/validation_checkpoint_*.json
+
+# Environment
+.env
+__pycache__/
+*.pyc
+
+# Claude local
+.claude/launch.json

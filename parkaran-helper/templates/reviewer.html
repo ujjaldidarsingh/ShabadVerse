@@ -1,35 +1,49 @@
 {% extends "base.html" %}
-{% block title %}Parkaran Reviewer - Parkaran Helper{% endblock %}
+{% block title %}Review Parkaran - Parkaran Helper{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <h1 class="page-title">Parkaran Reviewer</h1>
-    <p class="page-subtitle">Check if your parkaran's theme truly connects or if it's surface-level</p>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-    <!-- Left: Input -->
-    <div class="lg:col-span-2">
-        <h2 class="section-label mb-3">Your Parkaran</h2>
-
-        <div class="relative mb-3">
-            <input type="text" id="addShabadSearch" class="search-input" placeholder="Search and add shabads...">
-            <div id="addDropdown" class="autocomplete-dropdown hidden"></div>
+<div class="reviewer-container">
+    <!-- Header -->
+    <div class="reviewer-header">
+        <div>
+            <h1 style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:rgba(245,158,11,0.6);letter-spacing:0.12em;text-transform:uppercase;margin:0;">PARKARAN REVIEW</h1>
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#4b5563;margin-top:2px;">Read through your set / check thematic connections</p>
         </div>
-
-        <p class="text-gray-600 text-sm mb-2" id="reviewEmpty">Add shabads in your parkaran's order</p>
-        <div id="reviewList" class="space-y-2 mb-4"></div>
-
-        <button id="reviewBtn" class="btn-primary w-full" disabled onclick="reviewParkaran()">
-            Review Parkaran
-        </button>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span id="reviewCount" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6b7280;">0 SHABADS</span>
+            <a href="/explore" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(245,158,11,0.4);text-decoration:none;border:1px solid rgba(245,158,11,0.15);padding:4px 10px;border-radius:4px;">&larr; EXPLORE</a>
+        </div>
     </div>
 
-    <!-- Right: Results -->
-    <div class="lg:col-span-3">
-        <h2 class="section-label mb-3">Analysis</h2>
-        <div id="reviewResults">
-            <p class="text-gray-600 text-sm text-center py-12">Add at least 2 shabads and click "Review Parkaran"</p>
+    <!-- Loading state -->
+    <div id="reviewLoading" style="text-align:center;padding:60px 0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#4b5563;">LOADING PARKARAN...</div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="reviewEmpty" class="hidden" style="text-align:center;padding:60px 0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#4b5563;letter-spacing:0.05em;">NO PARKARAN TO REVIEW</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#374151;margin-top:8px;">Go to <a href="/explore" style="color:rgba(245,158,11,0.5);">Explore</a> and add shabads to your parkaran</div>
+    </div>
+
+    <!-- Main content (2-column) -->
+    <div id="reviewContent" class="hidden" style="display:flex;gap:0;height:calc(100vh - 120px);">
+
+        <!-- Left: Parkaran flow list -->
+        <div class="reviewer-flow-panel">
+            <div style="padding:12px 12px 8px;border-bottom:1px solid rgba(255,255,255,0.03);">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:rgba(245,158,11,0.4);letter-spacing:0.1em;">FLOW</span>
+            </div>
+            <div id="flowList" class="reviewer-flow-list"></div>
+        </div>
+
+        <!-- Right: Detail panel -->
+        <div class="reviewer-detail-panel">
+            <div id="detailContent" style="padding:24px;">
+                <div style="text-align:center;padding:80px 0;">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#374151;">Click a shabad to read</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

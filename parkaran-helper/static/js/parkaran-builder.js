@@ -7,6 +7,7 @@ let seeds = [];       // Mixed: personal DB shabads (have .id) and BaniDB shabad
 let parkaran = [];    // Mixed: same types
 let lastSuggestions = []; // Store last build suggestions for lookup
 let currentSeedSource = "my"; // "my" or "discover"
+let currentSuggestionSource = "personal"; // "personal" or "sggs"
 
 function isBanidbSeed(s) {
     return !!s.banidb_shabad_id && !s.id;
@@ -74,6 +75,22 @@ function switchSeedSource(source) {
         discoverTab.classList.add("active");
         mySearch.classList.add("hidden");
         discoverSearch.classList.remove("hidden");
+    }
+}
+
+// --- Suggestion source switching ---
+
+function switchSuggestionSource(source) {
+    currentSuggestionSource = source;
+    const personalBtn = document.getElementById("sourcePersonal");
+    const sggsBtn = document.getElementById("sourceSggs");
+
+    if (source === "personal") {
+        personalBtn.classList.add("active");
+        sggsBtn.classList.remove("active");
+    } else {
+        personalBtn.classList.remove("active");
+        sggsBtn.classList.add("active");
     }
 }
 
@@ -186,10 +203,24 @@ document.addEventListener("click", (e) => {
 
 // --- Add/remove seeds ---
 
-function addPersonalSeed(id) {
+async function addPersonalSeed(id) {
     if (seeds.length >= 3) return;
     const shabad = allShabads.find(s => s.id === id);
     if (!shabad || seeds.find(s => s.id === id)) return;
+
+    // Fetch verses to find rahao line
+    try {
+        const verseData = await API.get(`/api/shabads/${id}/verses`);
+        shabad._verses = verseData.verses || [];
+        shabad._rahao_index = verseData.rahao_index;
+        // Auto-select rahao as mukhra
+        if (verseData.rahao_index >= 0 && verseData.verses[verseData.rahao_index]) {
+            shabad._mukhra_index = verseData.rahao_index;
+            shabad._mukhra_text = verseData.verses[verseData.rahao_index].english;
+        }
+    } catch (err) {
+        console.warn("Could not fetch verses for seed:", err);
+    }
 
     seeds.push(shabad);
     seedSearch.value = "";
@@ -207,8 +238,11 @@ function addBanidbSeed(shabadData) {
     // Check not already added
     if (seeds.find(s => s.banidb_shabad_id === shabadData.banidb_shabad_id)) return;
 
-    // Fetch full shabad data for richer seed info
-    API.get(`/api/discover/shabad/${shabadData.banidb_shabad_id}`).then(detail => {
+    // Fetch full shabad data + verses in parallel
+    Promise.all([
+        API.get(`/api/discover/shabad/${shabadData.banidb_shabad_id}`),
+        API.get(`/api/discover/shabad/${shabadData.banidb_shabad_id}/verses`),
+    ]).then(([detail, verseData]) => {
         const seed = {
             banidb_shabad_id: shabadData.banidb_shabad_id,
             title: shabadData.title_transliteration || `Ang ${shabadData.ang_number}`,
@@ -222,7 +256,14 @@ function addBanidbSeed(shabadData) {
             secondary_themes: detail.secondary_themes || [],
             mood: detail.mood || null,
             brief_meaning: detail.brief_meaning || null,
+            _verses: verseData.verses || [],
+            _rahao_index: verseData.rahao_index,
         };
+        // Auto-select rahao as mukhra
+        if (verseData.rahao_index >= 0 && verseData.verses[verseData.rahao_index]) {
+            seed._mukhra_index = verseData.rahao_index;
+            seed._mukhra_text = verseData.verses[verseData.rahao_index].english;
+        }
         seeds.push(seed);
         discoverSeedSearch.value = "";
         discoverSeedDropdown.classList.add("hidden");
@@ -249,7 +290,7 @@ function renderSeeds() {
     }
 
     empty.classList.add("hidden");
-    container.innerHTML = seeds.map(s => {
+    container.innerHTML = seeds.map((s, seedIdx) => {
         const key = seedKey(s);
         const isBanidb = isBanidbSeed(s);
         const title = s.title || s.title_transliteration || "Unknown";
@@ -258,13 +299,41 @@ function renderSeeds() {
             : [s.keertani, s.sggs_raag].filter(Boolean).join(" \u00b7 ");
         const badge = isBanidb ? '<span class="badge-sggs text-[10px] ml-2">SGGS</span>' : '';
 
+        // Mukhra verse selection
+        let mukhraHtml = "";
+        if (s._verses && s._verses.length > 0) {
+            const versesHtml = s._verses.map((v, vi) => {
+                if (!v.transliteration && !v.english) return "";
+                const isSelected = vi === s._mukhra_index;
+                const isRahao = v.is_rahao;
+                const classes = isSelected ? "mukhra-verse selected" : (isRahao ? "mukhra-verse rahao" : "mukhra-verse");
+                const label = isRahao ? " (Rahao)" : "";
+                return `<div class="${classes}" onclick="selectMukhra(${seedIdx}, ${vi})" title="${escapeHtml(v.english || '')}">
+                    <span class="text-xs text-gray-400">${escapeHtml(v.transliteration || '')}</span>${label}
+                </div>`;
+            }).filter(Boolean).join("");
+
+            if (versesHtml) {
+                mukhraHtml = `
+                    <details class="mt-1.5" ${s._mukhra_index >= 0 ? "" : "open"}>
+                        <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-300">
+                            Mukhra: ${s._mukhra_index >= 0 ? escapeHtml((s._verses[s._mukhra_index]?.transliteration || "").substring(0, 50)) + "..." : "Select your mukhra line"}
+                        </summary>
+                        <div class="mt-1 space-y-0.5 max-h-32 overflow-y-auto">${versesHtml}</div>
+                    </details>`;
+            }
+        }
+
         return `
-            <div class="seed-card flex items-center justify-between">
-                <div>
-                    <div class="font-medium text-gold-300">${escapeHtml(title)}${badge}</div>
-                    <div class="text-xs text-gray-500">${escapeHtml(subtitle)}</div>
+            <div class="seed-card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-medium text-gold-300">${escapeHtml(title)}${badge}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml(subtitle)}</div>
+                    </div>
+                    <button onclick="removeSeed('${key}')" class="text-gray-600 hover:text-red-400 text-lg">&times;</button>
                 </div>
-                <button onclick="removeSeed('${key}')" class="text-gray-600 hover:text-red-400 text-lg">&times;</button>
+                ${mukhraHtml}
             </div>
         `;
     }).join("");
@@ -276,6 +345,14 @@ function renderSeeds() {
     } else {
         enableSeedInputs();
     }
+}
+
+function selectMukhra(seedIdx, verseIdx) {
+    const seed = seeds[seedIdx];
+    if (!seed || !seed._verses || !seed._verses[verseIdx]) return;
+    seed._mukhra_index = verseIdx;
+    seed._mukhra_text = seed._verses[verseIdx].english || "";
+    renderSeeds();
 }
 
 function enableSeedInputs() {
@@ -315,6 +392,11 @@ async function buildParkaran() {
         const personalSeeds = seeds.filter(s => !isBanidbSeed(s));
         const banidbSeeds = seeds.filter(s => isBanidbSeed(s));
 
+        // Collect mukhra texts from all seeds
+        const mukhraTexts = seeds
+            .map(s => s._mukhra_text || "")
+            .filter(t => t.length > 0);
+
         const result = await API.post("/api/parkaran/build", {
             seed_shabads: personalSeeds.map(s => s.id),
             seed_banidb_shabads: banidbSeeds.map(s => ({
@@ -331,6 +413,8 @@ async function buildParkaran() {
             })),
             max_results: 10,
             filters: Object.keys(filters).length ? filters : null,
+            source: currentSuggestionSource,
+            mukhra_texts: mukhraTexts,
         });
 
         // Store suggestions for later lookup
@@ -345,11 +429,11 @@ async function buildParkaran() {
             suggestionsDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No suggestions found. Try different seeds or adjust filters.</p>';
         } else {
             suggestionsDiv.innerHTML = result.suggestions.map((s, idx) => {
-                const isBanidb = s.source === "banidb";
-                const sourceBadge = isBanidb
+                const isSggs = s.source === "banidb" || s.source === "sggs";
+                const sourceBadge = isSggs
                     ? '<span class="badge-sggs text-[10px] ml-1">SGGS</span>'
                     : '<span class="badge-library text-[10px] ml-1">Library</span>';
-                const subtitle = isBanidb
+                const subtitle = isSggs
                     ? [s.sggs_raag, s.ang_number ? `Ang ${s.ang_number}` : "", s.writer].filter(Boolean).join(" \u00b7 ")
                     : [s.keertani || "", s.sggs_raag || "", s.ang_number ? `Ang ${s.ang_number}` : ""].filter(Boolean).join(" \u00b7 ");
 
@@ -390,8 +474,9 @@ function addToParkaran(idx) {
     if (!suggestion) return;
 
     // Build a unique key for dedup
-    const key = suggestion.source === "banidb"
-        ? `banidb_${suggestion.banidb_shabad_id || suggestion.id}`
+    const isSggs = suggestion.source === "banidb" || suggestion.source === "sggs";
+    const key = isSggs
+        ? `sggs_${suggestion.banidb_shabad_id || suggestion.id}`
         : `personal_${suggestion.id}`;
 
     if (parkaran.find(p => p._parkaran_key === key)) return;
@@ -440,9 +525,9 @@ function renderParkaran() {
     reviewBtn.classList.remove("hidden");
 
     container.innerHTML = parkaran.map((s, i) => {
-        const isBanidb = s._source === "banidb";
-        const badge = isBanidb ? ' <span class="badge-sggs text-[10px]">SGGS</span>' : '';
-        const subtitle = isBanidb ? "" : (s.keertani ? `<span class="text-gray-600 text-sm ml-2">${escapeHtml(s.keertani)}</span>` : "");
+        const isSggsItem = s._source === "banidb" || s._source === "sggs";
+        const badge = isSggsItem ? ' <span class="badge-sggs text-[10px]">SGGS</span>' : '';
+        const subtitle = isSggsItem ? "" : (s.keertani ? `<span class="text-gray-600 text-sm ml-2">${escapeHtml(s.keertani)}</span>` : "");
         const key = s._parkaran_key;
 
         return `
