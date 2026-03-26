@@ -1,47 +1,51 @@
 # Parkaran Tool
 
-Sikh keertan (devotional music) management app for building, discovering, and reviewing parkaran (keertan sets). Combines a personal shabad database with BaniDB search, AI-powered theme extraction, and vector similarity matching.
+Interactive graph explorer for Sri Guru Granth Sahib Ji. Maps thematic connections across all 5,542 SGGS shabads using a 372-tag taxonomy, precomputed similarity graph, and radial tag-clustered visualization. Runs fully local; no API keys needed.
 
 ## Quick Start
-Read `architecture.md` and `state.md` before making changes — they map the full system so you don't need to re-explore.
+Read `architecture.md` and `state.md` before making changes.
 
-## Stack
-- **Backend**: Python, Flask 3.1, Anthropic SDK, Voyage AI (embeddings), ChromaDB (vector store)
-- **Frontend**: HTML templates (Jinja2), served by Flask
-- **APIs**: BaniDB v2 (`api.banidb.com`), Anthropic Claude, Voyage AI
-- **Data**: JSON enriched shabads, SQLite cache, ChromaDB vector DB, Excel keertan database
-- **Port**: 5050 (debug mode)
-
-## Structure
-- **`parkaran-helper/`**: Main Flask application
-  - `app.py` - Flask entry point, routes to pages
-  - `config.py` - API keys (from `.env`), BaniDB settings, file paths
-  - `api/routes.py` - REST API endpoints (shabads, discover, builder, reviewer, occasions)
-  - `api/parkaran_builder.py` - AI-assisted parkaran set builder (vector similarity)
-  - `api/parkaran_reviewer.py` - Review/score a parkaran set
-  - `api/occasion_suggester.py` - Suggest shabads for specific occasions
-  - `enrichment/` - Data pipeline: load, match BaniDB, Claude theme extraction, embeddings
-  - `database/vector_store.py` - ChromaDB vector store operations
-  - `templates/` - HTML pages (index, database, discover, builder, reviewer, occasions)
-  - `static/` - CSS/JS assets
-  - `data/` - enriched_shabads.json, chroma_db/, shabad_cache.db
-- **Root**: Sikh scripture PDFs (SGGS translations, Guru Granth Darpan), keertan track databases (.xlsx, .pages)
-
-## Commands
 ```bash
 cd parkaran-helper
 pip install -r requirements.txt
-python app.py                    # Runs on http://localhost:5050
+python app.py                    # http://localhost:5050
 ```
 
-## Environment Variables (`.env`)
-- `ANTHROPIC_API_KEY` - For Claude theme extraction
-- `VOYAGE_API_KEY` - For embedding generation
+First-time setup (one-time, ~20 min):
+```bash
+python bootstrap/setup.py       # Fetch SGGS, embed, build graph
+python bootstrap/enrich_sggs.py # Theme extraction via Ollama (hours)
+python bootstrap/build_taxonomy.py && python bootstrap/tag_shabads.py
+python bootstrap/build_graph.py # Precompute similarity graph
+```
 
-## Key Features
-- **Database**: Browse/search personal shabad collection with filters (keertani, raag, theme, mood)
-- **Discover**: Search BaniDB (SGGS) by first-letter or full-text, cross-reference with personal DB
-- **Builder**: Given seed shabads, find similar ones via vector embeddings for parkaran construction
-- **Reviewer**: Score a parkaran set for thematic coherence and flow
-- **Occasions**: Suggest shabads appropriate for specific Sikh occasions
-- **Enrichment Pipeline**: Batch-enrich shabads with Claude (themes, mood) and Voyage (embeddings)
+## Stack
+- **Backend**: Python 3.13, Flask 3.1, ChromaDB, sentence-transformers (all-MiniLM-L6-v2)
+- **LLM**: Ollama (qwen3:14b) — optional, for theme extraction and explanations
+- **Frontend**: Cytoscape.js (graph), Tailwind CSS (CDN), vanilla JS, Jinja2, Noto Serif Gurmukhi
+- **Data**: BaniDB v2 (one-time fetch), ChromaDB vectors, precomputed similarity graph (JSON)
+- **Port**: 5050
+
+## Key Files
+- `app.py` — Flask entry, routes (/ = explore, /reviewer, /builder, /database, /discover, /occasions)
+- `api/graph_api.py` — Graph explorer API (neighbors, tags, verses, shabad batch)
+- `api/routes.py` — Personal library + BaniDB endpoints
+- `api/parkaran_builder.py` — Graph-first suggestions with vector fallback
+- `bootstrap/build_graph.py` — Similarity graph: 50% Jaccard + 50% embedding cosine, core/branch pools
+- `database/vector_store.py` — ChromaDB wrapper, SentenceTransformerEmbeddingFunction
+- `llm/ollama_client.py` — Ollama wrapper (chat API, think=False for Qwen 3)
+- `static/js/graph-explorer.js` — Cytoscape radial layout, tooltips, forces, parkaran trail
+- `static/css/style.css` — Celestial Observatory design system
+- `data/similarity_graph.json` — Precomputed graph (5,542 nodes, avg 12.9 neighbors)
+- `data/sggs_all_shabads.json` — All SGGS shabads with themes, tags, rahao, summaries
+
+## Environment
+- **Python**: miniforge (`/opt/homebrew/Caskroom/miniforge/base/bin/python3`)
+- **Ollama**: `brew install ollama && ollama pull qwen3:14b`
+- No `.env` needed — app works without API keys (LLM features degrade gracefully)
+
+## Conventions
+- Graph data changes require `python bootstrap/build_graph.py` to rebuild
+- Tag changes require re-running `tag_shabads.py` then `build_graph.py`
+- Display name changes require `python bootstrap/add_rahao.py` then `build_graph.py`
+- `experiments.tsv` logs optimization iterations (suggestion engine tuning)
