@@ -203,5 +203,80 @@ def add_rahao_pada():
         print(f"  verses: {s130.get('rahao_start_verse')} → {s130.get('rahao_end_verse')}")
 
 
+def is_title_line_gurmukhi(gurmukhi_line):
+    """Check if a Gurmukhi verse line is a raag/section title or structural header."""
+    clean = gurmukhi_line.strip()
+    if len(clean) < 5:
+        return True
+    # Gurmukhi raag name patterns (all 31 SGGS raags + structural markers)
+    raag_patterns = [
+        r'^(ਸਿਰੀਰਾਗ|ਆਸਾ|ਗਉੜੀ|ਸੂਹੀ|ਬਿਲਾਵਲ|ਧਨਾਸਰੀ|ਟੋਡੀ|ਬੈਰਾੜੀ|ਤਿਲੰਗ)',
+        r'^(ਸੋਰਠਿ|ਮਾਝ|ਵਡਹੰਸ|ਜੈਤਸਰੀ|ਕੇਦਾਰਾ|ਭੈਰਉ|ਬਸੰਤ|ਮਾਰੂ|ਮਲਾਰ)',
+        r'^(ਕਾਨੜਾ|ਪ੍ਰਭਾਤੀ|ਸਲੋਕ|ਮਹਲਾ|ਗੂਜਰੀ|ਰਾਮਕਲੀ|ਨਟ|ਮਾਲੀ ਗਉੜਾ)',
+        r'^(ਗੋਂਡ|ਟੁਖਾਰੀ|ਦੇਵਗੰਧਾਰੀ|ਸਾਰੰਗ|ਨੁਟ|ਆਸਾਵਰੀ|ਕਲਿਆਣ|ਬਿਹਾਗੜਾ)',
+        r'^(ਰਾਗੁ|ਵਾਰ|ਛੰਤ|ਪਉੜੀ|ਅਸਟਪਦੀ|ਚਉਪਦੇ|ਘਰੁ|ਇਕੋਅੰਕਾਰ)',
+        r'^(॥ ਜਪੁ ॥|ਸੋ ਦਰੁ ਰਾਗੁ|ਸੋ ਪੁਰਖੁ ਰਾਗੁ)',
+        r'^(ਡਖਣਾ|ਪਵੜੀ|ਦੋਹਰਾ|ਸਵੱਯੇ|ਕਬਿੱਤ)',
+    ]
+    for pat in raag_patterns:
+        if re.match(pat, clean):
+            return True
+    # Lines that are just "ਮਹਲਾ X" or "ਮਃ X"
+    if re.match(r'^(ਮਹਲਾ|ਮਃ)\s*[੧੨੩੪੫੬੭੮੯]', clean):
+        return True
+    # Very short lines ending with ॥ are structural markers
+    if len(clean) < 15 and '॥' in clean:
+        return True
+    return False
+
+
+def fix_display_names():
+    """Fix shabads whose display_gurmukhi uses a raag/section header instead of content.
+
+    Priority: rahao_gurmukhi > first non-title verse line from gurmukhi_text.
+    """
+    sggs_path = config.SGGS_DATA_PATH
+    if not os.path.exists(sggs_path):
+        print(f"SGGS data not found at {sggs_path}")
+        return
+
+    print("\nFixing display names (raag headers → content lines)...")
+    with open(sggs_path, encoding="utf-8") as f:
+        shabads = json.load(f)
+
+    fixed = 0
+    for s in shabads:
+        dg = s.get("display_gurmukhi", "")
+        if not dg or not is_title_line_gurmukhi(dg):
+            continue
+
+        # Priority 1: use rahao_gurmukhi
+        if s.get("rahao_gurmukhi"):
+            # Take first line of rahao pada (it can be multi-line)
+            first_rahao = s["rahao_gurmukhi"].split("\n")[0].strip()
+            if first_rahao and not is_title_line_gurmukhi(first_rahao):
+                s["display_gurmukhi"] = first_rahao
+                fixed += 1
+                continue
+
+        # Priority 2: find first non-title verse line from gurmukhi_text
+        gurmukhi_text = s.get("gurmukhi_text", "")
+        if gurmukhi_text:
+            for line in gurmukhi_text.split("\n"):
+                line = line.strip()
+                if line and not is_title_line_gurmukhi(line) and len(line) > 8:
+                    s["display_gurmukhi"] = line
+                    fixed += 1
+                    break
+
+    # Save
+    with open(sggs_path, "w", encoding="utf-8") as f:
+        json.dump(shabads, f, ensure_ascii=False, indent=2)
+
+    print(f"  Fixed {fixed} display names")
+    return fixed
+
+
 if __name__ == "__main__":
     add_rahao_pada()
+    fix_display_names()

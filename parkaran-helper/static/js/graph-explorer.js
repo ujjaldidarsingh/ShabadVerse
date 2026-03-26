@@ -76,6 +76,14 @@ async function init() {
         initThresholdSlider();
         initForceControls();
 
+        // Escape key closes preview and tooltip
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                hidePreview();
+                hideTooltip();
+            }
+        });
+
         if (statsEl) {
             const n = Object.keys(State.metadata).length;
             const t = Object.keys(State.tagIndex).length;
@@ -139,7 +147,7 @@ function getStyles() {
                 "font-family": "Noto Sans Gurmukhi, sans-serif",
                 "font-size": "13px",
                 "text-wrap": "ellipsis",
-                "text-max-width": "100px",
+                "text-max-width": "160px",
                 width: 10,
                 height: 10,
                 "text-valign": "bottom",
@@ -191,7 +199,7 @@ function getStyles() {
                 color: "#f5e6c8",
                 "font-size": "14px",
                 "font-weight": "bold",
-                "text-max-width": "120px",
+                "text-max-width": "200px",
                 "border-color": "rgba(245,158,11,0.6)",
                 "border-width": 2,
             },
@@ -209,8 +217,8 @@ function getStyles() {
                 "font-weight": 600,
                 "text-halign": "center",
                 "text-valign": "center",
-                "text-max-width": "100px",
-                "text-wrap": "ellipsis",
+                "text-max-width": "200px",
+                "text-wrap": "wrap",
                 width: 6,
                 height: 6,
                 "overlay-opacity": 0,
@@ -264,6 +272,23 @@ function getStyles() {
                 height: 10,
             },
         },
+        // ── Parkaran trail edges (green arrows connecting selected shabads) ──
+        {
+            selector: "edge.parkaran-trail",
+            style: {
+                width: 2,
+                "line-color": "rgba(16,185,129,0.5)",
+                "line-style": "solid",
+                "curve-style": "unbundled-bezier",
+                "control-point-distances": [15],
+                "control-point-weights": [0.5],
+                "target-arrow-shape": "triangle",
+                "target-arrow-color": "rgba(16,185,129,0.5)",
+                "arrow-scale": 0.8,
+                "overlay-opacity": 0,
+                "z-index": 10,
+            },
+        },
     ];
 }
 
@@ -314,7 +339,7 @@ async function expandShabad(shabadId) {
 
     // Add or update center node — use searched tuk if available
     const meta = State.metadata[sid] || {};
-    const centerLabel = tuk ? trunc(tuk.gurmukhi, 12) : trunc(meta.gurmukhi || meta.title || "?", 10);
+    const centerLabel = tuk ? trunc(tuk.gurmukhi, 28) : trunc(meta.gurmukhi || meta.title || "?", 28);
     let centerEl = cy.getElementById(sid);
     if (centerEl.length === 0) {
         cy.add({
@@ -393,6 +418,8 @@ async function expandShabad(shabadId) {
             const n = neighbors[j];
             const nid = String(n.id);
             if (nid === sid) continue;
+            // Skip shabads already in parkaran (they remain visible but shouldn't be re-suggested)
+            if (State.parkaran.some((p) => String(p.id) === nid)) continue;
 
             // Pack nodes tightly within the usable slice
             const neighborAngle = baseAngle + ((j + 0.5) / Math.max(neighbors.length, 1)) * usableSlice;
@@ -411,7 +438,7 @@ async function expandShabad(shabadId) {
                         id: nid,
                         shabadId: nid,
                         type: "shabad",
-                        label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 9),
+                        label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 22),
                         isRepertoire: n.is_repertoire || nmeta.is_repertoire || false,
                         themeColor: themeColor(nTheme),
                     },
@@ -442,11 +469,12 @@ async function expandShabad(shabadId) {
         }
     }
 
-    // Re-apply parkaran styling
+    // Re-apply parkaran styling and draw trail
     State.parkaran.forEach((p) => {
         const el = cy.getElementById(String(p.id));
         if (el.length) el.addClass("in-parkaran").removeClass("faded");
     });
+    redrawParkaranTrail();
 
     // Fit to visible nodes — immediate fit first, then smooth refine
     const visibleNodes = cy.nodes().not(".faded").not("[type='tagLabel']");
@@ -573,50 +601,81 @@ function showTooltip(shabadId, nodeEl) {
 function hideTooltip() {
     State.activeTooltipId = null;
     document.getElementById("nodeTooltip").classList.add("hidden");
+    hidePreview();
 }
 
 /** Show shabad preview with translation in the tooltip. */
 async function loadPreview(shabadId) {
     const sid = String(shabadId);
-    const container = document.getElementById(`tt-preview-${sid}`);
-    if (!container) return;
+    const preview = document.getElementById("shabadPreview");
+    const tooltip = document.getElementById("nodeTooltip");
 
-    // Toggle
-    if (!container.classList.contains("hidden")) {
-        container.classList.add("hidden");
+    // Toggle off if showing same shabad
+    if (!preview.classList.contains("hidden") && preview.dataset.sid === sid) {
+        hidePreview();
         return;
     }
-    container.classList.remove("hidden");
-    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#4a3f35;font-size:7px;">LOADING...</div>';
+
+    preview.dataset.sid = sid;
+    preview.innerHTML = '<div class="preview-header"><span>LOADING...</span></div>';
+    preview.classList.remove("hidden");
 
     // Use cached verses if available
     if (!State.verseCache[sid]) {
         try {
             const data = await API.get(`/api/graph/shabad/${sid}/verses`);
+            // Evict oldest cache entry if over 50
+            const keys = Object.keys(State.verseCache);
+            if (keys.length >= 50) delete State.verseCache[keys[0]];
             State.verseCache[sid] = data.verses || [];
         } catch (err) {
-            container.innerHTML = `<div style="color:#ef4444;font-size:7px;">Could not load preview</div>`;
+            preview.innerHTML = '<div class="preview-header"><span>Could not load preview</span><button class="preview-close" onclick="hidePreview()">&times;</button></div>';
             return;
         }
     }
 
     const verses = State.verseCache[sid];
+    const meta = State.metadata[sid] || {};
     if (!verses.length) {
-        container.innerHTML = '<div style="color:#4a3f35;font-size:7px;">No verse data available</div>';
+        preview.innerHTML = '<div class="preview-header"><span>No verse data</span><button class="preview-close" onclick="hidePreview()">&times;</button></div>';
         return;
     }
 
-    // Render Gurmukhi + English, rahao highlighted
-    container.innerHTML = verses.map((v) => {
-        const isRahao = v.is_rahao;
-        const gurmukhi = v.gurmukhi || "";
-        const english = v.english || "";
-        const rahaoStyle = isRahao ? "border-left:2px solid rgba(245,158,11,0.4);padding-left:4px;background:rgba(245,158,11,0.03);" : "";
-        return `<div style="margin-bottom:3px;${rahaoStyle}">
-            ${gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:rgba(251,191,36,0.7);font-size:7px;">${escapeHtml(gurmukhi)}</div>` : ""}
-            ${english ? `<div style="font-family:'IBM Plex Mono';color:rgba(200,200,210,0.35);font-size:6px;">${escapeHtml(english)}</div>` : ""}
-        </div>`;
-    }).join("");
+    const headerText = escapeHtml(meta.raag ? `${meta.raag} / ANG ${meta.ang || "?"}` : `ANG ${meta.ang || "?"}`);
+    preview.innerHTML = `
+        <div class="preview-header">
+            <span>${headerText}</span>
+            <button class="preview-close" onclick="hidePreview()">&times;</button>
+        </div>
+        ${verses.map((v) => {
+            const rahaoClass = v.is_rahao ? " preview-rahao" : "";
+            return `<div class="preview-verse${rahaoClass}">
+                ${v.gurmukhi ? `<div lang="pa-Guru" class="preview-gurmukhi">${escapeHtml(v.gurmukhi)}</div>` : ""}
+                ${v.english ? `<div class="preview-english">${escapeHtml(v.english)}</div>` : ""}
+            </div>`;
+        }).join("")}
+    `;
+
+    // Position: to the right of tooltip, or left if no space
+    const cyRect = document.getElementById("cy").getBoundingClientRect();
+    const ttRect = tooltip.getBoundingClientRect();
+    const previewWidth = 380;
+
+    let left = ttRect.right - cyRect.left + 8;
+    if (left + previewWidth > cyRect.width - 10) {
+        left = ttRect.left - cyRect.left - previewWidth - 8;
+    }
+    if (left < 10) left = 10;
+
+    let top = ttRect.top - cyRect.top;
+    if (top < 10) top = 10;
+
+    preview.style.left = left + "px";
+    preview.style.top = top + "px";
+}
+
+function hidePreview() {
+    document.getElementById("shabadPreview").classList.add("hidden");
 }
 
 async function loadVerseSelector(shabadId, nodeEl) {
@@ -881,7 +940,7 @@ function renderBreadcrumbs() {
     const el = document.getElementById("breadcrumbs");
     el.innerHTML = State.expandedNodes.map((sid) => {
         const m = State.metadata[sid] || {};
-        const label = trunc(m.gurmukhi || m.title || sid, 12);
+        const label = trunc(m.gurmukhi || m.title || sid, 20);
         const active = sid === State.centerNode;
         return `<span class="breadcrumb-node ${active ? "active" : ""}" onclick="event.stopPropagation(); expandShabad('${escAttr(sid)}')">${escapeHtml(label)}</span>`;
     }).join('<span style="color:#1f2937;font-size:9px;"> &rsaquo; </span>');
@@ -924,6 +983,7 @@ function addToParkaran(shabadId) {
 
     saveParkaran();
     renderParkaran();
+    redrawParkaranTrail();
 }
 
 function removeFromParkaran(shabadId) {
@@ -935,6 +995,31 @@ function removeFromParkaran(shabadId) {
 
     saveParkaran();
     renderParkaran();
+    redrawParkaranTrail();
+}
+
+function redrawParkaranTrail() {
+    const cy = State.cy;
+    if (!cy) return;
+    // Remove old trail edges
+    cy.edges(".parkaran-trail").remove();
+    // Draw green directed edges between consecutive parkaran shabads
+    for (let pi = 0; pi < State.parkaran.length - 1; pi++) {
+        const fromId = String(State.parkaran[pi].id);
+        const toId = String(State.parkaran[pi + 1].id);
+        const fromEl = cy.getElementById(fromId);
+        const toEl = cy.getElementById(toId);
+        if (fromEl.length && toEl.length) {
+            const trailEdgeId = `ptrail_${fromId}_${toId}`;
+            if (cy.getElementById(trailEdgeId).length === 0) {
+                cy.add({
+                    group: "edges",
+                    data: { id: trailEdgeId, source: fromId, target: toId },
+                    classes: "parkaran-trail",
+                });
+            }
+        }
+    }
 }
 
 function renderParkaran() {

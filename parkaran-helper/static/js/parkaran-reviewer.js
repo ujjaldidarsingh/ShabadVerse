@@ -73,12 +73,12 @@ function renderFlow() {
         html += `
             <div class="reviewer-flow-item ${isSelected ? "selected" : ""}" onclick="selectShabad(${i})" data-idx="${i}">
                 <div style="display:flex;align-items:flex-start;gap:8px;">
-                    <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.25);font-size:9px;width:14px;flex-shrink:0;padding-top:2px;">${i + 1}</span>
+                    <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.25);font-size:11px;width:14px;flex-shrink:0;padding-top:2px;">${i + 1}</span>
                     <div style="flex:1;min-width:0;">
                         ${gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi','GurbaniWeb';color:${isSelected ? "#f5e6c8" : "rgba(245,230,200,0.5)"};font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isRep ? "&#9733; " : ""}${escapeHtml(gurmukhi.substring(0, 35))}</div>` : ""}
-                        <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title.substring(0, 40))}</div>
+                        <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title.substring(0, 40))}</div>
                         <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px;">
-                            ${(s.tags || []).slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:7px;color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.04);padding:1px 4px;border-radius:2px;">${escapeHtml(t)}</span>`).join("")}
+                            ${(s.tags || []).slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:10px;color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.04);padding:1px 4px;border-radius:2px;">${escapeHtml(t)}</span>`).join("")}
                         </div>
                     </div>
                 </div>
@@ -95,8 +95,8 @@ function renderFlow() {
             html += `
                 <div class="reviewer-connection" style="border-left:1px solid ${lineColor};margin-left:18px;padding:4px 0 4px 14px;">
                     ${shared.length > 0
-                        ? shared.slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:7px;color:${color};letter-spacing:0.02em;">${escapeHtml(t)}</span>`).join('<span style="color:#1f2937;font-size:7px;"> / </span>')
-                        : '<span style="font-family:\'IBM Plex Mono\';font-size:7px;color:rgba(239,68,68,0.3);letter-spacing:0.02em;">NO SHARED TAGS</span>'
+                        ? shared.slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:10px;color:${color};letter-spacing:0.02em;">${escapeHtml(t)}</span>`).join('<span style="color:#1f2937;font-size:10px;"> / </span>')
+                        : '<span style="font-family:\'IBM Plex Mono\';font-size:10px;color:rgba(239,68,68,0.3);letter-spacing:0.02em;">NO SHARED TAGS</span>'
                     }
                 </div>
             `;
@@ -124,7 +124,7 @@ function selectShabad(idx) {
     const detail = document.getElementById("detailContent");
 
     const tagPills = (s.tags || [])
-        .map((t) => `<span style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.06);padding:2px 8px;border-radius:3px;border:1px solid rgba(245,158,11,0.08);">${escapeHtml(t)}</span>`)
+        .map((t) => `<span style="font-family:'IBM Plex Mono';font-size:11px;color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.06);padding:2px 8px;border-radius:3px;border:1px solid rgba(245,158,11,0.08);">${escapeHtml(t)}</span>`)
         .join("");
 
     // Format Gurmukhi text with line breaks
