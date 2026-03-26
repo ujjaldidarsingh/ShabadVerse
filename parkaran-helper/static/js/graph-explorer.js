@@ -550,7 +550,7 @@ function showTooltip(shabadId, nodeEl) {
             <div class="tt-actions">
                 <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN PARKARAN" : "+ ADD"}</button>
                 <button class="tt-btn tt-btn-explore" data-action="explore" data-id="${sid}">EXPLORE &rarr;</button>
-                <button class="tt-btn" data-action="preview" data-id="${sid}" style="color:rgba(200,200,210,0.4);">PREVIEW</button>
+                <button class="tt-btn tt-btn-preview" data-action="preview" data-id="${sid}">PREVIEW</button>
                 <button class="tt-btn" data-action="verses" data-id="${sid}" style="color:rgba(200,200,210,0.4);">VERSES</button>
             </div>
             <div id="tt-preview-${sid}" class="hidden" style="margin-top:6px;max-height:150px;overflow-y:auto;font-size:6px;line-height:1.4;"></div>
@@ -569,6 +569,14 @@ function showTooltip(shabadId, nodeEl) {
                 showTooltip(id, nodeEl); // refresh to show "IN PARKARAN"
             } else if (action === "explore") {
                 hideTooltip();
+                // If no tuk was selected for this shabad, use brief_meaning as semantic proxy
+                if (!State.selectedTuk[id]) {
+                    const nmeta = State.metadata[id] || {};
+                    const meaning = nmeta.brief_meaning || nmeta.primary_theme || "";
+                    if (meaning) {
+                        State.selectedTuk[id] = { gurmukhi: "", english: meaning, index: -1 };
+                    }
+                }
                 expandShabad(id);
             } else if (action === "preview") {
                 loadPreview(id);

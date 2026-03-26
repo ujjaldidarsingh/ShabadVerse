@@ -40,3 +40,48 @@
 - ~34 shabads still have short/structural display names (edge cases: ਡਖਣਾ, ਪਵੜੀ markers)
 - Enrichment pipeline comments still reference Claude/Voyage (cosmetic, code uses Ollama)
 - Frontend uses CDN for Tailwind + Cytoscape (requires internet for first load)
+
+## Milestones
+
+### Alpha (internal testing ready)
+- [x] feat: graph explorer with radial tag-clustered layout (Cytoscape.js)
+- [x] feat: SGGS taxonomy — 372 tags across 5,542 shabads
+- [x] feat: suggestion engine with core/branch diversity (8.6 avg clusters)
+- [x] feat: threshold slider for suggestion selectivity
+- [x] feat: force controls (center, repel, link, distance)
+- [x] feat: verse preview overlay with rahao highlighting
+- [x] feat: parkaran trail (green directed edges between selected shabads)
+- [x] feat: reviewer page with shared tag transitions
+- [x] feat: first-letter search (BaniDB) + local tag/theme fallback
+- [x] bug: fix cose-bilkent crash — built-in cose layout
+- [x] bug: fix XSS via single-quote injection in onclick attributes
+- [x] bug: fix race condition in expandShabad (concurrent guard)
+- [ ] bug: searched tuk should drive suggestions, not default rahao line
+- [ ] bug: ~34 shabads still have structural display names
+- [ ] feat: shabad preview popup from node click (full text + translation)
+
+### Beta (external testing ready)
+- [x] design: Celestial Observatory design system (DESIGN.md)
+- [x] design: warm purple-black palette, Noto Serif Gurmukhi, theme-colored nodes
+- [ ] design: font size overhaul — explore/review pages readable at arm's length
+- [ ] design: tooltip dialog box sizing (verses/preview too small currently)
+- [ ] design: tag labels fully visible (max-width reactive, wrap not truncate)
+- [ ] feat: shabad labels show 4-5 Gurmukhi words (not 2)
+- [ ] feat: add-to-parkaran solidifies nodes with visual trail breadcrumbs
+- [ ] feat: tag taxonomy refinement (merge overlapping tags)
+- [ ] test: automated smoke test for all API endpoints
+- [ ] test: graph neighbor diversity regression test (experiments.tsv baseline)
+- [ ] perf: bundle Tailwind + Cytoscape locally (no CDN dependency)
+- [ ] docs: user guide — how to search, explore, build parkaran, review
+
+### Ship (production deploy)
+- [ ] perf: lazy-load similarity_graph.json (7.4 MB blocks initial page load)
+- [ ] perf: graph node eviction strategy (cap visible nodes after 20+ expansions)
+- [ ] perf: cache SentenceTransformer model load at app startup
+- [ ] feat: export parkaran as PDF/image/share link
+- [ ] feat: occasion-aware suggestions integrated into explore view
+- [ ] design: mobile responsive graph explorer (touch gestures, pinch zoom)
+- [ ] design: accessibility pass (focus-visible, screen reader labels, contrast ratios)
+- [ ] docs: deploy guide (Docker, systemd, or similar)
+- [ ] docs: bootstrap pipeline runbook (recovery from partial failures)
+- [ ] test: E2E browser tests (Playwright or similar)

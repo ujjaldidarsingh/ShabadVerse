@@ -839,6 +839,14 @@
     color: var(--text-primary);
     border-color: rgba(255, 255, 255, 0.15);
 }
+.tt-btn-preview {
+    color: var(--text-dim);
+    border-color: var(--border-subtle);
+}
+.tt-btn-preview:hover {
+    color: var(--accent-gold);
+    border-color: rgba(245, 158, 11, 0.3);
+}
 
 /* --- Shabad Preview Overlay --- */
 .shabad-preview-overlay {

@@ -109,28 +109,25 @@ def graph_neighbors(shabad_id):
     my_meta = metadata.get(str(shabad_id), {})
     my_tags = my_meta.get("tags", [])
 
-    # ── TUK-AWARE PATH: vector search using the specific verse's meaning ──
+    # ── BLENDED PATH: tuk vector search + graph neighbors for tag diversity ──
+    # When tuk_english is provided, vector search finds semantically close shabads
+    # to the specific verse. Graph neighbors fill in tag-based diversity.
+    # When no tuk, pure graph path (pre-computed, instant).
+    tuk_results = {}  # nid -> enriched dict (from vector search)
     if tuk_english:
         store = _get_sggs_vector_store()
         if store.get_count() > 0:
             results = store.search_similar(
-                tuk_english, n_results=40, exclude_ids={str(shabad_id)}
+                tuk_english, n_results=30, exclude_ids={str(shabad_id)}
             )
-
-            by_tag = defaultdict(list)
-            seen_in_tag = defaultdict(set)
-
             for r in results:
                 nid = str(r["id"])
                 n_meta = metadata.get(nid, {})
                 n_sggs = sggs_lookup.get(nid, {})
-                # ChromaDB cosine distance: 0 = identical, 2 = opposite
                 score = max(0, min(1, 1 - (r.get("distance") or 0.5)))
-
                 if score < threshold:
                     continue
-
-                enriched = {
+                tuk_results[nid] = {
                     "id": nid,
                     "score": round(score, 3),
                     "title": n_meta.get("title") or n_sggs.get("display_name") or (n_sggs.get("transliteration") or "")[:80],
@@ -145,53 +142,42 @@ def graph_neighbors(shabad_id):
                     "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or r["metadata"].get("brief_meaning", ""),
                 }
 
-                tags = n_meta.get("tags", [])
-                if not tags:
-                    tags = [enriched.get("primary_theme") or "Similar"]
-                for tag in tags:
-                    if nid not in seen_in_tag[tag]:
-                        by_tag[tag].append(enriched)
-                        seen_in_tag[tag].add(nid)
-
-            # Cap and sort each cluster
-            for tag in by_tag:
-                by_tag[tag].sort(key=lambda x: x["score"], reverse=True)
-                by_tag[tag] = by_tag[tag][:per_tag_cap]
-
-            by_tag = {t: items for t, items in by_tag.items() if items}
-
-            all_scores = [r.get("score", 0) for items in by_tag.values() for r in items]
-
-            return jsonify({
-                "id": shabad_id,
-                "tags": my_tags,
-                "by_tag": dict(by_tag),
-                "total_available": len(results),
-                "total_shown": sum(len(v) for v in by_tag.values()),
-                "score_range": {
-                    "min": round(min(all_scores), 3) if all_scores else 0,
-                    "max": round(max(all_scores), 3) if all_scores else 0,
-                },
-                "tuk_search": True,
-            })
-
-    # ── DEFAULT PATH: pre-computed graph neighbors ──
+    # ── GRAPH PATH: pre-computed neighbors ──
     raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
-    if not raw_neighbors:
-        return jsonify({"id": shabad_id, "tags": my_tags, "by_tag": {}, "total_available": 0})
-
-    # Filter by threshold
     neighbors = [n for n in raw_neighbors if n["score"] >= threshold]
 
     # Group neighbors by thematic direction
-    # Core neighbors (same tag set) go under shared tags
-    # Branching neighbors go under the NEW tag they bring
     my_tags_set = set(my_tags)
     by_tag = defaultdict(list)
     seen_globally = set()
 
+    # First: add tuk vector results (semantically closest to searched verse)
+    for nid, enriched in tuk_results.items():
+        seen_globally.add(nid)
+        tags = enriched.get("tags", [])
+        if not tags:
+            tags = [enriched.get("primary_theme") or "Similar"]
+        # Place under most relevant tag
+        matching_tags = [t for t in tags if t in my_tags_set]
+        if matching_tags:
+            by_tag[matching_tags[0]].append(enriched)
+        else:
+            # Branching: use the neighbor's most specific tag
+            n_all_tags = set(tags)
+            new_tags = n_all_tags - my_tags_set
+            if new_tags:
+                best_new = min(new_tags, key=lambda t: len(graph.get("tag_index", {}).get(t, [])))
+                by_tag[best_new].append(enriched)
+            elif tags:
+                by_tag[tags[0]].append(enriched)
+
+    # Then: add graph neighbors for tag diversity (skip those already from tuk search)
     for n in neighbors:
         nid = str(n["id"])
+        if nid in seen_globally:
+            continue
+        seen_globally.add(nid)
+
         n_meta = metadata.get(nid, {})
         n_sggs = sggs_lookup.get(nid, {})
 
@@ -210,21 +196,14 @@ def graph_neighbors(shabad_id):
             "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or "",
         }
 
-        if nid in seen_globally:
-            continue
-        seen_globally.add(nid)
-
         shared = set(n.get("shared_tags", []))
         n_all_tags = set(n_meta.get("tags", []))
-        new_tags = n_all_tags - my_tags_set  # Tags this neighbor brings that we don't have
+        new_tags = n_all_tags - my_tags_set
 
         if shared == my_tags_set or not new_tags:
-            # Core neighbor — group under shared tags
             for tag in shared:
                 by_tag[tag].append(enriched)
         else:
-            # Branching neighbor — group under the most specific NEW tag they bring
-            # This creates visible thematic branches in the graph
             best_new = min(new_tags, key=lambda t: len(graph.get("tag_index", {}).get(t, [])))
             by_tag[best_new].append(enriched)
 
@@ -233,19 +212,20 @@ def graph_neighbors(shabad_id):
         by_tag[tag].sort(key=lambda x: x["score"], reverse=True)
         by_tag[tag] = by_tag[tag][:per_tag_cap]
 
-    # Remove empty clusters
     by_tag = {tag: items for tag, items in by_tag.items() if items}
 
-    # Score range for this shabad (helps frontend slider)
     all_scores = [n["score"] for n in raw_neighbors] if raw_neighbors else [0]
+    if tuk_results:
+        all_scores.extend(r["score"] for r in tuk_results.values())
 
     return jsonify({
         "id": shabad_id,
         "tags": my_tags,
         "by_tag": dict(by_tag),
-        "total_available": len(raw_neighbors),
-        "total_shown": len(neighbors),
-        "score_range": {"min": round(min(all_scores), 3), "max": round(max(all_scores), 3)},
+        "total_available": len(raw_neighbors) + len(tuk_results),
+        "total_shown": sum(len(v) for v in by_tag.values()),
+        "score_range": {"min": round(min(all_scores), 3) if all_scores else 0, "max": round(max(all_scores), 3) if all_scores else 0},
+        "tuk_search": bool(tuk_results),
     })
 
 
