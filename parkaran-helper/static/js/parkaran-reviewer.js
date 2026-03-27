@@ -35,6 +35,13 @@ async function init() {
 
         countEl.textContent = `${ReviewState.parkaran.length} SHABADS`;
 
+        // Display parkaran name if available
+        const parkaranName = localStorage.getItem("reviewParkaranName");
+        const titleEl = document.getElementById("reviewTitle");
+        if (parkaranName && titleEl) {
+            titleEl.textContent = parkaranName;
+        }
+
         // Fetch full data for all shabads in one call
         const ids = ReviewState.parkaran.map((p) => parseInt(p.id, 10)).filter((id) => !isNaN(id));
         const response = await API.post("/api/graph/shabads", { ids });

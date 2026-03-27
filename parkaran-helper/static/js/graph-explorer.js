@@ -1002,20 +1002,230 @@ function renderBreadcrumbs() {
     }).join('<span style="color:#1f2937;font-size:9px;"> &rsaquo; </span>');
 }
 
-/* ===== PARKARAN (localStorage-backed) ===== */
+/* ===== PARKARAN LIBRARY (multi-parkaran, localStorage-backed) ===== */
 
-const PARKARAN_KEY = "parkaran_explorer_v2";
+const PARKARAN_LIBRARY_KEY = "parkaran_library_v1";
+const OLD_PARKARAN_KEY = "parkaran_explorer_v2";
+let libraryView = false; // tracks whether the sidebar shows library or active parkaran
+
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+}
+
+function getLibrary() {
+    try {
+        const raw = localStorage.getItem(PARKARAN_LIBRARY_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return { parkarans: {}, currentId: null };
+}
+
+function setLibrary(lib) {
+    localStorage.setItem(PARKARAN_LIBRARY_KEY, JSON.stringify(lib));
+}
+
+function autoName(items) {
+    const tagCounts = {};
+    items.forEach((p) => (p.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+    const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 2).map((e) => e[0]);
+    return topTags.join(" & ") || `Parkaran (${items.length} shabads)`;
+}
 
 function restoreParkaran() {
+    // Migrate old single-parkaran key
     try {
-        const stored = localStorage.getItem(PARKARAN_KEY);
-        if (stored) State.parkaran = JSON.parse(stored);
+        const old = localStorage.getItem(OLD_PARKARAN_KEY);
+        if (old) {
+            const items = JSON.parse(old);
+            if (items.length > 0) {
+                const lib = getLibrary();
+                const id = generateId();
+                lib.parkarans[id] = {
+                    name: autoName(items),
+                    items: items,
+                    created: new Date().toISOString(),
+                };
+                lib.currentId = id;
+                setLibrary(lib);
+                State.parkaran = items;
+            }
+            localStorage.removeItem(OLD_PARKARAN_KEY);
+            renderParkaran();
+            return;
+        }
     } catch (e) { /* ignore */ }
+
+    // Load current parkaran from library
+    const lib = getLibrary();
+    if (lib.currentId && lib.parkarans[lib.currentId]) {
+        State.parkaran = [...lib.parkarans[lib.currentId].items];
+    }
     renderParkaran();
 }
 
 function saveParkaran() {
-    localStorage.setItem(PARKARAN_KEY, JSON.stringify(State.parkaran));
+    // Auto-save current working parkaran to library if it has an ID
+    const lib = getLibrary();
+    if (lib.currentId && lib.parkarans[lib.currentId]) {
+        lib.parkarans[lib.currentId].items = [...State.parkaran];
+        setLibrary(lib);
+    }
+    // Also keep a working copy for fast restore
+    localStorage.setItem("parkaran_working", JSON.stringify(State.parkaran));
+}
+
+function saveCurrentParkaran(name) {
+    if (State.parkaran.length === 0) return;
+    const lib = getLibrary();
+    const id = lib.currentId || generateId();
+    lib.parkarans[id] = {
+        name: name || autoName(State.parkaran),
+        items: [...State.parkaran],
+        created: lib.parkarans[id]?.created || new Date().toISOString(),
+        updated: new Date().toISOString(),
+    };
+    lib.currentId = null; // detach — we're starting fresh
+    setLibrary(lib);
+
+    // Reset explore to clean slate
+    resetExplore();
+    showToast(`Saved: ${lib.parkarans[id].name}`);
+}
+
+function loadParkaran(id) {
+    const lib = getLibrary();
+    const entry = lib.parkarans[id];
+    if (!entry) return;
+
+    State.parkaran = [...entry.items];
+    lib.currentId = id;
+    setLibrary(lib);
+
+    // Re-apply in-parkaran markers on graph
+    if (State.cy) {
+        State.cy.nodes(".in-parkaran").removeClass("in-parkaran");
+        State.parkaran.forEach((p) => {
+            const el = State.cy.getElementById(String(p.id));
+            if (el?.length) el.addClass("in-parkaran");
+        });
+    }
+
+    libraryView = false;
+    renderParkaran();
+    redrawParkaranTrail();
+}
+
+function deleteParkaran(id) {
+    const lib = getLibrary();
+    delete lib.parkarans[id];
+    if (lib.currentId === id) {
+        lib.currentId = null;
+        State.parkaran = [];
+    }
+    setLibrary(lib);
+    showLibrary(); // refresh library view
+}
+
+function listSavedParkarans() {
+    const lib = getLibrary();
+    return Object.entries(lib.parkarans)
+        .map(([id, p]) => ({ id, name: p.name, count: p.items.length, created: p.created, updated: p.updated }))
+        .sort((a, b) => (b.updated || b.created || "").localeCompare(a.updated || a.created || ""));
+}
+
+function resetExplore() {
+    State.parkaran = [];
+    const lib = getLibrary();
+    lib.currentId = null;
+    setLibrary(lib);
+    resetGraph();
+    // Clear search
+    const searchInput = document.getElementById("graphSearch");
+    if (searchInput) searchInput.value = "";
+    const dropdown = document.getElementById("searchDropdown");
+    if (dropdown) dropdown.classList.add("hidden");
+    // Hide threshold
+    const thresholdControl = document.getElementById("thresholdControl");
+    if (thresholdControl) thresholdControl.style.display = "none";
+    libraryView = false;
+    renderParkaran();
+}
+
+function showSaveDialog() {
+    if (State.parkaran.length === 0) return;
+    const container = document.getElementById("parkaranList");
+    const suggested = autoName(State.parkaran);
+    container.innerHTML = `
+        <div style="padding:12px;">
+            <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Save Parkaran</div>
+            <input id="saveNameInput" type="text" value="${escAttr(suggested)}"
+                   style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.15);border-radius:4px;color:#fbbf24;font-family:'IBM Plex Mono';font-size:12px;padding:8px;outline:none;"
+                   onfocus="this.select()">
+            <div style="display:flex;gap:6px;margin-top:8px;">
+                <button onclick="saveCurrentParkaran(document.getElementById('saveNameInput').value)"
+                        style="flex:1;background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">Save</button>
+                <button onclick="renderParkaran()"
+                        style="flex:1;background:transparent;color:#6b5f52;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.getElementById("saveNameInput").focus();
+}
+
+function showLibrary() {
+    libraryView = true;
+    const container = document.getElementById("parkaranList");
+    const empty = document.getElementById("parkaranEmpty");
+    const countEl = document.getElementById("parkaranCount");
+    const reviewBtn = document.getElementById("reviewBtn");
+    empty.classList.add("hidden");
+    reviewBtn.classList.add("hidden");
+
+    const saved = listSavedParkarans();
+    countEl.textContent = String(saved.length);
+
+    if (saved.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center;padding:24px 12px;">
+                <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;letter-spacing:0.05em;">No saved parkarans yet</div>
+                <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;margin-top:4px;">Build a parkaran and click SAVE</div>
+            </div>
+        `;
+    } else {
+        container.innerHTML = saved.map((p) => `
+            <div class="parkaran-sidebar-item" style="cursor:pointer;" onclick="loadParkaran('${escAttr(p.id)}')">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-family:'IBM Plex Mono';color:#fbbf24;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</div>
+                    <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">${p.count} shabads &middot; ${new Date(p.updated || p.created).toLocaleDateString()}</div>
+                </div>
+                <button onclick="event.stopPropagation(); deleteParkaran('${escAttr(p.id)}')"
+                        style="color:#4a3f35;cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;"
+                        onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
+            </div>
+        `).join("");
+    }
+
+    // Add NEW + BACK buttons
+    container.insertAdjacentHTML("beforeend", `
+        <div style="display:flex;gap:6px;padding:8px 4px;margin-top:4px;">
+            <button onclick="resetExplore()"
+                    style="flex:1;background:rgba(245,158,11,0.1);color:#fbbf24;border:1px solid rgba(245,158,11,0.2);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">+ New</button>
+            <button onclick="libraryView=false; renderParkaran();"
+                    style="flex:1;background:transparent;color:#6b5f52;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Back</button>
+        </div>
+    `);
+}
+
+function showToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "parkaran-toast";
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
 }
 
 function addToParkaran(shabadId) {
@@ -1154,8 +1364,11 @@ function setupParkaranDrag() {
 function sendToReview() {
     if (State.parkaran.length < 2) return;
 
-    // Pass full parkaran data via localStorage (not sessionStorage — survives navigation)
+    // Pass full parkaran data + name via localStorage
     localStorage.setItem("reviewParkaran", JSON.stringify(State.parkaran));
+    const lib = getLibrary();
+    const currentName = lib.currentId ? lib.parkarans[lib.currentId]?.name : null;
+    localStorage.setItem("reviewParkaranName", currentName || autoName(State.parkaran));
     window.location.href = "/reviewer";
 }
 

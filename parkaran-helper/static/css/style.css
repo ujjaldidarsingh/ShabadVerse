@@ -1143,3 +1143,27 @@ details[open] > .force-panel-header::before {
     .page-title { font-size: 1rem; }
     .page-subtitle { font-size: 0.6875rem; }
 }
+
+/* --- Parkaran Toast Notification --- */
+.parkaran-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(18, 16, 28, 0.95);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 6px;
+    padding: 10px 20px;
+    color: #fbbf24;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+.parkaran-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}

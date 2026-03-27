@@ -65,9 +65,21 @@
         <!-- Mission control sidebar -->
         <div class="parkaran-sidebar w-56 flex-shrink-0 flex flex-col gap-2">
             <div class="mission-panel flex-1 flex flex-col min-h-0">
-                <div class="mission-panel-header parkaran-sidebar-header flex items-center justify-between" onclick="this.closest('.parkaran-sidebar').classList.toggle('mobile-open')">
-                    <span>PARKARAN</span>
-                    <span id="parkaranCount" class="text-[9px] text-gray-600 font-normal tracking-normal">0</span>
+                <div class="mission-panel-header parkaran-sidebar-header" onclick="this.closest('.parkaran-sidebar').classList.toggle('mobile-open')">
+                    <div class="flex items-center justify-between w-full">
+                        <div class="flex items-center gap-2">
+                            <span>PARKARAN</span>
+                            <span id="parkaranCount" class="text-[9px] text-gray-600 font-normal tracking-normal">0</span>
+                        </div>
+                        <div class="flex items-center gap-1" onclick="event.stopPropagation()">
+                            <button onclick="showSaveDialog()" title="Save parkaran"
+                                    style="background:none;border:none;color:#6b5f52;cursor:pointer;font-family:'IBM Plex Mono';font-size:9px;padding:2px 4px;letter-spacing:0.05em;"
+                                    onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='#6b5f52'">SAVE</button>
+                            <button onclick="showLibrary()" title="Saved parkarans"
+                                    style="background:none;border:none;color:#6b5f52;cursor:pointer;font-family:'IBM Plex Mono';font-size:9px;padding:2px 4px;letter-spacing:0.05em;"
+                                    onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='#6b5f52'">LIBRARY</button>
+                        </div>
+                    </div>
                 </div>
                 <p id="parkaranEmpty" class="text-gray-700 text-[10px] text-center py-8 font-['IBM_Plex_Mono'] tracking-wide">
                     Click shabads to<br>build your set
