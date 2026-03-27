@@ -1,11 +1,13 @@
-# Data files (generated, large)
+# Data files (generated, large — rebuild with bootstrap/setup.py)
 data/chroma_db/
 data/sggs_all_shabads.json
 data/similarity_graph.json
+data/enriched_shabads.json
 data/shabad_cache.db
 data/tag_vocabulary.json
 data/tag_validation_*.json
 data/validation_checkpoint_*.json
+*.sqlite3
 
 # Environment
 .env
