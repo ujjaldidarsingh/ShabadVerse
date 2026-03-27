@@ -56,9 +56,9 @@
 - [x] bug: fix cose-bilkent crash — built-in cose layout
 - [x] bug: fix XSS via single-quote injection in onclick attributes
 - [x] bug: fix race condition in expandShabad (concurrent guard)
-- [ ] bug: searched tuk should drive suggestions, not default rahao line
-- [ ] bug: ~34 shabads still have structural display names
-- [ ] feat: shabad preview popup from node click (full text + translation)
+- [x] bug: searched tuk drives suggestions via blended vector+graph path
+- [x] bug: 8 structural display names fixed (12 remaining are genuine section markers)
+- [x] feat: shabad preview popup visible in tooltip (PREVIEW button prominent)
 
 ### Beta (external testing ready)
 - [x] design: Celestial Observatory design system (DESIGN.md)

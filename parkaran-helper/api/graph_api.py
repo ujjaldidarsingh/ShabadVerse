@@ -212,6 +212,36 @@ def graph_neighbors(shabad_id):
         by_tag[tag].sort(key=lambda x: x["score"], reverse=True)
         by_tag[tag] = by_tag[tag][:per_tag_cap]
 
+    # Merge thin clusters (1 shabad) into the closest core cluster
+    # This reduces visual noise from too many tiny branching labels
+    MIN_CLUSTER_SIZE = 2
+    core_tags = [t for t in by_tag if t in my_tags_set]
+    thin_tags = [t for t in by_tag if t not in my_tags_set and len(by_tag[t]) < MIN_CLUSTER_SIZE]
+
+    for thin_tag in thin_tags:
+        items = by_tag.pop(thin_tag)
+        # Find best core tag to absorb this item
+        # Pick the core tag with the highest avg score (most relevant direction)
+        best_core = None
+        best_avg = -1
+        for ct in core_tags:
+            if ct in by_tag:
+                avg = sum(i["score"] for i in by_tag[ct]) / len(by_tag[ct])
+                if avg > best_avg:
+                    best_avg = avg
+                    best_core = ct
+        if best_core:
+            by_tag[best_core].extend(items)
+        elif by_tag:
+            # No core tags — merge into largest cluster
+            largest = max(by_tag.keys(), key=lambda t: len(by_tag[t]))
+            by_tag[largest].extend(items)
+
+    # Re-sort and re-cap after merge
+    for tag in by_tag:
+        by_tag[tag].sort(key=lambda x: x["score"], reverse=True)
+        by_tag[tag] = by_tag[tag][:per_tag_cap]
+
     by_tag = {tag: items for tag, items in by_tag.items() if items}
 
     all_scores = [n["score"] for n in raw_neighbors] if raw_neighbors else [0]
@@ -224,7 +254,12 @@ def graph_neighbors(shabad_id):
         "by_tag": dict(by_tag),
         "total_available": len(raw_neighbors) + len(tuk_results),
         "total_shown": sum(len(v) for v in by_tag.values()),
-        "score_range": {"min": round(min(all_scores), 3) if all_scores else 0, "max": round(max(all_scores), 3) if all_scores else 0},
+        "score_range": {
+            "min": round(min(all_scores), 3) if all_scores else 0,
+            "max": round(max(all_scores), 3) if all_scores else 0,
+            "median": round(sorted(all_scores)[len(all_scores) // 2], 3) if all_scores else 0,
+        },
+        "threshold_used": threshold,
         "tuk_search": bool(tuk_results),
     })
 

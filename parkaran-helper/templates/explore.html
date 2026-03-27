@@ -11,11 +11,12 @@
         </div>
         <button class="btn-ghost" onclick="openTagBrowser()">TAGS</button>
         <button class="btn-ghost" onclick="surpriseMe()">RANDOM</button>
-        <div class="threshold-slider" id="thresholdControl" style="display:none;">
-            <span style="font-family:'IBM Plex Mono';font-size:8px;color:#6b5f52;letter-spacing:0.05em;">MORE</span>
+        <div class="threshold-slider" id="thresholdControl" style="display:none;align-items:center;gap:6px;">
+            <span style="font-family:'IBM Plex Mono';font-size:9px;color:#6b5f52;letter-spacing:0.05em;">MORE</span>
             <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35"
                    style="width:100px;accent-color:#f59e0b;height:2px;">
-            <span style="font-family:'IBM Plex Mono';font-size:8px;color:#6b5f52;letter-spacing:0.05em;">SELECTIVE</span>
+            <span style="font-family:'IBM Plex Mono';font-size:9px;color:#6b5f52;letter-spacing:0.05em;">SELECTIVE</span>
+            <span id="thresholdScore" style="font-family:'IBM Plex Mono';font-size:9px;color:#f59e0b;min-width:28px;">0.35</span>
         </div>
         <div class="flex-1"></div>
         <span class="font-['IBM_Plex_Mono'] text-[10px] text-gray-700 tracking-wider" id="graphStats"></span>

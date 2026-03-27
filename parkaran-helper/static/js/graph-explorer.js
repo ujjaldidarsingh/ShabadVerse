@@ -132,6 +132,9 @@ function initCytoscape() {
             expandShabad(sid);
         }
     });
+
+    // Tag labels follow their cluster when nodes are dragged
+    setupDragTagFollow();
 }
 
 function getStyles() {
@@ -494,9 +497,48 @@ async function expandShabad(shabadId) {
 
 /** Position tag label nodes at the centroid of their cluster after force layout. */
 /** Tag labels are now hub nodes in the graph — force layout positions them naturally. */
-function positionTagLabels(_centerSid) {
-    // No-op: tag hub nodes are connected to center + shabads,
-    // so the force layout places them at the cluster centroid automatically.
+function positionTagLabels(centerSid) {
+    // Reposition each tag label to the centroid of its cluster nodes
+    const cy = State.cy;
+    if (!cy) return;
+    const centerEl = cy.getElementById(centerSid);
+    const centerPos = centerEl.length ? centerEl.position() : { x: 0, y: 0 };
+
+    for (const [tag, nodeIds] of Object.entries(State.tagClusters || {})) {
+        const tagId = `tl_${centerSid}_${tag.replace(/\W/g, "_")}`;
+        const labelEl = cy.getElementById(tagId);
+        if (!labelEl.length || !nodeIds.length) continue;
+
+        // Centroid of cluster nodes
+        let sumX = 0, sumY = 0, count = 0;
+        for (const nid of nodeIds) {
+            const el = cy.getElementById(nid);
+            if (el.length && !el.hasClass("faded")) {
+                const pos = el.position();
+                sumX += pos.x;
+                sumY += pos.y;
+                count++;
+            }
+        }
+        if (count === 0) continue;
+
+        // Place label between center and cluster centroid (55% toward cluster)
+        const cx = sumX / count;
+        const cy2 = sumY / count;
+        const lx = centerPos.x + (cx - centerPos.x) * 0.55;
+        const ly = centerPos.y + (cy2 - centerPos.y) * 0.55;
+
+        labelEl.position({ x: lx, y: ly });
+    }
+}
+
+function setupDragTagFollow() {
+    // When user drags shabad nodes, update tag label positions in real-time
+    const cy = State.cy;
+    if (!cy) return;
+    cy.on("drag", "node[type='shabad']", () => {
+        if (State.centerNode) positionTagLabels(State.centerNode);
+    });
 }
 
 /** Re-run layout when distance slider changes. Simply re-expands from current center. */
@@ -553,8 +595,8 @@ function showTooltip(shabadId, nodeEl) {
                 <button class="tt-btn tt-btn-preview" data-action="preview" data-id="${sid}">PREVIEW</button>
                 <button class="tt-btn" data-action="verses" data-id="${sid}" style="color:rgba(200,200,210,0.4);">VERSES</button>
             </div>
-            <div id="tt-preview-${sid}" class="hidden" style="margin-top:6px;max-height:150px;overflow-y:auto;font-size:6px;line-height:1.4;"></div>
-            <div id="tt-verses-${sid}" class="hidden" style="margin-top:6px;max-height:120px;overflow-y:auto;"></div>
+            <div id="tt-preview-${sid}" class="hidden" style="margin-top:6px;max-height:200px;overflow-y:auto;font-size:12px;line-height:1.6;"></div>
+            <div id="tt-verses-${sid}" class="hidden" style="margin-top:6px;max-height:180px;overflow-y:auto;"></div>
         </div>
     `;
 
@@ -589,7 +631,7 @@ function showTooltip(shabadId, nodeEl) {
     // Position tooltip near node, clamped to viewport
     const pos = nodeEl.renderedPosition();
     const container = document.getElementById("cy").getBoundingClientRect();
-    const ttWidth = 280;
+    const ttWidth = 340;
     const ttHeight = 280;
 
     let left = pos.x + 24;
@@ -764,17 +806,23 @@ async function loadVerseSelector(shabadId, nodeEl) {
 
 function initThresholdSlider() {
     const slider = document.getElementById("thresholdSlider");
+    const scoreEl = document.getElementById("thresholdScore");
     if (!slider) return;
 
-    slider.addEventListener("input", debounce(() => {
+    // Update displayed score on every drag
+    slider.addEventListener("input", () => {
+        if (scoreEl) scoreEl.textContent = parseFloat(slider.value).toFixed(2);
+    });
+
+    // Re-expand on release (debounced)
+    slider.addEventListener("change", debounce(() => {
         if (!State.centerNode) return;
-        // Invalidate ALL cache entries for current center (threshold changed)
         const sid = State.centerNode;
         for (const key of Object.keys(State.neighborCache)) {
             if (key.startsWith(sid + "_")) delete State.neighborCache[key];
         }
         expandShabad(sid);
-    }, 300));
+    }, 200));
 }
 
 function getThreshold() {
@@ -1054,12 +1102,12 @@ function renderParkaran() {
         const rep = s.is_repertoire ? " &#9733;" : "";
         html += `
             <div class="parkaran-sidebar-item" draggable="true" data-idx="${i}" data-id="${escAttr(s.id)}">
-                <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.3);font-size:10px;width:14px;flex-shrink:0;">${i + 1}</span>
+                <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.3);font-size:12px;width:16px;flex-shrink:0;">${i + 1}</span>
                 <div style="flex:1;min-width:0;user-select:none;">
-                    ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
-                    <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
+                    ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
+                    <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
                 </div>
-                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:#4a3f35;cursor:pointer;font-size:12px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
+                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:#4a3f35;cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
             </div>
         `;
     });
