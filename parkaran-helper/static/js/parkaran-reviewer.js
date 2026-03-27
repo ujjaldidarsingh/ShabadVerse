@@ -236,5 +236,121 @@ function renderConnectionDetail(current, next, idx) {
     `;
 }
 
+/* ===== SAVE & LIBRARY (shared storage with explorer) ===== */
+
+const PARKARAN_LIBRARY_KEY = "parkaran_library_v1";
+
+function getLibrary() {
+    try {
+        const raw = localStorage.getItem(PARKARAN_LIBRARY_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return { parkarans: {}, currentId: null };
+}
+
+function setLibrary(lib) {
+    localStorage.setItem(PARKARAN_LIBRARY_KEY, JSON.stringify(lib));
+}
+
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+}
+
+function autoName(items) {
+    const tagCounts = {};
+    items.forEach((p) => (p.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+    const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 2).map((e) => e[0]);
+    return topTags.join(" & ") || `Parkaran (${items.length} shabads)`;
+}
+
+function showReviewerSaveDialog() {
+    if (!ReviewState.parkaran.length) return;
+    const dialog = document.getElementById("reviewerSaveDialog");
+    const input = document.getElementById("reviewerSaveName");
+    const existingName = localStorage.getItem("reviewParkaranName");
+    input.value = existingName || autoName(ReviewState.parkaran);
+    dialog.classList.remove("hidden");
+    document.getElementById("reviewerLibraryModal").classList.add("hidden");
+    input.focus();
+    input.select();
+}
+
+function reviewerSave() {
+    const name = document.getElementById("reviewerSaveName").value.trim();
+    if (!name || !ReviewState.parkaran.length) return;
+
+    const lib = getLibrary();
+    const id = generateId();
+    lib.parkarans[id] = {
+        name: name,
+        items: [...ReviewState.parkaran],
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+    };
+    setLibrary(lib);
+
+    document.getElementById("reviewerSaveDialog").classList.add("hidden");
+
+    // Update title to show saved name
+    const titleEl = document.getElementById("reviewTitle");
+    if (titleEl) titleEl.textContent = name;
+
+    // Toast
+    const toast = document.createElement("div");
+    toast.className = "parkaran-toast";
+    toast.textContent = `Saved: ${name}`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+function showReviewerLibrary() {
+    const modal = document.getElementById("reviewerLibraryModal");
+    const list = document.getElementById("reviewerLibraryList");
+    document.getElementById("reviewerSaveDialog").classList.add("hidden");
+
+    const lib = getLibrary();
+    const saved = Object.entries(lib.parkarans)
+        .map(([id, p]) => ({ id, name: p.name, count: p.items.length, created: p.created, updated: p.updated }))
+        .sort((a, b) => (b.updated || b.created || "").localeCompare(a.updated || a.created || ""));
+
+    if (saved.length === 0) {
+        list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#6b5f52;font-size:10px;text-align:center;padding:12px;">No saved parkarans</div>';
+    } else {
+        list.innerHTML = saved.map((p) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;" onclick="loadReviewerParkaran('${p.id}')" onmouseover="this.style.background='rgba(245,158,11,0.05)'" onmouseout="this.style.background='transparent'">
+                <div>
+                    <div style="font-family:'IBM Plex Mono';color:#fbbf24;font-size:11px;">${escapeHtml(p.name)}</div>
+                    <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">${p.count} shabads &middot; ${new Date(p.updated || p.created).toLocaleDateString()}</div>
+                </div>
+                <button onclick="event.stopPropagation(); deleteReviewerParkaran('${p.id}')" style="color:#4a3f35;cursor:pointer;font-size:14px;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
+            </div>
+        `).join("");
+    }
+
+    modal.classList.remove("hidden");
+}
+
+function loadReviewerParkaran(id) {
+    const lib = getLibrary();
+    const entry = lib.parkarans[id];
+    if (!entry) return;
+
+    // Store as current reviewParkaran and reload
+    localStorage.setItem("reviewParkaran", JSON.stringify(entry.items));
+    localStorage.setItem("reviewParkaranName", entry.name);
+    window.location.reload();
+}
+
+function deleteReviewerParkaran(id) {
+    const lib = getLibrary();
+    delete lib.parkarans[id];
+    setLibrary(lib);
+    showReviewerLibrary(); // refresh
+}
+
 /* ===== START ===== */
 init();
