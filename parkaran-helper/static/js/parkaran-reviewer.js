@@ -96,14 +96,14 @@ function renderFlow() {
         if (i < ReviewState.fullData.length - 1) {
             const shared = s.shared_tags_with_next || [];
             const strength = shared.length >= 3 ? "strong" : shared.length >= 1 ? "moderate" : "weak";
-            const color = strength === "strong" ? "rgba(16,185,129,0.5)" : strength === "moderate" ? "rgba(245,158,11,0.35)" : "rgba(239,68,68,0.3)";
-            const lineColor = strength === "strong" ? "rgba(16,185,129,0.15)" : strength === "moderate" ? "rgba(245,158,11,0.08)" : "rgba(239,68,68,0.08)";
+            const color = strength === "strong" ? "rgba(16,185,129,0.5)" : strength === "moderate" ? "rgba(245,158,11,0.35)" : "rgba(107,95,82,0.4)";
+            const lineColor = strength === "strong" ? "rgba(16,185,129,0.15)" : strength === "moderate" ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.03)";
 
             html += `
                 <div class="reviewer-connection" style="border-left:1px solid ${lineColor};margin-left:18px;padding:4px 0 4px 14px;">
                     ${shared.length > 0
                         ? shared.slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:10px;color:${color};letter-spacing:0.02em;">${escapeHtml(t)}</span>`).join('<span style="color:#1f2937;font-size:10px;"> / </span>')
-                        : '<span style="font-family:\'IBM Plex Mono\';font-size:10px;color:rgba(239,68,68,0.3);letter-spacing:0.02em;">NO SHARED TAGS</span>'
+                        : '<span style="font-family:\'IBM Plex Mono\';font-size:10px;color:rgba(107,95,82,0.5);letter-spacing:0.02em;">NO SHARED TAGS</span>'
                     }
                 </div>
             `;

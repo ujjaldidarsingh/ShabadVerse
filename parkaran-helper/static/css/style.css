@@ -731,7 +731,7 @@
 /* Breadcrumbs */
 .breadcrumb-node {
     font-family: 'IBM Plex Mono', monospace;
-    padding: 0.125rem 0.4375rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 0.1875rem;
     background: rgba(245, 158, 11, 0.05);
     border: 1px solid rgba(245, 158, 11, 0.1);
@@ -739,11 +739,14 @@
     font-size: 0.5625rem;
     cursor: pointer;
     white-space: nowrap;
-    max-width: 100px;
+    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
     transition: all 0.12s;
     letter-spacing: 0.01em;
+    min-height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
 }
 .breadcrumb-node:hover {
     background: rgba(245, 158, 11, 0.1);
@@ -936,8 +939,8 @@
 }
 .threshold-slider input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 10px;
-    height: 10px;
+    width: 16px;
+    height: 16px;
     background: rgba(245, 158, 11, 0.6);
     border-radius: 50%;
     cursor: pointer;
@@ -1022,6 +1025,23 @@ details[open] > .force-panel-header::before {
 }
 
 /* ========== REVIEWER ========== */
+
+.reviewer-save-dialog {
+    margin-top: 8px;
+    padding: 10px;
+    background: rgba(18, 16, 28, 0.95);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    border-radius: 6px;
+}
+.reviewer-library-modal {
+    margin-top: 8px;
+    padding: 10px;
+    background: rgba(18, 16, 28, 0.95);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    border-radius: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+}
 
 .reviewer-container {
     height: 100vh;

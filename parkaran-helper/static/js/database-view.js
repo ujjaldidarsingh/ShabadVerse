@@ -82,7 +82,7 @@ function renderShabads(shabads) {
         <div class="card cursor-pointer" onclick="${isLocal ? `toggleExpand(${shabadId})` : `viewBanidbShabad(${s.banidb_shabad_id})`}">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex-1 min-w-0">
-                    ${s.title_gurmukhi ? `<div class="text-gold-300/70 text-lg mb-0.5">${escapeHtml(s.title_gurmukhi)}</div>` : ""}
+                    ${s.title_gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi',serif;color:var(--star-glow);font-size:16px;line-height:1.8;margin-bottom:2px;">${escapeHtml(s.title_gurmukhi)}</div>` : ""}
                     <div class="font-medium text-gray-100 truncate">${escapeHtml(s.title || s.title_transliteration || "Unknown")}</div>
                     <div class="text-sm text-gray-500 mt-0.5">
                         ${escapeHtml(s.keertani || s.writer || "")}

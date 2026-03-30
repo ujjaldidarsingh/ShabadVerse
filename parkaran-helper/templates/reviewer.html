@@ -6,28 +6,28 @@
     <!-- Header -->
     <div class="reviewer-header">
         <div>
-            <h1 style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:rgba(245,158,11,0.6);letter-spacing:0.12em;text-transform:uppercase;margin:0;">PARKARAN REVIEW</h1>
-            <p id="reviewTitle" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#fbbf24;margin-top:2px;"></p>
-            <p style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#6b5f52;margin-top:2px;">Read through your set / check thematic connections</p>
+            <h1 class="section-label" style="color:rgba(245,158,11,0.6);">PARKARAN REVIEW</h1>
+            <p id="reviewTitle" class="font-mono text-xs" style="color:#fbbf24;margin-top:2px;"></p>
+            <p class="page-subtitle">Read through your set / check thematic connections</p>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-            <span id="reviewCount" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a7d6c;">0 SHABADS</span>
-            <button onclick="showReviewerSaveDialog()" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(245,158,11,0.4);background:none;border:1px solid rgba(245,158,11,0.15);padding:4px 10px;border-radius:4px;cursor:pointer;letter-spacing:0.05em;" onmouseover="this.style.color='#fbbf24';this.style.borderColor='rgba(245,158,11,0.4)'" onmouseout="this.style.color='rgba(245,158,11,0.4)';this.style.borderColor='rgba(245,158,11,0.15)'">SAVE</button>
-            <button onclick="showReviewerLibrary()" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(245,158,11,0.4);background:none;border:1px solid rgba(245,158,11,0.15);padding:4px 10px;border-radius:4px;cursor:pointer;letter-spacing:0.05em;" onmouseover="this.style.color='#fbbf24';this.style.borderColor='rgba(245,158,11,0.4)'" onmouseout="this.style.color='rgba(245,158,11,0.4)';this.style.borderColor='rgba(245,158,11,0.15)'">LIBRARY</button>
-            <a href="/explore" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(245,158,11,0.4);text-decoration:none;border:1px solid rgba(245,158,11,0.15);padding:4px 10px;border-radius:4px;">&larr; EXPLORE</a>
+        <div class="flex items-center gap-2">
+            <span id="reviewCount" class="font-mono text-[10px]" style="color:#8a7d6c;">0 SHABADS</span>
+            <button onclick="showReviewerSaveDialog()" class="btn-ghost">SAVE</button>
+            <button onclick="showReviewerLibrary()" class="btn-ghost">LIBRARY</button>
+            <a href="/explore" class="btn-ghost" style="text-decoration:none;">&larr; EXPLORE</a>
         </div>
         <!-- Save dialog (inline, hidden by default) -->
-        <div id="reviewerSaveDialog" class="hidden" style="margin-top:8px;padding:10px;background:rgba(18,16,28,0.95);border:1px solid rgba(245,158,11,0.15);border-radius:6px;">
-            <input id="reviewerSaveName" type="text" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.15);border-radius:4px;color:#fbbf24;font-family:'IBM Plex Mono';font-size:12px;padding:8px;outline:none;" onfocus="this.select()">
-            <div style="display:flex;gap:6px;margin-top:6px;">
-                <button onclick="reviewerSave()" style="flex:1;background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">Save</button>
-                <button onclick="document.getElementById('reviewerSaveDialog').classList.add('hidden')" style="flex:1;background:transparent;color:#6b5f52;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Cancel</button>
+        <div id="reviewerSaveDialog" class="hidden reviewer-save-dialog">
+            <input id="reviewerSaveName" type="text" class="search-input" style="font-size:12px;color:#fbbf24;" onfocus="this.select()">
+            <div class="flex gap-1.5 mt-1.5">
+                <button onclick="reviewerSave()" class="btn-secondary flex-1">Save</button>
+                <button onclick="document.getElementById('reviewerSaveDialog').classList.add('hidden')" class="btn-ghost flex-1">Cancel</button>
             </div>
         </div>
         <!-- Library modal -->
-        <div id="reviewerLibraryModal" class="hidden" style="margin-top:8px;padding:10px;background:rgba(18,16,28,0.95);border:1px solid rgba(245,158,11,0.15);border-radius:6px;max-height:300px;overflow-y:auto;">
+        <div id="reviewerLibraryModal" class="hidden reviewer-library-modal">
             <div id="reviewerLibraryList"></div>
-            <button onclick="document.getElementById('reviewerLibraryModal').classList.add('hidden')" style="width:100%;margin-top:6px;background:transparent;color:#6b5f52;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Close</button>
+            <button onclick="document.getElementById('reviewerLibraryModal').classList.add('hidden')" class="btn-ghost w-full mt-1.5">Close</button>
         </div>
     </div>
 

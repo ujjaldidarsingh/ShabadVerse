@@ -25,6 +25,15 @@ def _get_data():
     return _shabads, _keertanis
 
 
+def _first_gurmukhi_line(shabad: dict) -> str:
+    """Extract first line of Gurmukhi text as a display title."""
+    text = shabad.get("gurmukhi_text") or ""
+    if not text:
+        return ""
+    first_line = text.split("\n")[0].strip()
+    return first_line
+
+
 def _get_builder():
     global _builder
     if _builder is None:
@@ -99,6 +108,7 @@ def list_shabads():
         {
             "id": s["id"],
             "title": s["title"],
+            "title_gurmukhi": _first_gurmukhi_line(s),
             "keertani": s.get("keertani"),
             "sggs_raag": s.get("sggs_raag"),
             "performance_raag": s.get("performance_raag"),
