@@ -202,8 +202,8 @@ function selectShabad(idx) {
 
         <!-- Nav buttons -->
         <div style="display:flex;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.03);">
-            ${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" style="font-family:'IBM Plex Mono';font-size:9px;color:#8a7d6c;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);padding:6px 14px;border-radius:4px;cursor:pointer;">&larr; PREVIOUS</button>` : ""}
-            ${idx < ReviewState.fullData.length - 1 ? `<button onclick="selectShabad(${idx + 1})" style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.6);background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);padding:6px 14px;border-radius:4px;cursor:pointer;">NEXT &rarr;</button>` : ""}
+            ${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" class="btn-ghost">&larr; PREVIOUS</button>` : ""}
+            ${idx < ReviewState.fullData.length - 1 ? `<button onclick="selectShabad(${idx + 1})" class="btn-secondary">NEXT &rarr;</button>` : ""}
         </div>
     `;
 }
@@ -211,9 +211,9 @@ function selectShabad(idx) {
 function renderConnectionDetail(current, next, idx) {
     const shared = current.shared_tags_with_next || [];
     const strength = shared.length >= 3 ? "STRONG" : shared.length >= 1 ? "MODERATE" : "WEAK";
-    const color = shared.length >= 3 ? "rgba(16,185,129,0.6)" : shared.length >= 1 ? "rgba(245,158,11,0.5)" : "rgba(239,68,68,0.5)";
-    const bgColor = shared.length >= 3 ? "rgba(16,185,129,0.03)" : shared.length >= 1 ? "rgba(245,158,11,0.03)" : "rgba(239,68,68,0.03)";
-    const borderColor = shared.length >= 3 ? "rgba(16,185,129,0.15)" : shared.length >= 1 ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)";
+    const color = shared.length >= 3 ? "rgba(16,185,129,0.6)" : shared.length >= 1 ? "rgba(245,158,11,0.5)" : "rgba(107,95,82,0.5)";
+    const bgColor = shared.length >= 3 ? "rgba(16,185,129,0.03)" : shared.length >= 1 ? "rgba(245,158,11,0.03)" : "rgba(107,95,82,0.03)";
+    const borderColor = shared.length >= 3 ? "rgba(16,185,129,0.15)" : shared.length >= 1 ? "rgba(245,158,11,0.1)" : "rgba(107,95,82,0.1)";
 
     const nextGurmukhi = next.gurmukhi || "";
     const nextTitle = next.title || "Unknown";
@@ -230,7 +230,7 @@ function renderConnectionDetail(current, next, idx) {
             </div>
             ${shared.length > 0
                 ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${shared.map((t) => `<span style="font-family:'IBM Plex Mono';font-size:8px;color:${color};background:rgba(255,255,255,0.02);padding:2px 6px;border-radius:2px;border:1px solid ${borderColor};">${escapeHtml(t)}</span>`).join("")}</div>`
-                : `<div style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(239,68,68,0.4);">No shared thematic tags. Consider rearranging or adding a bridging shabad.</div>`
+                : `<div style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(107,95,82,0.5);">No shared thematic tags. Consider rearranging or adding a bridging shabad.</div>`
             }
         </div>
     `;

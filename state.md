@@ -1,24 +1,17 @@
 # Parkaran Tool Current State
 
-## Status: Active Development (local-first, graph explorer is primary UI)
+## Status: Active Development — Design Polish Pass
 
-## Recent Work (2026-03-24 to 2026-03-25)
-- Migrated from paid APIs (Anthropic + Voyage AI) to fully local stack (Ollama + sentence-transformers)
-- Built SGGS taxonomy: 372 tags across 5,542 shabads (dual-model validated with Qwen 3 + DeepSeek R1)
-- Implemented graph explorer with radial tag-clustered layout (Cytoscape.js built-in cose)
-- Suggestion engine diversity fix: 2.1 avg clusters per shabad to 8.6 (core/branch pool split)
-- Celestial Observatory design system: warm purple-black palette, Noto Serif Gurmukhi, theme-colored nodes
-- Full rahao pada extraction (2,623 shabads), display name fix (85 title-like headers corrected)
-- Verse preview floating overlay, parkaran trail edges, tuk-aware search
-- Code review fixes: XSS (escAttr), race conditions, stale DOM, unbounded cache eviction
+## Recent Work
+- 2026-03-30: Design review (7.8/10), began fix pass — reviewer inline styles, touch targets, Gurmukhi-first
+- 2026-03-29: SAVE/LIBRARY on reviewer page, parkaran library (localStorage), GitHub repo + ngrok demo
+- 2026-03-25: Graph explorer, SGGS taxonomy (372 tags, 5,542 shabads), suggestion engine diversity
+- 2026-03-24: Local stack migration (Ollama + sentence-transformers), Celestial Observatory design
 
-## Active Features
+## Active Pages
 - **Explore** (primary): Interactive graph explorer with tag-clustered suggestions, threshold slider, force controls
 - **Reviewer**: Parkaran flow review with full Gurmukhi text, shared tags between shabads
 - **Database**: Browse/search personal shabad collection (1,035 enriched)
-- **Discover**: Search full SGGS via BaniDB first-letter search
-- **Builder** (classic): Seed-based parkaran builder with graph-first + vector fallback
-- **Occasions**: 10 Sikh occasions with themed shabad suggestions
 
 ## Environment
 - **Run**: `cd parkaran-helper && python app.py` (port 5050)
@@ -40,6 +33,7 @@
 - ~34 shabads still have short/structural display names (edge cases: ਡਖਣਾ, ਪਵੜੀ markers)
 - Enrichment pipeline comments still reference Claude/Voyage (cosmetic, code uses Ollama)
 - Frontend uses CDN for Tailwind + Cytoscape (requires internet for first load)
+- DESIGN.md color tokens drift from actual CSS values (documentation, not code bug)
 
 ## Milestones
 
@@ -53,12 +47,20 @@
 - [x] feat: parkaran trail (green directed edges between selected shabads)
 - [x] feat: reviewer page with shared tag transitions
 - [x] feat: first-letter search (BaniDB) + local tag/theme fallback
+- [x] feat: parkaran library save/load/delete (localStorage)
+- [x] feat: SAVE/LIBRARY on reviewer page
 - [x] bug: fix cose-bilkent crash — built-in cose layout
 - [x] bug: fix XSS via single-quote injection in onclick attributes
 - [x] bug: fix race condition in expandShabad (concurrent guard)
 - [x] bug: searched tuk drives suggestions via blended vector+graph path
 - [x] bug: 8 structural display names fixed (12 remaining are genuine section markers)
 - [x] feat: shabad preview popup visible in tooltip (PREVIEW button prominent)
+- [x] chore: GitHub repo + ngrok demo deployment
+- [x] design: Gurmukhi-first display on database page
+- [x] design: Reviewer header uses CSS classes (not inline styles)
+- [x] design: Touch targets meet 44px minimum (buttons, breadcrumbs, slider)
+- [x] design: NO SHARED TAGS uses dim color (not red)
+- [x] design: Consistent button styling across all pages
 
 ### Beta (external testing ready)
 - [x] design: Celestial Observatory design system (DESIGN.md)
@@ -66,6 +68,8 @@
 - [ ] design: font size overhaul — explore/review pages readable at arm's length
 - [ ] design: tooltip dialog box sizing (verses/preview too small currently)
 - [ ] design: tag labels fully visible (max-width reactive, wrap not truncate)
+- [ ] design: reviewer detail panel max-width for readability
+- [ ] design: tag label collision avoidance on graph
 - [ ] feat: shabad labels show 4-5 Gurmukhi words (not 2)
 - [ ] feat: add-to-parkaran solidifies nodes with visual trail breadcrumbs
 - [ ] feat: tag taxonomy refinement (merge overlapping tags)
