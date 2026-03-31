@@ -748,7 +748,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
     // Fetch verses (cached with LRU eviction)
     if (!State.verseCache[sid]) {
         try {
-            const data = await API.get(`/api/discover/shabad/${sid}/verses`);
+            const data = await API.get(`/api/graph/shabad/${sid}/verses`);
             if (gen !== verseLoadGeneration) return; // stale, tooltip changed
             // LRU eviction
             const keys = Object.keys(State.verseCache);
