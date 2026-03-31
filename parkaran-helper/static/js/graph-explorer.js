@@ -867,7 +867,7 @@ function initSearch() {
         const flQuery = q.replace(/\s+/g, "");
 
         try {
-            const results = await API.get(`/api/discover/search?q=${encodeURIComponent(flQuery)}&searchtype=1`);
+            const results = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=1`);
 
             if (!results || results.length === 0) {
                 // Fallback: local tag/theme search

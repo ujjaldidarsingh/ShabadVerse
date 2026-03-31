@@ -368,6 +368,67 @@ def get_shabad_verses_graph(shabad_id):
     })
 
 
+@graph_bp.route("/graph/search")
+def graph_search():
+    """Search BaniDB for shabads by first letters or keywords."""
+    from enrichment.banidb_matcher import BaniDBMatcher
+
+    q = request.args.get("q", "").strip()
+    searchtype = request.args.get("searchtype", 4, type=int)
+
+    if searchtype in (1, 2):
+        q = q.replace(" ", "")
+
+    if not q or len(q) < 2:
+        return jsonify([])
+
+    matcher = BaniDBMatcher()
+    verses = matcher.search(q, searchtype=searchtype)
+    matcher.close()
+
+    seen = {}
+    for v in verses:
+        sid = v.get("shabadId")
+        if sid and sid not in seen:
+            seen[sid] = v
+
+    results = []
+    for sid, verse in seen.items():
+        translit = verse.get("transliteration", {})
+        translation = verse.get("translation", {})
+        en_trans = translation.get("en", {}) if isinstance(translation, dict) else {}
+
+        results.append({
+            "banidb_shabad_id": sid,
+            "title_gurmukhi": (
+                verse.get("verse", {}).get("unicode", "")
+                if isinstance(verse.get("verse"), dict)
+                else ""
+            ),
+            "title_transliteration": (
+                translit.get("en", "") if isinstance(translit, dict) else ""
+            ),
+            "first_line_translation": (
+                (en_trans.get("bdb") or en_trans.get("ms") or "")
+                if isinstance(en_trans, dict)
+                else ""
+            ),
+            "ang_number": verse.get("pageNo"),
+            "raag": (
+                verse.get("raag", {}).get("english", "")
+                if isinstance(verse.get("raag"), dict)
+                else ""
+            ),
+            "writer": (
+                verse.get("writer", {}).get("english", "")
+                if isinstance(verse.get("writer"), dict)
+                else ""
+            ),
+        })
+
+    return jsonify(results[:30])
+
+
 @graph_bp.route("/tags")
 def list_tags():
     """Return all tags with counts and descriptions."""
