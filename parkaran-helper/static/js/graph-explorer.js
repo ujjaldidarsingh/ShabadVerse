@@ -590,7 +590,7 @@ function showTooltip(shabadId, nodeEl) {
             ${summary ? `<div class="tt-summary">${escapeHtml(summary.substring(0, 120))}</div>` : ""}
             ${tagPills ? `<div class="tt-tags">${tagPills}</div>` : ""}
             <div class="tt-actions">
-                <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN PARKARAN" : "+ ADD"}</button>
+                <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN SET" : "+ ADD"}</button>
                 <button class="tt-btn tt-btn-explore" data-action="explore" data-id="${sid}">EXPLORE &rarr;</button>
                 <button class="tt-btn tt-btn-preview" data-action="preview" data-id="${sid}">PREVIEW</button>
                 <button class="tt-btn" data-action="verses" data-id="${sid}" style="color:rgba(200,200,210,0.4);">VERSES</button>
@@ -1028,7 +1028,7 @@ function autoName(items) {
     const tagCounts = {};
     items.forEach((p) => (p.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
     const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 2).map((e) => e[0]);
-    return topTags.join(" & ") || `Parkaran (${items.length} shabads)`;
+    return topTags.join(" & ") || `Set (${items.length} shabads)`;
 }
 
 function restoreParkaran() {
@@ -1157,7 +1157,7 @@ function showSaveDialog() {
     const suggested = autoName(State.parkaran);
     container.innerHTML = `
         <div style="padding:12px;">
-            <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Save Parkaran</div>
+            <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Save Set</div>
             <input id="saveNameInput" type="text" value="${escAttr(suggested)}"
                    style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.15);border-radius:4px;color:#fbbf24;font-family:'IBM Plex Mono';font-size:12px;padding:8px;outline:none;"
                    onfocus="this.select()">
@@ -1187,8 +1187,8 @@ function showLibrary() {
     if (saved.length === 0) {
         container.innerHTML = `
             <div style="text-align:center;padding:24px 12px;">
-                <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;letter-spacing:0.05em;">No saved parkarans yet</div>
-                <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;margin-top:4px;">Build a parkaran and click SAVE</div>
+                <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;letter-spacing:0.05em;">No saved sets yet</div>
+                <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;margin-top:4px;">Build a set and click SAVE</div>
             </div>
         `;
     } else {

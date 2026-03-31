@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Explore - Parkaran{% endblock %}
+{% block title %}Explore - ShabadVerse{% endblock %}
 
 {% block content %}
 <div class="flex flex-col" style="height: calc(100vh - 5.5rem);">
@@ -68,12 +68,12 @@
                 <div class="mission-panel-header parkaran-sidebar-header" onclick="this.closest('.parkaran-sidebar').classList.toggle('mobile-open')">
                     <div class="flex items-center justify-between w-full">
                         <div class="flex items-center gap-2">
-                            <span>PARKARAN</span>
+                            <span>SET</span>
                             <span id="parkaranCount" class="text-[9px] text-gray-600 font-normal tracking-normal">0</span>
                         </div>
                         <div class="flex items-center gap-1" onclick="event.stopPropagation()">
-                            <button onclick="showSaveDialog()" title="Save parkaran" class="btn-ghost py-1 px-2 text-[10px]">SAVE</button>
-                            <button onclick="showLibrary()" title="Saved parkarans" class="btn-ghost py-1 px-2 text-[10px]">LIBRARY</button>
+                            <button onclick="showSaveDialog()" title="Save set" class="btn-ghost py-1 px-2 text-[10px]">SAVE</button>
+                            <button onclick="showLibrary()" title="Saved sets" class="btn-ghost py-1 px-2 text-[10px]">LIBRARY</button>
                         </div>
                     </div>
                 </div>
@@ -83,7 +83,7 @@
                 <div id="parkaranList" class="flex-1 overflow-y-auto p-1.5 space-y-1"></div>
             </div>
             <button id="reviewBtn" class="btn-primary w-full text-[10px] hidden" onclick="sendToReview()">
-                REVIEW PARKARAN
+                REVIEW SET
             </button>
         </div>
     </div>

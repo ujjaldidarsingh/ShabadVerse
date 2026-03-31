@@ -1,0 +1,13 @@
+.git
+.claude
+.gstack
+bootstrap/
+experiments.tsv
+__pycache__
+*.pyc
+.env
+.env.example
+CLAUDE.md
+DESIGN.md
+state.md
+architecture.md

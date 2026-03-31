@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Parkaran{% endblock %}</title>
+    <title>{% block title %}ShabadVerse{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -37,12 +37,11 @@
                     <div class="w-6 h-6 rounded-full bg-star-500 shadow-[0_0_12px_rgba(245,158,11,0.4)] flex items-center justify-center">
                         <div class="w-2 h-2 rounded-full bg-star-200"></div>
                     </div>
-                    <span class="font-['Space_Mono'] text-star-400 text-sm tracking-wider group-hover:text-star-300 transition-colors">PARKARAN</span>
+                    <span class="font-['Space_Mono'] text-star-400 text-sm tracking-wider group-hover:text-star-300 transition-colors">SHABADVERSE</span>
                 </a>
                 <div class="flex gap-0.5 items-center">
                     <a href="/explore" class="nav-link {% if request.path in ['/', '/explore'] %}active{% endif %}">EXPLORE</a>
                     <a href="/reviewer" class="nav-link {% if request.path == '/reviewer' %}active{% endif %}">REVIEWER</a>
-                    <a href="/database" class="nav-link {% if request.path == '/database' %}active{% endif %}">DATABASE</a>
                 </div>
             </div>
         </div>

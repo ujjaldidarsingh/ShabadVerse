@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Review Parkaran - Parkaran Helper{% endblock %}
+{% block title %}Review - ShabadVerse{% endblock %}
 
 {% block content %}
 <div class="reviewer-container">
     <!-- Header -->
     <div class="reviewer-header">
         <div>
-            <h1 class="section-label" style="color:rgba(245,158,11,0.6);">PARKARAN REVIEW</h1>
+            <h1 class="section-label" style="color:rgba(245,158,11,0.6);">SET REVIEW</h1>
             <p id="reviewTitle" class="font-mono text-xs" style="color:#fbbf24;margin-top:2px;"></p>
             <p class="page-subtitle">Read through your set / check thematic connections</p>
         </div>
@@ -33,19 +33,19 @@
 
     <!-- Loading state -->
     <div id="reviewLoading" style="text-align:center;padding:60px 0;">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6b5f52;">LOADING PARKARAN...</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6b5f52;">LOADING SET...</div>
     </div>
 
     <!-- Empty state -->
     <div id="reviewEmpty" class="hidden" style="text-align:center;padding:60px 0;">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6b5f52;letter-spacing:0.05em;">NO PARKARAN TO REVIEW</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#4a3f35;margin-top:8px;">Go to <a href="/explore" style="color:rgba(245,158,11,0.5);">Explore</a> and add shabads to your parkaran</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6b5f52;letter-spacing:0.05em;">NO SET TO REVIEW</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#4a3f35;margin-top:8px;">Go to <a href="/explore" style="color:rgba(245,158,11,0.5);">Explore</a> and add shabads to your set</div>
     </div>
 
     <!-- Main content (2-column) -->
     <div id="reviewContent" class="hidden" style="display:flex;gap:0;height:calc(100vh - 120px);">
 
-        <!-- Left: Parkaran flow list -->
+        <!-- Left: Set flow list -->
         <div class="reviewer-flow-panel">
             <div style="padding:12px 12px 8px;border-bottom:1px solid rgba(255,255,255,0.03);">
                 <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:rgba(245,158,11,0.4);letter-spacing:0.1em;">FLOW</span>

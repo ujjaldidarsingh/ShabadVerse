@@ -260,7 +260,7 @@ function autoName(items) {
     const tagCounts = {};
     items.forEach((p) => (p.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
     const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 2).map((e) => e[0]);
-    return topTags.join(" & ") || `Parkaran (${items.length} shabads)`;
+    return topTags.join(" & ") || `Set (${items.length} shabads)`;
 }
 
 function showReviewerSaveDialog() {

@@ -136,7 +136,7 @@ def graph_neighbors(shabad_id):
                     "writer": n_meta.get("writer") or r["metadata"].get("writer", ""),
                     "ang": n_meta.get("ang") or r["metadata"].get("ang", 0),
                     "tags": n_meta.get("tags", []),
-                    "is_repertoire": n_meta.get("is_repertoire", False),
+                    "is_repertoire": False,
                     "primary_theme": n_meta.get("primary_theme") or r["metadata"].get("primary_theme", ""),
                     "mood": n_meta.get("mood") or r["metadata"].get("mood", ""),
                     "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or r["metadata"].get("brief_meaning", ""),
@@ -190,7 +190,7 @@ def graph_neighbors(shabad_id):
             "writer": n_meta.get("writer", ""),
             "ang": n_meta.get("ang", 0),
             "tags": n_meta.get("tags", []),
-            "is_repertoire": n_meta.get("is_repertoire", False),
+            "is_repertoire": False,
             "primary_theme": n_meta.get("primary_theme", ""),
             "mood": n_meta.get("mood", ""),
             "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or "",
@@ -310,7 +310,7 @@ def get_shabads_by_ids():
             "tags": meta.get("tags", []),
             "primary_theme": meta.get("primary_theme") or sggs.get("primary_theme") or "",
             "mood": meta.get("mood") or sggs.get("mood") or "",
-            "is_repertoire": meta.get("is_repertoire", False),
+            "is_repertoire": False,
             "shared_tags_with_next": shared_with_next,
         })
 
