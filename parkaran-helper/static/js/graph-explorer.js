@@ -76,10 +76,11 @@ async function init() {
         initThresholdSlider();
         initForceControls();
 
-        // Escape key closes preview and tooltip
+        // Escape key closes modals and tooltip
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
                 hidePreview();
+                closeTagShabadsModal();
                 hideTooltip();
             }
         });
@@ -117,6 +118,21 @@ function initCytoscape() {
         evt.stopPropagation();
         const sid = evt.target.data("shabadId");
         if (sid) showTooltip(sid, evt.target);
+    });
+
+    // Tap tag label → open tag-shabads modal
+    State.cy.on("tap", "node[type='tagLabel']", (evt) => {
+        evt.stopPropagation();
+        const tag = evt.target.data("tag") || evt.target.data("label");
+        if (tag) openTagShabadsModal(tag);
+    });
+
+    // Hover tag label → show pointer cursor
+    State.cy.on("mouseover", "node[type='tagLabel']", () => {
+        State.cy.container().style.cursor = "pointer";
+    });
+    State.cy.on("mouseout", "node[type='tagLabel']", () => {
+        State.cy.container().style.cursor = "";
     });
 
     // Tap background → hide tooltip
@@ -207,7 +223,7 @@ function getStyles() {
                 "border-width": 2,
             },
         },
-        // ── Tag label (same visual weight as node labels) ──
+        // ── Tag label (clickable: opens tag-shabads modal) ──
         {
             selector: "node[type='tagLabel']",
             style: {
@@ -225,10 +241,18 @@ function getStyles() {
                 width: 6,
                 height: 6,
                 "overlay-opacity": 0,
-                events: "no",
                 "text-outline-width": 2,
                 "text-outline-color": "#0f0d13",
                 "text-outline-opacity": 0.6,
+            },
+        },
+        // Tag label hover style — indicate it's interactive
+        {
+            selector: "node[type='tagLabel']:active, node[type='tagLabel'].cy-hover",
+            style: {
+                color: "rgba(245,158,11,0.95)",
+                "text-outline-color": "#0f0d13",
+                "text-outline-opacity": 1,
             },
         },
         // ── Edge with score-based strength ──
@@ -572,7 +596,7 @@ function showTooltip(shabadId, nodeEl) {
 
     const tagPills = (meta.tags || [])
         .slice(0, 5)
-        .map((t) => `<span class="tt-tag">${escapeHtml(t)}</span>`)
+        .map((t) => `<span class="tt-tag tt-tag-clickable" data-tag="${escAttr(t)}" title="Browse shabads in ${escAttr(t)}">${escapeHtml(t)}</span>`)
         .join("");
 
     // Summary: prefer brief_meaning, fall back to primary_theme
@@ -632,6 +656,15 @@ function showTooltip(shabadId, nodeEl) {
         });
     });
 
+    // Bind tag pill clicks → open tag-shabads modal
+    tooltip.querySelectorAll(".tt-tag-clickable").forEach((pill) => {
+        pill.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const tag = pill.dataset.tag;
+            if (tag) openTagShabadsModal(tag);
+        });
+    });
+
     // Position tooltip near node, clamped to viewport
     const pos = nodeEl.renderedPosition();
     const container = document.getElementById("cy").getBoundingClientRect();
@@ -658,21 +691,22 @@ function hideTooltip() {
     hidePreview();
 }
 
-/** Show shabad preview with translation in the tooltip. */
+/** Show shabad preview as a centered modal with backdrop. */
 async function loadPreview(shabadId) {
     const sid = String(shabadId);
+    const modal = document.getElementById("shabadPreviewModal");
     const preview = document.getElementById("shabadPreview");
-    const tooltip = document.getElementById("nodeTooltip");
 
     // Toggle off if showing same shabad
-    if (!preview.classList.contains("hidden") && preview.dataset.sid === sid) {
+    if (!modal.classList.contains("hidden") && modal.dataset.sid === sid) {
         hidePreview();
         return;
     }
 
-    preview.dataset.sid = sid;
-    preview.innerHTML = '<div class="preview-header"><span>LOADING...</span></div>';
-    preview.classList.remove("hidden");
+    modal.dataset.sid = sid;
+    preview.innerHTML = '<div class="preview-header"><span>LOADING...</span><button class="preview-close" aria-label="Close preview">&times;</button></div>';
+    modal.classList.remove("hidden");
+    wirePreviewCloseButtons();
 
     // Use cached verses if available
     if (!State.verseCache[sid]) {
@@ -683,7 +717,8 @@ async function loadPreview(shabadId) {
             if (keys.length >= 50) delete State.verseCache[keys[0]];
             State.verseCache[sid] = data.verses || [];
         } catch (err) {
-            preview.innerHTML = '<div class="preview-header"><span>Could not load preview</span><button class="preview-close" onclick="hidePreview()">&times;</button></div>';
+            preview.innerHTML = '<div class="preview-header"><span>Could not load preview</span><button class="preview-close" aria-label="Close preview">&times;</button></div>';
+            wirePreviewCloseButtons();
             return;
         }
     }
@@ -691,7 +726,8 @@ async function loadPreview(shabadId) {
     const verses = State.verseCache[sid];
     const meta = State.metadata[sid] || {};
     if (!verses.length) {
-        preview.innerHTML = '<div class="preview-header"><span>No verse data</span><button class="preview-close" onclick="hidePreview()">&times;</button></div>';
+        preview.innerHTML = '<div class="preview-header"><span>No verse data</span><button class="preview-close" aria-label="Close preview">&times;</button></div>';
+        wirePreviewCloseButtons();
         return;
     }
 
@@ -699,7 +735,7 @@ async function loadPreview(shabadId) {
     preview.innerHTML = `
         <div class="preview-header">
             <span>${headerText}</span>
-            <button class="preview-close" onclick="hidePreview()">&times;</button>
+            <button class="preview-close" aria-label="Close preview">&times;</button>
         </div>
         ${verses.map((v) => {
             const rahaoClass = v.is_rahao ? " preview-rahao" : "";
@@ -710,26 +746,24 @@ async function loadPreview(shabadId) {
         }).join("")}
     `;
 
-    // Position: to the right of tooltip, or left if no space
-    const cyRect = document.getElementById("cy").getBoundingClientRect();
-    const ttRect = tooltip.getBoundingClientRect();
-    const previewWidth = 380;
+    wirePreviewCloseButtons();
+    // Reset scroll to top for each new preview
+    preview.scrollTop = 0;
+}
 
-    let left = ttRect.right - cyRect.left + 8;
-    if (left + previewWidth > cyRect.width - 10) {
-        left = ttRect.left - cyRect.left - previewWidth - 8;
-    }
-    if (left < 10) left = 10;
-
-    let top = ttRect.top - cyRect.top;
-    if (top < 10) top = 10;
-
-    preview.style.left = left + "px";
-    preview.style.top = top + "px";
+function wirePreviewCloseButtons() {
+    document.querySelectorAll("#shabadPreview .preview-close").forEach((btn) => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            hidePreview();
+        };
+    });
 }
 
 function hidePreview() {
-    document.getElementById("shabadPreview").classList.add("hidden");
+    const modal = document.getElementById("shabadPreviewModal");
+    modal.classList.add("hidden");
+    modal.removeAttribute("data-sid");
 }
 
 async function loadVerseSelector(shabadId, nodeEl) {
@@ -994,16 +1028,198 @@ function surpriseMe() {
     expandShabad(ids[Math.floor(Math.random() * ids.length)]);
 }
 
+/* ===== TAG SHABADS MODAL (opened by clicking a tag label or tag pill) ===== */
+
+async function openTagShabadsModal(tag) {
+    if (!tag) return;
+    hideTooltip();
+    hidePreview();
+
+    const modal = document.getElementById("tagShabadsModal");
+    const content = document.getElementById("tagShabadsContent");
+
+    modal.dataset.tag = tag;
+    content.innerHTML = `
+        <div class="preview-header">
+            <span>${escapeHtml(tag.toUpperCase())} &mdash; LOADING...</span>
+            <button class="preview-close" aria-label="Close tag list">&times;</button>
+        </div>
+    `;
+    modal.classList.remove("hidden");
+    wireTagShabadsCloseButtons();
+
+    try {
+        const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=50`);
+        const shabads = data.shabads || [];
+        const count = shabads.length;
+
+        if (count === 0) {
+            content.innerHTML = `
+                <div class="preview-header">
+                    <span>${escapeHtml(tag.toUpperCase())} &mdash; NO SHABADS</span>
+                    <button class="preview-close" aria-label="Close tag list">&times;</button>
+                </div>
+                <div class="preview-english" style="padding:16px 4px;">No shabads found in this tag.</div>
+            `;
+        } else {
+            content.innerHTML = `
+                <div class="preview-header">
+                    <span>${escapeHtml(tag.toUpperCase())} &mdash; ${count} SHABAD${count === 1 ? "" : "S"}</span>
+                    <button class="preview-close" aria-label="Close tag list">&times;</button>
+                </div>
+                <div class="tag-shabads-list">
+                    ${shabads.map((s) => {
+                        const gurmukhi = State.metadata[s.id]?.gurmukhi || s.title || "";
+                        const meta = [s.raag, s.writer, s.ang ? `ANG ${s.ang}` : ""].filter(Boolean).join(" / ");
+                        return `
+                            <div class="tag-shabad-row" data-sid="${escAttr(s.id)}">
+                                <div lang="pa-Guru" class="tag-shabad-gurmukhi">${escapeHtml(gurmukhi.substring(0, 60))}</div>
+                                <div class="tag-shabad-meta">${escapeHtml(meta)}</div>
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            `;
+        }
+
+        wireTagShabadsCloseButtons();
+        content.querySelectorAll(".tag-shabad-row").forEach((row) => {
+            row.addEventListener("click", () => {
+                const sid = row.dataset.sid;
+                closeTagShabadsModal();
+                expandShabad(sid);
+            });
+        });
+    } catch (err) {
+        content.innerHTML = `
+            <div class="preview-header">
+                <span>${escapeHtml(tag.toUpperCase())} &mdash; ERROR</span>
+                <button class="preview-close" aria-label="Close tag list">&times;</button>
+            </div>
+            <div class="preview-english" style="padding:16px 4px;color:#ef4444;">Could not load shabads: ${escapeHtml(err.message)}</div>
+        `;
+        wireTagShabadsCloseButtons();
+    }
+}
+
+function wireTagShabadsCloseButtons() {
+    document.querySelectorAll("#tagShabadsContent .preview-close").forEach((btn) => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            closeTagShabadsModal();
+        };
+    });
+}
+
+function closeTagShabadsModal() {
+    const modal = document.getElementById("tagShabadsModal");
+    modal.classList.add("hidden");
+    modal.removeAttribute("data-tag");
+}
+
 /* ===== BREADCRUMBS ===== */
 
 function renderBreadcrumbs() {
     const el = document.getElementById("breadcrumbs");
-    el.innerHTML = State.expandedNodes.map((sid) => {
+    if (State.expandedNodes.length === 0) {
+        el.innerHTML = "";
+        return;
+    }
+
+    const chips = State.expandedNodes.map((sid, idx) => {
         const m = State.metadata[sid] || {};
         const label = trunc(m.gurmukhi || m.title || sid, 20);
         const active = sid === State.centerNode;
-        return `<span class="breadcrumb-node ${active ? "active" : ""}" onclick="event.stopPropagation(); expandShabad('${escAttr(sid)}')">${escapeHtml(label)}</span>`;
-    }).join('<span style="color:#1f2937;font-size:9px;"> &rsaquo; </span>');
+        return `
+            <span class="breadcrumb-chip ${active ? "active" : ""}">
+                <span class="breadcrumb-label" data-sid="${escAttr(sid)}">${escapeHtml(label)}</span>
+                <button class="breadcrumb-close" data-sid="${escAttr(sid)}" data-idx="${idx}" aria-label="Remove from trail" title="Remove from trail">&times;</button>
+            </span>
+        `;
+    }).join('<span class="breadcrumb-sep">&rsaquo;</span>');
+
+    el.innerHTML = `
+        ${chips}
+        <button class="breadcrumb-reset" id="breadcrumbReset" title="Clear exploration trail">RESET</button>
+    `;
+
+    // Label click → jump to that crumb
+    el.querySelectorAll(".breadcrumb-label").forEach((label) => {
+        label.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const sid = label.dataset.sid;
+            if (sid && sid !== String(State.centerNode)) {
+                expandShabad(sid);
+            }
+        });
+    });
+
+    // × click → truncate trail at that point (browser-history pattern)
+    el.querySelectorAll(".breadcrumb-close").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx, 10);
+            removeBreadcrumbAt(idx);
+        });
+    });
+
+    // RESET button → confirm then clear
+    const resetBtn = document.getElementById("breadcrumbReset");
+    if (resetBtn) {
+        resetBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            confirmResetGraph();
+        });
+    }
+}
+
+/**
+ * Remove a single breadcrumb from the trail (not the ones after it).
+ * If the removed crumb is the current center, re-center on the next crumb
+ * (preferring the one after, then the one before). If no crumbs remain,
+ * fall through to a full reset.
+ */
+function removeBreadcrumbAt(idx) {
+    if (idx < 0 || idx >= State.expandedNodes.length) return;
+
+    const removedSid = State.expandedNodes[idx];
+    const isCenter = removedSid === State.centerNode;
+
+    // Remove just this one
+    State.expandedNodes = [
+        ...State.expandedNodes.slice(0, idx),
+        ...State.expandedNodes.slice(idx + 1),
+    ];
+
+    if (State.expandedNodes.length === 0) {
+        resetGraph();
+        return;
+    }
+
+    if (isCenter) {
+        // Jump to the crumb that was after the removed one, or the one before
+        // if we removed the last crumb
+        const newIdx = Math.min(idx, State.expandedNodes.length - 1);
+        const newCenter = State.expandedNodes[newIdx];
+        // expandShabad pushes to expandedNodes, so pop the item at newIdx to
+        // avoid duplication (it will be re-added by expandShabad)
+        State.expandedNodes = [
+            ...State.expandedNodes.slice(0, newIdx),
+            ...State.expandedNodes.slice(newIdx + 1),
+        ];
+        expandShabad(newCenter);
+    } else {
+        renderBreadcrumbs();
+    }
+}
+
+function confirmResetGraph() {
+    if (State.expandedNodes.length === 0) {
+        resetGraph();
+        return;
+    }
+    const ok = window.confirm("Clear exploration trail?\n\nThis will reset the graph and remove all breadcrumbs. Your saved set is unaffected.");
+    if (ok) resetGraph();
 }
 
 /* ===== PARKARAN LIBRARY (multi-parkaran, localStorage-backed) ===== */
