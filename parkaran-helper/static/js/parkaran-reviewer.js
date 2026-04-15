@@ -1,6 +1,10 @@
 /**
- * Parkaran Reviewer — Display parkaran flow with translations, tags, connections.
- * No AI required. All data comes from the precomputed taxonomy + graph.
+ * Parkaran Reviewer — Display the library flow with translations, tags, connections.
+ *
+ * As of the unified UI (Batch 3), this module no longer runs on page load.
+ * Instead, initReviewTab() is called by graph-explorer.js whenever the user
+ * switches to the Review tab, pulling the current library from State.parkaran
+ * (not localStorage) so both tabs share the same source of truth.
  */
 
 const ReviewState = {
@@ -9,50 +13,49 @@ const ReviewState = {
     selectedIdx: -1,    // Currently selected shabad index
 };
 
-/* ===== INIT ===== */
+/* ===== INIT (called by tab switch) ===== */
 
-async function init() {
+async function initReviewTab() {
     const loadingEl = document.getElementById("reviewLoading");
     const emptyEl = document.getElementById("reviewEmpty");
     const contentEl = document.getElementById("reviewContent");
-    const countEl = document.getElementById("reviewCount");
+
+    // Read the current library directly from the shared State object
+    const items = (typeof State !== "undefined" && State.parkaran) ? State.parkaran : [];
+
+    if (!items.length) {
+        loadingEl?.classList.add("hidden");
+        contentEl?.classList.add("hidden");
+        emptyEl?.classList.remove("hidden");
+        return;
+    }
+
+    // If the review panel is already showing the same set, do nothing
+    const sameLength = ReviewState.parkaran.length === items.length;
+    const sameIds = sameLength && ReviewState.parkaran.every((p, i) => String(p.id) === String(items[i].id));
+    if (sameIds && ReviewState.fullData.length) {
+        emptyEl?.classList.add("hidden");
+        loadingEl?.classList.add("hidden");
+        contentEl?.classList.remove("hidden");
+        return;
+    }
+
+    ReviewState.parkaran = [...items];
+    ReviewState.selectedIdx = 0;
+
+    emptyEl?.classList.add("hidden");
+    contentEl?.classList.add("hidden");
+    loadingEl?.classList.remove("hidden");
 
     try {
-        // Load parkaran from localStorage (set by explorer's sendToReview)
-        const stored = localStorage.getItem("reviewParkaran");
-        if (!stored) {
-            loadingEl.classList.add("hidden");
-            emptyEl.classList.remove("hidden");
-            return;
-        }
-
-        ReviewState.parkaran = JSON.parse(stored);
-        if (!ReviewState.parkaran.length) {
-            loadingEl.classList.add("hidden");
-            emptyEl.classList.remove("hidden");
-            return;
-        }
-
-        countEl.textContent = `${ReviewState.parkaran.length} SHABADS`;
-
-        // Display parkaran name if available
-        const parkaranName = localStorage.getItem("reviewParkaranName");
-        const titleEl = document.getElementById("reviewTitle");
-        if (parkaranName && titleEl) {
-            titleEl.textContent = parkaranName;
-        }
-
-        // Fetch full data for all shabads in one call
-        const ids = ReviewState.parkaran.map((p) => parseInt(p.id, 10)).filter((id) => !isNaN(id));
+        const ids = ReviewState.parkaran
+            .map((p) => parseInt(p.id, 10))
+            .filter((id) => !isNaN(id));
         const response = await API.post("/api/graph/shabads", { ids });
         ReviewState.fullData = response.shabads || [];
 
-        // Show content
-        loadingEl.classList.add("hidden");
-        contentEl.classList.remove("hidden");
-        contentEl.style.display = "flex";
-
-        renderFlow();
+        loadingEl?.classList.add("hidden");
+        contentEl?.classList.remove("hidden");
 
         // Auto-select first shabad
         if (ReviewState.fullData.length > 0) {
@@ -60,72 +63,23 @@ async function init() {
         }
     } catch (err) {
         console.error("Review init error:", err);
-        loadingEl.innerHTML = `<div style="font-family:'IBM Plex Mono';color:#ef4444;font-size:10px;">ERROR: ${escapeHtml(err.message)}</div>`;
+        if (loadingEl) {
+            loadingEl.innerHTML = `<div style="font-family:'IBM Plex Mono';color:#ef4444;font-size:10px;">ERROR: ${escapeHtml(err.message)}</div>`;
+        }
     }
 }
 
-/* ===== FLOW LIST (left panel) ===== */
-
-function renderFlow() {
-    const container = document.getElementById("flowList");
-    let html = "";
-
-    ReviewState.fullData.forEach((s, i) => {
-        const isSelected = i === ReviewState.selectedIdx;
-        const isRep = s.is_repertoire;
-        const gurmukhi = s.gurmukhi || "";
-        const title = s.title || "Unknown";
-
-        // Shabad card
-        html += `
-            <div class="reviewer-flow-item ${isSelected ? "selected" : ""}" onclick="selectShabad(${i})" data-idx="${i}">
-                <div style="display:flex;align-items:flex-start;gap:8px;">
-                    <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.25);font-size:11px;width:14px;flex-shrink:0;padding-top:2px;">${i + 1}</span>
-                    <div style="flex:1;min-width:0;">
-                        ${gurmukhi ? `<div style="font-family:'Noto Sans Gurmukhi','GurbaniWeb';color:${isSelected ? "#f5e6c8" : "rgba(245,230,200,0.5)"};font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isRep ? "&#9733; " : ""}${escapeHtml(gurmukhi.substring(0, 35))}</div>` : ""}
-                        <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(title.substring(0, 40))}</div>
-                        <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px;">
-                            ${(s.tags || []).slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:10px;color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.04);padding:1px 4px;border-radius:2px;">${escapeHtml(t)}</span>`).join("")}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Connection indicator between shabads
-        if (i < ReviewState.fullData.length - 1) {
-            const shared = s.shared_tags_with_next || [];
-            const strength = shared.length >= 3 ? "strong" : shared.length >= 1 ? "moderate" : "weak";
-            const color = strength === "strong" ? "rgba(16,185,129,0.5)" : strength === "moderate" ? "rgba(245,158,11,0.35)" : "rgba(107,95,82,0.4)";
-            const lineColor = strength === "strong" ? "rgba(16,185,129,0.15)" : strength === "moderate" ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.03)";
-
-            html += `
-                <div class="reviewer-connection" style="border-left:1px solid ${lineColor};margin-left:18px;padding:4px 0 4px 14px;">
-                    ${shared.length > 0
-                        ? shared.slice(0, 3).map((t) => `<span style="font-family:'IBM Plex Mono';font-size:10px;color:${color};letter-spacing:0.02em;">${escapeHtml(t)}</span>`).join('<span style="color:#1f2937;font-size:10px;"> / </span>')
-                        : '<span style="font-family:\'IBM Plex Mono\';font-size:10px;color:rgba(107,95,82,0.5);letter-spacing:0.02em;">NO SHARED TAGS</span>'
-                    }
-                </div>
-            `;
-        }
-    });
-
-    container.innerHTML = html;
-}
-
-/* ===== DETAIL PANEL (right panel) ===== */
+/* ===== DETAIL PANEL ===== */
 
 function selectShabad(idx) {
     ReviewState.selectedIdx = idx;
     const s = ReviewState.fullData[idx];
     if (!s) return;
 
-    // Update flow list selection
-    renderFlow();
-
-    // Scroll selected into view
-    const flowItem = document.querySelector(`.reviewer-flow-item[data-idx="${idx}"]`);
-    if (flowItem) flowItem.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Highlight the matching row in the shared library list (left column)
+    document.querySelectorAll("#libraryList .parkaran-sidebar-item").forEach((item, i) => {
+        item.classList.toggle("selected", i === idx);
+    });
 
     // Build detail
     const detail = document.getElementById("detailContent");
@@ -236,121 +190,8 @@ function renderConnectionDetail(current, next, idx) {
     `;
 }
 
-/* ===== SAVE & LIBRARY (shared storage with explorer) ===== */
-
-const PARKARAN_LIBRARY_KEY = "parkaran_library_v1";
-
-function getLibrary() {
-    try {
-        const raw = localStorage.getItem(PARKARAN_LIBRARY_KEY);
-        if (raw) return JSON.parse(raw);
-    } catch (e) { /* ignore */ }
-    return { parkarans: {}, currentId: null };
-}
-
-function setLibrary(lib) {
-    localStorage.setItem(PARKARAN_LIBRARY_KEY, JSON.stringify(lib));
-}
-
-function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
-}
-
-function autoName(items) {
-    const tagCounts = {};
-    items.forEach((p) => (p.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
-    const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 2).map((e) => e[0]);
-    return topTags.join(" & ") || `Set (${items.length} shabads)`;
-}
-
-function showReviewerSaveDialog() {
-    if (!ReviewState.parkaran.length) return;
-    const dialog = document.getElementById("reviewerSaveDialog");
-    const input = document.getElementById("reviewerSaveName");
-    const existingName = localStorage.getItem("reviewParkaranName");
-    input.value = existingName || autoName(ReviewState.parkaran);
-    dialog.classList.remove("hidden");
-    document.getElementById("reviewerLibraryModal").classList.add("hidden");
-    input.focus();
-    input.select();
-}
-
-function reviewerSave() {
-    const name = document.getElementById("reviewerSaveName").value.trim();
-    if (!name || !ReviewState.parkaran.length) return;
-
-    const lib = getLibrary();
-    const id = generateId();
-    lib.parkarans[id] = {
-        name: name,
-        items: [...ReviewState.parkaran],
-        created: new Date().toISOString(),
-        updated: new Date().toISOString(),
-    };
-    setLibrary(lib);
-
-    document.getElementById("reviewerSaveDialog").classList.add("hidden");
-
-    // Update title to show saved name
-    const titleEl = document.getElementById("reviewTitle");
-    if (titleEl) titleEl.textContent = name;
-
-    // Toast
-    const toast = document.createElement("div");
-    toast.className = "parkaran-toast";
-    toast.textContent = `Saved: ${name}`;
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add("show"));
-    setTimeout(() => {
-        toast.classList.remove("show");
-        setTimeout(() => toast.remove(), 300);
-    }, 2000);
-}
-
-function showReviewerLibrary() {
-    const modal = document.getElementById("reviewerLibraryModal");
-    const list = document.getElementById("reviewerLibraryList");
-    document.getElementById("reviewerSaveDialog").classList.add("hidden");
-
-    const lib = getLibrary();
-    const saved = Object.entries(lib.parkarans)
-        .map(([id, p]) => ({ id, name: p.name, count: p.items.length, created: p.created, updated: p.updated }))
-        .sort((a, b) => (b.updated || b.created || "").localeCompare(a.updated || a.created || ""));
-
-    if (saved.length === 0) {
-        list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#6b5f52;font-size:10px;text-align:center;padding:12px;">No saved parkarans</div>';
-    } else {
-        list.innerHTML = saved.map((p) => `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;" onclick="loadReviewerParkaran('${p.id}')" onmouseover="this.style.background='rgba(245,158,11,0.05)'" onmouseout="this.style.background='transparent'">
-                <div>
-                    <div style="font-family:'IBM Plex Mono';color:#fbbf24;font-size:11px;">${escapeHtml(p.name)}</div>
-                    <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">${p.count} shabads &middot; ${new Date(p.updated || p.created).toLocaleDateString()}</div>
-                </div>
-                <button onclick="event.stopPropagation(); deleteReviewerParkaran('${p.id}')" style="color:#4a3f35;cursor:pointer;font-size:14px;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
-            </div>
-        `).join("");
-    }
-
-    modal.classList.remove("hidden");
-}
-
-function loadReviewerParkaran(id) {
-    const lib = getLibrary();
-    const entry = lib.parkarans[id];
-    if (!entry) return;
-
-    // Store as current reviewParkaran and reload
-    localStorage.setItem("reviewParkaran", JSON.stringify(entry.items));
-    localStorage.setItem("reviewParkaranName", entry.name);
-    window.location.reload();
-}
-
-function deleteReviewerParkaran(id) {
-    const lib = getLibrary();
-    delete lib.parkarans[id];
-    setLibrary(lib);
-    showReviewerLibrary(); // refresh
-}
-
-/* ===== START ===== */
-init();
+/* Save/library/delete logic now lives in graph-explorer.js — reviewer no
+ * longer maintains its own library management UI. The unified LIBRARY button
+ * in the left column opens a single manage-libraries modal that serves both
+ * tabs.
+ */
