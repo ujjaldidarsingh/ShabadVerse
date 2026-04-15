@@ -750,35 +750,84 @@
     -webkit-user-select: none;
 }
 
-/* Breadcrumbs */
-.breadcrumb-node {
+/* Breadcrumbs — chip with label + close button */
+.breadcrumb-chip {
     font-family: 'IBM Plex Mono', monospace;
-    padding: 0.25rem 0.5rem;
     border-radius: 0.1875rem;
     background: rgba(245, 158, 11, 0.05);
     border: 1px solid rgba(245, 158, 11, 0.1);
     color: rgba(245, 158, 11, 0.5);
     font-size: 0.5625rem;
-    cursor: pointer;
     white-space: nowrap;
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
     transition: all 0.12s;
     letter-spacing: 0.01em;
     min-height: 1.75rem;
     display: inline-flex;
     align-items: center;
+    overflow: hidden;
 }
-.breadcrumb-node:hover {
-    background: rgba(245, 158, 11, 0.1);
-    color: var(--star-core);
-}
-.breadcrumb-node.active {
-    background: rgba(245, 158, 11, 0.1);
+.breadcrumb-chip:hover {
+    background: rgba(245, 158, 11, 0.09);
     border-color: rgba(245, 158, 11, 0.2);
+}
+.breadcrumb-chip.active {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.3);
     color: var(--star-core);
     font-weight: 700;
+}
+.breadcrumb-label {
+    padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    color: inherit;
+}
+.breadcrumb-chip:not(.active) .breadcrumb-label:hover {
+    color: var(--star-core);
+}
+.breadcrumb-close {
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.55;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: inherit;
+}
+.breadcrumb-close:hover {
+    opacity: 1;
+    color: #ef4444;
+}
+.breadcrumb-sep {
+    color: rgba(107, 95, 82, 0.4);
+    font-size: 10px;
+    margin: 0 2px;
+    align-self: center;
+}
+.breadcrumb-reset {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 0.3rem 0.55rem;
+    margin-left: 0.5rem;
+    border-radius: 0.1875rem;
+    background: rgba(239, 68, 68, 0.04);
+    border: 1px solid rgba(239, 68, 68, 0.14);
+    color: rgba(239, 68, 68, 0.5);
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.12s;
+    min-height: 1.75rem;
+    line-height: 1;
+}
+.breadcrumb-reset:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #ef4444;
 }
 
 /* HUD tooltip */
@@ -828,6 +877,15 @@
     background: rgba(245, 158, 11, 0.06);
     color: rgba(245, 158, 11, 0.55);
     border: 1px solid rgba(245, 158, 11, 0.1);
+}
+.tt-tag-clickable {
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.tt-tag-clickable:hover {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--star-core);
+    border-color: rgba(245, 158, 11, 0.35);
 }
 .tt-actions {
     margin-top: 10px;
@@ -886,20 +944,38 @@
     background: none;
 }
 
-/* --- Shabad Preview Overlay --- */
+/* --- Shabad Preview Modal (centered with backdrop) --- */
+.shabad-preview-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: preview-fade-in 0.18s ease-out;
+}
+@keyframes preview-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 .shabad-preview-overlay {
-    background: rgba(18, 16, 28, 0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(245, 158, 11, 0.12);
+    position: relative;
+    background: rgba(18, 16, 28, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(245, 158, 11, 0.18);
     border-radius: 0.5rem;
     padding: 1rem 1.25rem;
-    box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.7);
-    max-width: 420px;
-    min-width: 300px;
-    max-height: 60vh;
+    box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.8);
+    max-width: 520px;
+    min-width: 320px;
+    width: calc(100% - 2rem);
+    max-height: 82vh;
     overflow-y: auto;
     pointer-events: auto;
+    margin-top: 8vh;
+    animation: preview-slide-in 0.22s ease-out;
+}
+@keyframes preview-slide-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .shabad-preview-overlay .preview-header {
     font-family: 'IBM Plex Mono', monospace;
@@ -957,6 +1033,37 @@
     padding-left: 8px;
     background: rgba(245, 158, 11, 0.03);
     border-radius: 0 4px 4px 0;
+}
+
+/* Tag-shabads list inside the modal */
+.tag-shabads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tag-shabad-row {
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+.tag-shabad-row:hover {
+    background: rgba(245, 158, 11, 0.06);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+.tag-shabad-gurmukhi {
+    font-family: 'Noto Serif Gurmukhi', 'Noto Sans Gurmukhi', serif;
+    color: var(--text-scripture);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.tag-shabad-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 2px;
+    opacity: 0.7;
 }
 
 /* --- Scrollbar --- */
