@@ -85,6 +85,18 @@ async function init() {
             }
         });
 
+        // Re-fit the graph when the window resizes so nodes stay visible
+        // across viewport changes (e.g. rotating tablet, resizing browser,
+        // responsive layout swap from desktop to mobile).
+        window.addEventListener("resize", debounce(() => {
+            if (!State.cy) return;
+            State.cy.resize();
+            if (State.centerNode) {
+                const visible = State.cy.nodes().not(".faded").not("[type='tagLabel']");
+                if (visible.length > 0) State.cy.fit(visible, 50);
+            }
+        }, 200));
+
         if (statsEl) {
             const n = Object.keys(State.metadata).length;
             const t = Object.keys(State.tagIndex).length;
