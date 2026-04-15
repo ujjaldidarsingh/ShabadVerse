@@ -5,7 +5,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from flask import Flask, render_template, abort
+from flask import Flask, redirect, render_template, url_for
 from api.graph_api import graph_bp
 
 app = Flask(__name__)
@@ -27,14 +27,21 @@ def security_headers(response):
 
 
 @app.route("/")
+def app_shell():
+    """Unified single-page app with Explore and Review tabs."""
+    return render_template("app.html")
+
+
 @app.route("/explore")
-def explore():
-    return render_template("explore.html")
+def explore_redirect():
+    """Legacy route — redirect to the unified app with Explore tab active."""
+    return redirect(url_for("app_shell") + "?tab=explore", code=301)
 
 
 @app.route("/reviewer")
-def reviewer():
-    return render_template("reviewer.html")
+def reviewer_redirect():
+    """Legacy route — redirect to the unified app with Review tab active."""
+    return redirect(url_for("app_shell") + "?tab=review", code=301)
 
 
 def _startup_checks():

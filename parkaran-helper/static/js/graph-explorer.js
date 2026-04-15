@@ -578,6 +578,7 @@ function resetGraph() {
     State.expandedNodes = [];
     State.neighborCache = {};
     State.activeTooltipId = null;
+    State.expanding = false;
     hideTooltip();
     renderBreadcrumbs();
     document.getElementById("graphEmpty").classList.remove("hidden");
@@ -1270,10 +1271,15 @@ function restoreParkaran() {
                 State.parkaran = items;
             }
             localStorage.removeItem(OLD_PARKARAN_KEY);
+            ensureCurrentLibrary();
             renderParkaran();
+            updateLibraryNameDisplay();
             return;
         }
     } catch (e) { /* ignore */ }
+
+    // Ensure a current library exists (auto-create if first visit)
+    ensureCurrentLibrary();
 
     // Load current parkaran from library
     const lib = getLibrary();
@@ -1281,17 +1287,22 @@ function restoreParkaran() {
         State.parkaran = [...lib.parkarans[lib.currentId].items];
     }
     renderParkaran();
+    updateLibraryNameDisplay();
 }
 
 function saveParkaran() {
-    // Auto-save current working parkaran to library if it has an ID
+    // Ensure a current library exists before writing (auto-creates on first
+    // mutation after page load if we somehow got into a detached state).
+    const currentId = ensureCurrentLibrary();
     const lib = getLibrary();
-    if (lib.currentId && lib.parkarans[lib.currentId]) {
-        lib.parkarans[lib.currentId].items = [...State.parkaran];
+    if (lib.parkarans[currentId]) {
+        lib.parkarans[currentId].items = [...State.parkaran];
+        lib.parkarans[currentId].updated = new Date().toISOString();
         setLibrary(lib);
     }
     // Also keep a working copy for fast restore
     localStorage.setItem("parkaran_working", JSON.stringify(State.parkaran));
+    updateLibraryNameDisplay();
 }
 
 function saveCurrentParkaran(name) {
@@ -1333,6 +1344,18 @@ function loadParkaran(id) {
     libraryView = false;
     renderParkaran();
     redrawParkaranTrail();
+    updateLibraryNameDisplay();
+
+    // Fix #9: re-center the graph on the first shabad in the loaded library so
+    // the user has an immediately explorable context that matches the set they
+    // just loaded. Previously the graph would stay on whatever was there before
+    // (or be empty), leaving no connection between the library and the graph view.
+    if (State.parkaran.length > 0) {
+        const firstId = String(State.parkaran[0].id);
+        if (firstId !== String(State.centerNode)) {
+            expandShabad(firstId);
+        }
+    }
 }
 
 function deleteParkaran(id) {
@@ -1373,7 +1396,7 @@ function resetExplore() {
 
 function showSaveDialog() {
     if (State.parkaran.length === 0) return;
-    const container = document.getElementById("parkaranList");
+    const container = document.getElementById("libraryList");
     const suggested = autoName(State.parkaran);
     container.innerHTML = `
         <div style="padding:12px;">
@@ -1394,12 +1417,10 @@ function showSaveDialog() {
 
 function showLibrary() {
     libraryView = true;
-    const container = document.getElementById("parkaranList");
-    const empty = document.getElementById("parkaranEmpty");
-    const countEl = document.getElementById("parkaranCount");
-    const reviewBtn = document.getElementById("reviewBtn");
+    const container = document.getElementById("libraryList");
+    const empty = document.getElementById("libraryEmpty");
+    const countEl = document.getElementById("libraryCount");
     empty.classList.add("hidden");
-    reviewBtn.classList.add("hidden");
 
     const saved = listSavedParkarans();
     countEl.textContent = String(saved.length);
@@ -1509,24 +1530,31 @@ function redrawParkaranTrail() {
 }
 
 function renderParkaran() {
-    const container = document.getElementById("parkaranList");
-    const empty = document.getElementById("parkaranEmpty");
-    const countEl = document.getElementById("parkaranCount");
-    const reviewBtn = document.getElementById("reviewBtn");
+    const container = document.getElementById("libraryList");
+    const empty = document.getElementById("libraryEmpty");
+    const countEl = document.getElementById("libraryCount");
 
     countEl.textContent = String(State.parkaran.length);
+
+    // Update the Review tab's disabled state whenever library changes
+    if (typeof updateReviewTabState === "function") {
+        updateReviewTabState();
+    }
+
+    // If the reviewer tab is currently visible, re-render its detail
+    if (typeof refreshReviewTabIfActive === "function") {
+        refreshReviewTabIfActive();
+    }
 
     if (State.parkaran.length === 0) {
         empty.classList.remove("hidden");
         container.innerHTML = "";
-        reviewBtn.classList.add("hidden");
         return;
     }
 
     empty.classList.add("hidden");
-    reviewBtn.classList.remove("hidden");
 
-    // Rebuild all items (parkaranEmpty lives as a sibling outside the item list area)
+    // Rebuild all items (libraryEmpty lives as a sibling outside the item list area)
     let html = "";
     State.parkaran.forEach((s, i) => {
         const rep = s.is_repertoire ? " &#9733;" : "";
@@ -1547,7 +1575,7 @@ function renderParkaran() {
 }
 
 function setupParkaranDrag() {
-    const container = document.getElementById("parkaranList");
+    const container = document.getElementById("libraryList");
     const items = container.querySelectorAll(".parkaran-sidebar-item");
     let dragIdx = null;
 
@@ -1581,15 +1609,192 @@ function setupParkaranDrag() {
     });
 }
 
-function sendToReview() {
-    if (State.parkaran.length < 2) return;
+/* ===== TAB SWITCHING (Batch 3 unified UI) ===== */
 
-    // Pass full parkaran data + name via localStorage
-    localStorage.setItem("reviewParkaran", JSON.stringify(State.parkaran));
+let activeTab = "explore";
+
+function switchToTab(tabName) {
+    if (tabName !== "explore" && tabName !== "review") return;
+
+    // Block switch to review if library is empty
+    if (tabName === "review" && State.parkaran.length === 0) {
+        return;
+    }
+
+    activeTab = tabName;
+
+    // Toggle pane visibility
+    document.getElementById("exploreTab")?.classList.toggle("hidden", tabName !== "explore");
+    document.getElementById("reviewTab")?.classList.toggle("hidden", tabName !== "review");
+
+    // Toggle explore command bar (search, tags, random) — only show in explore mode
+    const cmdBar = document.getElementById("exploreCommandBar");
+    if (cmdBar) cmdBar.style.display = tabName === "explore" ? "flex" : "none";
+
+    // Tab button active state
+    document.getElementById("tabExplore")?.classList.toggle("active", tabName === "explore");
+    document.getElementById("tabReview")?.classList.toggle("active", tabName === "review");
+
+    // When switching to explore, recompute Cytoscape layout (container may have been hidden)
+    if (tabName === "explore" && State.cy) {
+        requestAnimationFrame(() => {
+            State.cy.resize();
+            if (State.centerNode) State.cy.fit(50);
+        });
+    }
+
+    // When switching to review, initialize the detail view from current library
+    if (tabName === "review" && typeof initReviewTab === "function") {
+        initReviewTab();
+    }
+}
+
+function updateReviewTabState() {
+    const reviewTab = document.getElementById("tabReview");
+    if (!reviewTab) return;
+    const empty = State.parkaran.length === 0;
+    reviewTab.disabled = empty;
+    reviewTab.title = empty ? "Add shabads to your library first" : "";
+    // If currently on review tab but library became empty, bounce back to explore
+    if (activeTab === "review" && empty) {
+        switchToTab("explore");
+    }
+}
+
+function refreshReviewTabIfActive() {
+    if (activeTab === "review" && typeof initReviewTab === "function") {
+        initReviewTab();
+    }
+}
+
+/* ===== LIBRARY AUTO-CREATE + MANAGEMENT ===== */
+
+function ensureCurrentLibrary() {
     const lib = getLibrary();
-    const currentName = lib.currentId ? lib.parkarans[lib.currentId]?.name : null;
-    localStorage.setItem("reviewParkaranName", currentName || autoName(State.parkaran));
-    window.location.href = "/reviewer";
+    if (lib.currentId && lib.parkarans[lib.currentId]) {
+        return lib.currentId;
+    }
+    // Create a new library named by date
+    const id = generateId();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString(undefined, {
+        month: "short", day: "numeric", year: "numeric",
+    });
+    const timeStr = now.toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit",
+    });
+    lib.parkarans[id] = {
+        name: `Library ${dateStr} ${timeStr}`,
+        items: [],
+        created: now.toISOString(),
+        updated: now.toISOString(),
+    };
+    lib.currentId = id;
+    setLibrary(lib);
+    return id;
+}
+
+function updateLibraryNameDisplay() {
+    const nameEl = document.getElementById("libraryName");
+    if (!nameEl) return;
+    const lib = getLibrary();
+    const current = lib.currentId ? lib.parkarans[lib.currentId] : null;
+    const name = current?.name || "LIBRARY";
+    nameEl.textContent = name;
+    nameEl.title = name;
+}
+
+function openLibraryModal() {
+    const modal = document.getElementById("libraryModal");
+    const content = document.getElementById("libraryModalContent");
+    if (!modal || !content) return;
+
+    const lib = getLibrary();
+    const saved = listSavedParkarans();
+    const currentId = lib.currentId;
+
+    const rowsHtml = saved.length === 0
+        ? `<div class="preview-english" style="padding:16px 4px;text-align:center;opacity:0.6;">No saved libraries yet.</div>`
+        : saved.map((p) => {
+            const isCurrent = p.id === currentId;
+            return `
+                <div class="library-modal-row ${isCurrent ? "current" : ""}" data-id="${escAttr(p.id)}">
+                    <div style="min-width:0;flex:1;">
+                        <div class="library-modal-row-name">${escapeHtml(p.name)}${isCurrent ? " <span style='opacity:0.6;font-size:9px;'>&middot; current</span>" : ""}</div>
+                        <div class="library-modal-row-meta">${p.count} shabad${p.count === 1 ? "" : "s"} &middot; ${new Date(p.updated || p.created).toLocaleDateString()}</div>
+                    </div>
+                    <button class="library-modal-delete" data-id="${escAttr(p.id)}" aria-label="Delete library">&times;</button>
+                </div>
+            `;
+        }).join("");
+
+    content.innerHTML = `
+        <div class="preview-header">
+            <span>MANAGE LIBRARIES</span>
+            <button class="preview-close" onclick="closeLibraryModal()" aria-label="Close library manager">&times;</button>
+        </div>
+        <div class="library-modal-list">
+            ${rowsHtml}
+        </div>
+        <div class="library-modal-actions">
+            <button class="btn-secondary" onclick="newLibrary()">+ New library</button>
+            <button class="btn-ghost" onclick="renameCurrentLibrary()">Rename current</button>
+        </div>
+    `;
+
+    // Wire up row clicks (load) and delete clicks (delete)
+    content.querySelectorAll(".library-modal-row").forEach((row) => {
+        row.addEventListener("click", (e) => {
+            if (e.target.closest(".library-modal-delete")) return;
+            const id = row.dataset.id;
+            loadParkaran(id);
+            closeLibraryModal();
+        });
+    });
+    content.querySelectorAll(".library-modal-delete").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const entry = getLibrary().parkarans[id];
+            if (entry && window.confirm(`Delete "${entry.name}"?\n\nThis cannot be undone.`)) {
+                deleteParkaran(id);
+                openLibraryModal(); // refresh
+            }
+        });
+    });
+
+    modal.classList.remove("hidden");
+}
+
+function closeLibraryModal() {
+    document.getElementById("libraryModal")?.classList.add("hidden");
+}
+
+function newLibrary() {
+    // Detach current and auto-create a fresh library
+    const lib = getLibrary();
+    lib.currentId = null;
+    setLibrary(lib);
+    State.parkaran = [];
+    ensureCurrentLibrary();
+    resetGraph();
+    renderParkaran();
+    updateLibraryNameDisplay();
+    closeLibraryModal();
+}
+
+function renameCurrentLibrary() {
+    const lib = getLibrary();
+    const current = lib.currentId ? lib.parkarans[lib.currentId] : null;
+    if (!current) return;
+    const newName = window.prompt("Rename this library:", current.name);
+    if (newName && newName.trim()) {
+        current.name = newName.trim();
+        current.updated = new Date().toISOString();
+        setLibrary(lib);
+        updateLibraryNameDisplay();
+        openLibraryModal(); // refresh
+    }
 }
 
 /* ===== UTILITIES ===== */
