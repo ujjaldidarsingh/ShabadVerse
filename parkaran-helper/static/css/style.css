@@ -150,6 +150,28 @@
     box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
 }
 
+/* --- Site Footer --- */
+.site-footer {
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(15, 13, 19, 0.6);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: rgba(200, 200, 210, 0.35);
+    letter-spacing: 0.04em;
+    position: relative;
+    z-index: 10;
+    margin-top: 2rem;
+}
+.site-footer a {
+    color: rgba(245, 158, 11, 0.55);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+.site-footer a:hover {
+    color: var(--star-core);
+    text-decoration: underline;
+}
+
 /* --- Panels & Cards --- */
 .card {
     background: var(--deep);
@@ -850,6 +872,19 @@
     color: var(--accent-gold);
     border-color: rgba(245, 158, 11, 0.3);
 }
+.tt-btn-disabled,
+.tt-btn:disabled {
+    color: rgba(200, 200, 210, 0.2);
+    border-color: rgba(255, 255, 255, 0.04);
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+.tt-btn-disabled:hover,
+.tt-btn:disabled:hover {
+    color: rgba(200, 200, 210, 0.2);
+    border-color: rgba(255, 255, 255, 0.04);
+    background: none;
+}
 
 /* --- Shabad Preview Overlay --- */
 .shabad-preview-overlay {
@@ -872,21 +907,33 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 0.75rem;
+    margin: -1rem -1.25rem 0.75rem;
+    padding: 0.75rem 1.25rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    top: -1rem;
+    z-index: 5;
+    background: rgba(18, 16, 28, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.08);
 }
 .shabad-preview-overlay .preview-close {
     cursor: pointer;
     color: var(--text-dim);
-    font-size: 14px;
+    font-size: 18px;
+    line-height: 1;
     background: none;
     border: none;
-    padding: 0 4px;
+    padding: 4px 10px;
+    margin: -4px -8px -4px 0;
+    border-radius: 3px;
 }
 .shabad-preview-overlay .preview-close:hover {
     color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
 }
 .shabad-preview-overlay .preview-verse {
     margin-bottom: 10px;

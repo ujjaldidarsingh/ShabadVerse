@@ -582,6 +582,9 @@ function showTooltip(shabadId, nodeEl) {
     const tuk = State.selectedTuk[sid];
     const tukHtml = tuk ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:rgba(16,185,129,0.6);font-size:10px;margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.04);border-radius:3px;border-left:2px solid rgba(16,185,129,0.3);">${escapeHtml((tuk.gurmukhi || "").substring(0, 50))}</div>` : "";
 
+    // If this shabad is already the graph center, EXPLORE would be a no-op — disable it
+    const isCurrentCenter = String(State.centerNode) === sid;
+
     tooltip.innerHTML = `
         <div class="tt-body">
             ${meta.gurmukhi ? `<div class="tt-gurmukhi">${isRep ? "&#9733; " : ""}${escapeHtml(meta.gurmukhi.substring(0, 45))}</div>` : ""}
@@ -591,7 +594,7 @@ function showTooltip(shabadId, nodeEl) {
             ${tagPills ? `<div class="tt-tags">${tagPills}</div>` : ""}
             <div class="tt-actions">
                 <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN SET" : "+ ADD"}</button>
-                <button class="tt-btn tt-btn-explore" data-action="explore" data-id="${sid}">EXPLORE &rarr;</button>
+                <button class="tt-btn tt-btn-explore${isCurrentCenter ? " tt-btn-disabled" : ""}" data-action="explore" data-id="${sid}"${isCurrentCenter ? ' disabled title="Already centered"' : ""}>EXPLORE &rarr;</button>
                 <button class="tt-btn tt-btn-preview" data-action="preview" data-id="${sid}">PREVIEW</button>
                 <button class="tt-btn" data-action="verses" data-id="${sid}" style="color:rgba(200,200,210,0.4);">VERSES</button>
             </div>
@@ -604,6 +607,7 @@ function showTooltip(shabadId, nodeEl) {
     tooltip.querySelectorAll("[data-action]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
+            if (btn.disabled) return;
             const action = btn.dataset.action;
             const id = btn.dataset.id;
             if (action === "add") {
