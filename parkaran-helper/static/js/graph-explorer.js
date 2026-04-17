@@ -78,6 +78,7 @@ async function init() {
 
         // Restore parkaran from localStorage
         restoreParkaran();
+        setupLibraryDelegation();
 
         initCytoscape();
         initSearch();
@@ -356,7 +357,9 @@ async function expandShabad(shabadId) {
     const threshold = getThreshold();
     const tuk = State.selectedTuk[sid];
     const tukEnglish = tuk?.english || "";
-    const cacheKey = `${sid}_${threshold}_${tukEnglish ? simpleHash(tukEnglish) : "graph"}`;
+    // Cache by shabad ID + threshold only. Tuk-specific suggestions are a
+    // display-layer concern; the neighbor set from the API is the same.
+    const cacheKey = `${sid}_${threshold}`;
     if (!State.neighborCache[cacheKey]) {
         try {
             let url = `/api/graph/neighbors/${sid}?threshold=${threshold}`;
@@ -1001,26 +1004,25 @@ function initSearch() {
             let results = [];
 
             if (searchMode === "transliteration") {
-                // Local search against English transliteration titles
+                // Single-pass search: check title first, then tags/theme as fallback.
+                // Avoids iterating 5,542 entries twice.
                 const searchWords = q.toLowerCase().split(/\s+/).filter(Boolean);
+                const ql = q.toLowerCase();
+                const tagResults = [];
                 for (const [sid, m] of Object.entries(State.metadata)) {
-                    if (results.length >= 12) break;
                     const title = (m.title || "").toLowerCase();
                     if (searchWords.every((w) => title.includes(w))) {
                         results.push({ id: sid, ...m });
-                    }
-                }
-                // Fallback: tag/theme search
-                if (results.length === 0) {
-                    const ql = q.toLowerCase();
-                    for (const [sid, m] of Object.entries(State.metadata)) {
-                        if (results.length >= 8) break;
+                        if (results.length >= 12) break;
+                    } else if (tagResults.length < 8) {
                         if ((m.tags || []).join(" ").toLowerCase().includes(ql) ||
                             (m.primary_theme || "").toLowerCase().includes(ql)) {
-                            results.push({ id: sid, ...m });
+                            tagResults.push({ id: sid, ...m });
                         }
                     }
                 }
+                // Use tag results only if no title matches found
+                if (results.length === 0) results = tagResults;
                 // Render local results
                 if (results.length === 0) {
                     dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>';
@@ -1683,53 +1685,62 @@ function renderParkaran() {
         `;
     });
     container.innerHTML = html;
-
-    // Click library items → select for review (if in review mode)
-    container.querySelectorAll(".parkaran-sidebar-item").forEach((item) => {
-        item.addEventListener("click", () => {
-            const idx = parseInt(item.dataset.idx, 10);
-            if (activeTab === "review" && typeof selectShabad === "function") {
-                selectShabad(idx);
-            }
-        });
-        item.style.cursor = activeTab === "review" ? "pointer" : "grab";
-    });
-
-    setupParkaranDrag();
 }
 
-function setupParkaranDrag() {
-    const container = document.getElementById("libraryList");
-    const items = container.querySelectorAll(".parkaran-sidebar-item");
-    let dragIdx = null;
+/* Event delegation for library list — single set of listeners on the container,
+   not per-item. Survives renderParkaran() without rebinding. */
+let _libraryDelegated = false;
+let _dragIdx = null;
 
-    items.forEach((item) => {
-        item.addEventListener("dragstart", () => {
-            dragIdx = parseInt(item.dataset.idx, 10);
-            item.style.opacity = "0.3";
-        });
-        item.addEventListener("dragend", () => {
-            item.style.opacity = "1";
-            dragIdx = null;
-        });
-        item.addEventListener("dragover", (e) => {
-            e.preventDefault();
-            item.style.borderColor = "rgba(245,158,11,0.4)";
-        });
-        item.addEventListener("dragleave", () => {
-            item.style.borderColor = "";
-        });
-        item.addEventListener("drop", (e) => {
-            e.preventDefault();
-            item.style.borderColor = "";
-            const targetIdx = parseInt(item.dataset.idx, 10);
-            if (dragIdx !== null && dragIdx !== targetIdx) {
-                const [moved] = State.parkaran.splice(dragIdx, 1);
-                State.parkaran.splice(targetIdx, 0, moved);
-                saveParkaran();
-                renderParkaran();
-            }
-        });
+function setupLibraryDelegation() {
+    if (_libraryDelegated) return;
+    _libraryDelegated = true;
+    const container = document.getElementById("libraryList");
+    if (!container) return;
+
+    // Click → select for review
+    container.addEventListener("click", (e) => {
+        const item = e.target.closest(".parkaran-sidebar-item");
+        if (!item || e.target.closest("button")) return; // ignore × button clicks
+        const idx = parseInt(item.dataset.idx, 10);
+        if (activeTab === "review" && typeof selectShabad === "function") {
+            selectShabad(idx);
+        }
+    });
+
+    // Drag-and-drop reorder (delegated)
+    container.addEventListener("dragstart", (e) => {
+        const item = e.target.closest(".parkaran-sidebar-item");
+        if (!item) return;
+        _dragIdx = parseInt(item.dataset.idx, 10);
+        item.style.opacity = "0.3";
+    });
+    container.addEventListener("dragend", (e) => {
+        const item = e.target.closest(".parkaran-sidebar-item");
+        if (item) item.style.opacity = "1";
+        _dragIdx = null;
+    });
+    container.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        const item = e.target.closest(".parkaran-sidebar-item");
+        if (item) item.style.borderColor = "rgba(245,158,11,0.4)";
+    });
+    container.addEventListener("dragleave", (e) => {
+        const item = e.target.closest(".parkaran-sidebar-item");
+        if (item) item.style.borderColor = "";
+    });
+    container.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const item = e.target.closest(".parkaran-sidebar-item");
+        if (!item) return;
+        item.style.borderColor = "";
+        const targetIdx = parseInt(item.dataset.idx, 10);
+        if (_dragIdx !== null && _dragIdx !== targetIdx) {
+            const [moved] = State.parkaran.splice(_dragIdx, 1);
+            State.parkaran.splice(targetIdx, 0, moved);
+            saveParkaran();
+            renderParkaran();
+        }
     });
 }
 
