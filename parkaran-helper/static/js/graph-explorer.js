@@ -935,7 +935,7 @@ function asciiToGurmukhi(text) {
 
 /* ===== SEARCH MODE STATE ===== */
 
-let searchMode = "transliteration"; // "transliteration" | "first-letter-start" | "first-letter-anywhere"
+let searchMode = "first-letter-start"; // "first-letter-start" | "first-letter-anywhere" | "transliteration"
 
 function setSearchMode(mode) {
     searchMode = mode;

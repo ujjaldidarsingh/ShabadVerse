@@ -11,10 +11,13 @@
 
 function initTheme() {
     const saved = localStorage.getItem("shabadverse_theme");
-    if (saved) {
-        document.documentElement.setAttribute("data-theme", saved);
-    }
-    updateThemeToggleUI(saved || "dark");
+    // Always set data-theme explicitly so themeColor() in graph-explorer.js
+    // has a definitive value when Cytoscape initializes. Without this,
+    // data-theme is null on first load and themeColor's isLightTheme() check
+    // can race with Cytoscape style initialization.
+    const theme = saved || "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    updateThemeToggleUI(theme);
 }
 
 function updateThemeToggleUI(theme) {

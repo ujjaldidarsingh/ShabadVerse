@@ -26,6 +26,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="bg-void text-gray-200 min-h-screen {% block body_class %}{% endblock %}">
+<script>
+    // Set theme before any rendering to prevent flash of wrong colors.
+    // Must run before graph-explorer.js initializes Cytoscape styles.
+    (function() {
+        var t = localStorage.getItem("shabadverse_theme") || "dark";
+        document.documentElement.setAttribute("data-theme", t);
+    })();
+</script>
     <!-- Star field background -->
     <div class="star-field"></div>
 
