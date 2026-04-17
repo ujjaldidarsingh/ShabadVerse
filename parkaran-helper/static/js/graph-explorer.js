@@ -43,7 +43,7 @@ function escAttr(s) {
 }
 
 /** Map a shabad's primary theme to a node color. */
-function themeColor(theme) {
+function shabadThemeColor(theme) {
     if (!theme) return "rgba(200,195,185,0.5)";
     const t = theme.toLowerCase();
     if (t.includes("devotion") || t.includes("prem") || t.includes("love")) return "#f59e0b";
@@ -400,7 +400,7 @@ async function expandShabad(shabadId) {
                 type: "shabad",
                 label: centerLabel,
                 isRepertoire: meta.is_repertoire || false,
-                themeColor: themeColor(meta.primary_theme || ""),
+                themeColor: shabadThemeColor(meta.primary_theme || ""),
             },
             position: { x: 0, y: 0 },
         });
@@ -490,7 +490,7 @@ async function expandShabad(shabadId) {
                         type: "shabad",
                         label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 22),
                         isRepertoire: n.is_repertoire || nmeta.is_repertoire || false,
-                        themeColor: themeColor(nTheme),
+                        themeColor: shabadThemeColor(nTheme),
                     },
                     position: { x: nx, y: ny },
                 });
@@ -509,7 +509,7 @@ async function expandShabad(shabadId) {
                         source: sid,
                         target: nid,
                         score: n.score || 0,
-                        targetTheme: themeColor(nTheme),
+                        targetTheme: shabadThemeColor(nTheme),
                     },
                 });
             }

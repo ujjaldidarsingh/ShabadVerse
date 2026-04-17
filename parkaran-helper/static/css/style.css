@@ -1494,7 +1494,7 @@ body.app-page > main + .site-footer {
 }
 .graph-controls input[type="range"] {
     width: 90px;
-    accent-color: #f59e0b;
+    accent-color: var(--star-core);
 }
 .graph-controls span {
     font-family: 'IBM Plex Mono', monospace;
