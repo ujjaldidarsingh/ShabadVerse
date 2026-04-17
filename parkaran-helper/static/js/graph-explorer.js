@@ -401,7 +401,12 @@ async function expandShabad(shabadId) {
     // display-layer concern; the neighbor set from the API is the same.
     const cacheKey = `${sid}_${threshold}`;
     if (!State.neighborCache[cacheKey]) {
-        showLoadingBar();
+        // Show graph loading spinner during first fetch for this shabad
+        const graphLoadingEl = document.getElementById("graphLoading");
+        if (graphLoadingEl) {
+            graphLoadingEl.classList.remove("hidden");
+            graphLoadingEl.innerHTML = '<div class="orbital-spinner"></div><div class="font-[\'IBM_Plex_Mono\'] text-gray-600 text-xs tracking-wider mt-3">LOADING CONNECTIONS</div>';
+        }
         try {
             let url = `/api/graph/neighbors/${sid}?threshold=${threshold}`;
             if (tukEnglish) {
@@ -411,10 +416,10 @@ async function expandShabad(shabadId) {
         } catch (err) {
             console.error("Neighbor fetch failed:", err);
             State.expanding = false;
-            hideLoadingBar();
+            document.getElementById("graphLoading")?.classList.add("hidden");
             return;
         }
-        hideLoadingBar();
+        document.getElementById("graphLoading")?.classList.add("hidden");
     }
 
     const neighborData = State.neighborCache[cacheKey];
@@ -1075,11 +1080,11 @@ function initSearch() {
 
             } else {
                 // Gurmukhi first-letter search via BaniDB (may be slow on first call)
-                showLoadingBar();
+                dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">SEARCHING</span></div>';
+                dropdown.classList.remove("hidden");
                 const flQuery = q.replace(/\s+/g, "");
                 const stype = searchMode === "first-letter-start" ? 1 : 2;
                 const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=${stype}`);
-                hideLoadingBar();
                 if (baniResults && baniResults.length > 0) {
                     dropdown.innerHTML = baniResults.slice(0, 10).map((r) => {
                         const sid = String(r.banidb_shabad_id);

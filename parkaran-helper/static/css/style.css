@@ -1507,6 +1507,18 @@ body.app-page > main + .site-footer {
     letter-spacing: 0.05em;
 }
 
+/* Searching animation dots */
+.searching-dots::after {
+    content: '';
+    animation: searching-dots 1.2s steps(4, end) infinite;
+}
+@keyframes searching-dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+}
+
 /* Gurmukhi preview (inline inside input area, right-aligned) */
 .gurmukhi-preview {
     position: absolute;
