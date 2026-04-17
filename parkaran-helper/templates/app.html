@@ -11,7 +11,7 @@
             <button onclick="toggleSidebar()" class="sidebar-orb" title="Toggle sidebar" aria-label="Toggle sidebar">
                 <div class="w-1.5 h-1.5 rounded-full bg-star-200"></div>
             </button>
-            <span class="font-['Space_Mono'] text-star-400 text-[11px] tracking-wider">SHABADVERSE</span>
+            <span class="font-['IBM_Plex_Mono'] text-star-400 text-[11px] tracking-wider">SHABADVERSE</span>
         </div>
 
         <!-- Tab bar -->
@@ -92,13 +92,13 @@
                 <!-- Empty state -->
                 <div id="graphEmpty" class="absolute inset-0 flex flex-col items-center justify-center hidden">
                     <div class="text-[64px] opacity-[0.04] mb-4 font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
-                    <div class="font-['Space_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Begin exploring</div>
+                    <div class="font-['IBM_Plex_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Begin exploring</div>
                     <div class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-1.5 tracking-wide">search / browse tags / random</div>
                     <div id="graphStats" class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-6 tracking-wider opacity-60"></div>
                 </div>
 
-                <!-- Breadcrumbs (below search bar to avoid overlap) -->
-                <div id="breadcrumbs" class="absolute flex items-center gap-1 flex-wrap" style="top: 52px; left: 260px; right: 16px; z-index: 19;"></div>
+                <!-- Breadcrumbs (below search bar with gap) -->
+                <div id="breadcrumbs" class="absolute flex items-center gap-1 flex-wrap" style="top: 58px; left: 260px; right: 16px; z-index: 19;"></div>
 
                 <!-- Controls (bottom) -->
                 <div class="graph-controls">
@@ -125,7 +125,7 @@
             <div class="reviewer-tab-wrapper h-full flex flex-col">
                 <div id="reviewEmpty" class="flex-1 flex flex-col items-center justify-center hidden">
                     <div class="text-[64px] opacity-[0.04] mb-4 font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
-                    <div class="font-['Space_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Nothing to review</div>
+                    <div class="font-['IBM_Plex_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Nothing to review</div>
                     <div class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-1.5 tracking-wide">
                         Switch to <button class="link-btn" onclick="switchToTab('explore')">Explore</button> and add shabads to your library
                     </div>
@@ -174,7 +174,7 @@
     <div class="tag-modal-overlay absolute inset-0" onclick="closeTagBrowser()"></div>
     <div class="relative z-10 mx-auto mt-16 max-w-2xl max-h-[75vh] overflow-y-auto rounded-md bg-[#161420] border border-white/[0.06] p-5">
         <div class="flex items-center justify-between mb-4">
-            <span class="font-['Space_Mono'] text-[11px] text-star-500 tracking-[0.15em] uppercase font-bold">CONSTELLATION MAP</span>
+            <span class="font-['IBM_Plex_Mono'] text-[11px] text-star-500 tracking-[0.15em] uppercase font-bold">CONSTELLATION MAP</span>
             <button onclick="closeTagBrowser()" class="text-gray-600 hover:text-gray-400 text-sm">&times;</button>
         </div>
         <div id="tagGrid" class="flex flex-wrap gap-1.5"></div>

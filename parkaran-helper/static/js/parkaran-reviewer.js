@@ -89,77 +89,61 @@ function selectShabad(idx) {
     const detail = document.getElementById("detailContent");
 
     const tagPills = (s.tags || [])
-        .map((t) => `<span style="font-family:'IBM Plex Mono';font-size:11px;color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.06);padding:2px 8px;border-radius:3px;border:1px solid rgba(245,158,11,0.08);">${escapeHtml(t)}</span>`)
+        .map((t) => `<span class="rv-tag">${escapeHtml(t)}</span>`)
         .join("");
 
-    // Format Gurmukhi text with line breaks
     const gurmukhiLines = (s.gurmukhi_text || "").split("\n").filter(Boolean);
     const gurmukhiHtml = gurmukhiLines.length > 0
-        ? gurmukhiLines.map((line) => `<div style="margin-bottom:6px;">${escapeHtml(line)}</div>`).join("")
-        : '<div style="color:#4a3f35;font-style:italic;">Gurmukhi text not available</div>';
+        ? gurmukhiLines.map((line) => `<div class="rv-gurbani-line">${escapeHtml(line)}</div>`).join("")
+        : '<div class="rv-empty-text">Gurmukhi text not available</div>';
 
-    // Format English translation
     const translationText = s.english_translation || "";
 
     detail.innerHTML = `
-        <!-- Header -->
-        <div style="margin-bottom:20px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                <span style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.3);font-weight:700;">${idx + 1} / ${ReviewState.fullData.length}</span>
-                ${s.is_repertoire ? '<span style="font-family:\'IBM Plex Mono\';font-size:8px;color:rgba(245,158,11,0.5);border:1px solid rgba(245,158,11,0.15);padding:1px 5px;border-radius:2px;">&#9733; REPERTOIRE</span>' : ""}
-            </div>
-            <div style="font-family:'IBM Plex Mono';font-size:9px;color:#6b5f52;">
-                ${escapeHtml([s.raag, s.writer, s.ang ? "Ang " + s.ang : ""].filter(Boolean).join(" / "))}
-            </div>
+        <div class="rv-header">
+            <span class="rv-position">${idx + 1} / ${ReviewState.fullData.length}</span>
+            <span class="rv-meta">${escapeHtml([s.raag, s.writer, s.ang ? "Ang " + s.ang : ""].filter(Boolean).join(" / "))}</span>
         </div>
 
-        <!-- Rahao / Core verse -->
         ${s.rahao_gurmukhi ? `
-        <div style="margin-bottom:20px;padding:12px 16px;background:rgba(245,158,11,0.03);border-left:2px solid rgba(245,158,11,0.2);border-radius:0 4px 4px 0;">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.35);letter-spacing:0.1em;margin-bottom:6px;">RAHAO</div>
-            <div style="font-family:'Noto Serif Gurmukhi','Noto Sans Gurmukhi','GurbaniWeb';font-size:20px;color:#f5e6c8;line-height:1.8;">${escapeHtml(s.rahao_gurmukhi)}</div>
-            ${s.rahao_english ? `<div style="font-family:'IBM Plex Mono';font-size:13px;color:#8a7d6c;margin-top:6px;line-height:1.5;">${escapeHtml(s.rahao_english)}</div>` : ""}
+        <div class="rv-rahao">
+            <div class="rv-label">RAHAO</div>
+            <div class="rv-rahao-gurmukhi">${escapeHtml(s.rahao_gurmukhi)}</div>
+            ${s.rahao_english ? `<div class="rv-rahao-english">${escapeHtml(s.rahao_english)}</div>` : ""}
         </div>
         ` : ""}
 
-        <!-- Theme & Mood -->
         ${s.primary_theme || s.mood ? `
-        <div style="margin-bottom:16px;display:flex;gap:16px;">
-            ${s.primary_theme ? `<div><div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:2px;">THEME</div><div style="font-family:'IBM Plex Mono';font-size:13px;color:#a89b8a;">${escapeHtml(s.primary_theme)}</div></div>` : ""}
-            ${s.mood ? `<div><div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:2px;">MOOD</div><div style="font-family:'IBM Plex Mono';font-size:13px;color:#a89b8a;">${escapeHtml(s.mood)}</div></div>` : ""}
+        <div class="rv-theme-mood">
+            ${s.primary_theme ? `<div><div class="rv-label">THEME</div><div class="rv-value">${escapeHtml(s.primary_theme)}</div></div>` : ""}
+            ${s.mood ? `<div><div class="rv-label">MOOD</div><div class="rv-value">${escapeHtml(s.mood)}</div></div>` : ""}
         </div>
         ` : ""}
 
-        <!-- Tags -->
-        ${tagPills ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:20px;">${tagPills}</div>` : ""}
+        ${tagPills ? `<div class="rv-tags">${tagPills}</div>` : ""}
 
-        <!-- Brief meaning -->
         ${s.brief_meaning ? `
-        <div style="margin-bottom:20px;padding:10px 14px;background:rgba(255,255,255,0.015);border-radius:4px;border:1px solid rgba(255,255,255,0.03);">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:4px;">SUMMARY</div>
-            <div style="font-family:'IBM Plex Mono';font-size:13px;color:#a89b8a;line-height:1.6;">${escapeHtml(s.brief_meaning)}</div>
+        <div class="rv-summary-box">
+            <div class="rv-label">SUMMARY</div>
+            <div class="rv-summary-text">${escapeHtml(s.brief_meaning)}</div>
         </div>
         ` : ""}
 
-        <!-- Full Gurmukhi text -->
-        <div style="margin-bottom:20px;">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:8px;">GURBANI</div>
-            <div style="font-family:'Noto Serif Gurmukhi','Noto Sans Gurmukhi','GurbaniWeb';font-size:20px;color:rgba(245,230,200,0.7);line-height:2;">${gurmukhiHtml}</div>
+        <div class="rv-section">
+            <div class="rv-label">GURBANI</div>
+            <div class="rv-gurbani">${gurmukhiHtml}</div>
         </div>
 
-        <!-- English translation -->
         ${translationText ? `
-        <div style="margin-bottom:20px;">
-            <div style="font-family:'IBM Plex Mono';font-size:8px;color:#4a3f35;letter-spacing:0.05em;margin-bottom:8px;">TRANSLATION</div>
-            <div style="font-family:'IBM Plex Mono';font-size:13px;color:#8a7d6c;line-height:1.8;">${escapeHtml(translationText)}</div>
+        <div class="rv-section">
+            <div class="rv-label">TRANSLATION</div>
+            <div class="rv-translation">${escapeHtml(translationText)}</div>
         </div>
         ` : ""}
 
-        <!-- Connection to next -->
         ${idx < ReviewState.fullData.length - 1 ? renderConnectionDetail(s, ReviewState.fullData[idx + 1], idx) : ""}
 
-        <!-- Nav buttons (PREVIOUS left, NEXT right; matching styles) -->
-        <div style="display:flex;justify-content:space-between;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.03);">
+        <div class="rv-nav">
             <div>${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" class="btn-secondary">&larr; PREVIOUS</button>` : ""}</div>
             <div>${idx < ReviewState.fullData.length - 1 ? `<button onclick="selectShabad(${idx + 1})" class="btn-secondary">NEXT &rarr;</button>` : ""}</div>
         </div>

@@ -353,6 +353,8 @@ body.app-page > main + .site-footer {
 .sidebar-footer a {
     color: rgba(245, 158, 11, 0.5);
     text-decoration: none;
+    padding: 2px 0;
+    display: inline-block;
 }
 .sidebar-footer a:hover {
     color: var(--star-core);
@@ -1300,8 +1302,8 @@ body.app-page > main + .site-footer {
     margin-bottom: 4px;
 }
 .sidebar-orb {
-    width: 22px;
-    height: 22px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--star-core);
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
@@ -1376,7 +1378,8 @@ body.app-page > main + .site-footer {
     flex: 1;
     background: transparent;
     border: none;
-    padding: 8px 10px;
+    padding: 10px 10px;
+    min-height: 40px;
     font-family: 'Space Mono', monospace;
     font-size: 10px;
     letter-spacing: 0.1em;
@@ -1432,7 +1435,8 @@ body.app-page > main + .site-footer {
 .search-mode {
     background: transparent;
     border: none;
-    padding: 6px 8px;
+    padding: 8px 10px;
+    min-height: 36px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
     color: var(--text-dim);
@@ -1543,7 +1547,8 @@ body.app-page > main + .site-footer {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--border-subtle);
     border-radius: 4px;
-    padding: 5px 10px;
+    padding: 8px 12px;
+    min-height: 36px;
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -1642,6 +1647,27 @@ body.app-page > main + .site-footer {
     letter-spacing: 0.05em;
     transition: all 0.12s;
 }
+
+/* --- Reviewer Detail Panel (rv-* classes use CSS variables for theme compat) --- */
+.rv-header { margin-bottom: 20px; }
+.rv-position { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--star-core); opacity: 0.5; font-weight: 700; }
+.rv-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); display: block; margin-top: 4px; }
+.rv-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; margin-bottom: 4px; text-transform: uppercase; }
+.rv-value { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-secondary); }
+.rv-rahao { margin-bottom: 20px; padding: 12px 16px; background: var(--star-corona); border-left: 2px solid var(--star-core); border-radius: 0 4px 4px 0; }
+.rv-rahao-gurmukhi { font-family: 'Noto Serif Gurmukhi', 'Noto Sans Gurmukhi', serif; font-size: 20px; color: var(--text-scripture); line-height: 1.8; }
+.rv-rahao-english { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5; }
+.rv-theme-mood { margin-bottom: 16px; display: flex; gap: 16px; }
+.rv-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--star-core); background: var(--star-corona); padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border-hover); }
+.rv-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; }
+.rv-summary-box { margin-bottom: 20px; padding: 10px 14px; background: var(--grid-line); border-radius: 4px; border: 1px solid var(--border-subtle); }
+.rv-summary-text { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.rv-section { margin-bottom: 20px; }
+.rv-gurbani { font-family: 'Noto Serif Gurmukhi', 'Noto Sans Gurmukhi', serif; font-size: 20px; color: var(--text-scripture); line-height: 2; }
+.rv-gurbani-line { margin-bottom: 6px; }
+.rv-translation { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-secondary); line-height: 1.8; }
+.rv-empty-text { color: var(--text-dim); font-style: italic; }
+.rv-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
 
 /* --- Scrollbar --- */
 ::-webkit-scrollbar { width: 4px; }
