@@ -51,6 +51,16 @@
         </div>
     </aside>
 
+    <!-- Full-screen loading overlay (shown on first load) -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="text-[48px] opacity-[0.06] font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
+        <div class="loading-bar-track">
+            <div id="loadingBarFill" class="loading-bar-fill"></div>
+        </div>
+        <div id="loadingLabel" class="loading-label">Loading ShabadVerse</div>
+        <div id="loadingPercent" class="loading-percent">0%</div>
+    </div>
+
     <!-- Sidebar collapsed toggle (visible when sidebar is hidden) -->
     <button id="sidebarOpen" class="sidebar-open-btn hidden" onclick="toggleSidebar()" title="Show sidebar">&#x276F;</button>
 
@@ -64,9 +74,6 @@
     <section class="tab-content-area">
         <!-- EXPLORE TAB -->
         <div id="exploreTab" class="tab-pane">
-            <!-- Search loading bar (thin amber line under search) -->
-            <div id="searchLoadingBar" class="search-loading-bar hidden"></div>
-
             <!-- Search bar (floats at top of explore area) -->
             <div id="exploreCommandBar" class="explore-search-bar">
                 <div class="search-mode-selector">
@@ -100,8 +107,8 @@
                     <div id="graphStats" class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-6 tracking-wider opacity-60"></div>
                 </div>
 
-                <!-- Breadcrumbs (below search bar with clear gap) -->
-                <div id="breadcrumbs" class="absolute flex items-center gap-1 flex-wrap" style="top: 66px; left: 260px; right: 16px; z-index: 19;"></div>
+                <!-- Breadcrumbs (below search bar with clear gap, above graph nodes) -->
+                <div id="breadcrumbs" class="absolute flex items-center gap-1 flex-wrap" style="top: 66px; left: 260px; right: 16px; z-index: 25;"></div>
 
                 <!-- Controls (bottom) -->
                 <div class="graph-controls">

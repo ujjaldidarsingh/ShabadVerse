@@ -13,12 +13,38 @@ function themeColor(dark, light) {
     return isLightTheme() ? light : dark;
 }
 
-/* ===== LOADING BAR ===== */
+/* ===== LOADING OVERLAY (full-screen progress bar) ===== */
+let _loadingDismissed = false;
+
+function setLoadingProgress(percent, label) {
+    const overlay = document.getElementById("loadingOverlay");
+    if (!overlay || _loadingDismissed) return;
+    const fill = document.getElementById("loadingBarFill");
+    const labelEl = document.getElementById("loadingLabel");
+    const pctEl = document.getElementById("loadingPercent");
+    if (fill) fill.style.width = Math.min(100, Math.round(percent)) + "%";
+    if (labelEl && label) labelEl.textContent = label;
+    if (pctEl) pctEl.textContent = Math.min(100, Math.round(percent)) + "%";
+}
+
+function dismissLoadingOverlay() {
+    const overlay = document.getElementById("loadingOverlay");
+    if (!overlay || _loadingDismissed) return;
+    _loadingDismissed = true;
+    setLoadingProgress(100, "Ready");
+    setTimeout(() => {
+        overlay.classList.add("fade-out");
+        setTimeout(() => overlay.classList.add("hidden"), 400);
+    }, 300);
+}
+
+// Backward-compat aliases for search/expand callers
 function showLoadingBar() {
-    document.getElementById("searchLoadingBar")?.classList.remove("hidden");
+    // Only show full overlay if initial load hasn't dismissed yet
+    // After first load, searches/expands don't show a full-screen overlay
 }
 function hideLoadingBar() {
-    document.getElementById("searchLoadingBar")?.classList.add("hidden");
+    // No-op; overlay is dismissed once during init
 }
 
 /* ===== STATE ===== */
@@ -78,16 +104,20 @@ async function init() {
     const statsEl = document.getElementById("graphStats");
 
     try {
+        setLoadingProgress(10, "Loading shabad metadata");
         const data = await API.get("/api/graph/init");
         State.metadata = data.metadata || {};
         State.tagIndex = data.tag_index || {};
         State.tagVocab = data.tag_vocab || {};
+
+        setLoadingProgress(50, "Loading tag taxonomy");
         State.allTags = await API.get("/api/tags");
 
-        // Restore parkaran from localStorage
+        setLoadingProgress(70, "Restoring library");
         restoreParkaran();
         setupLibraryDelegation();
 
+        setLoadingProgress(85, "Initializing graph engine");
         initCytoscape();
         initSearch();
         initThresholdSlider();
@@ -122,8 +152,10 @@ async function init() {
 
         loadingEl.classList.add("hidden");
         emptyEl.classList.remove("hidden");
+        dismissLoadingOverlay();
     } catch (err) {
         loadingEl.innerHTML = `<div class="text-red-400/80 text-xs" style="font-family:'IBM Plex Mono',monospace;">LOAD FAILED: ${escapeHtml(err.message)}</div>`;
+        dismissLoadingOverlay();
     }
 }
 
