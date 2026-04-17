@@ -25,23 +25,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600&family=Noto+Serif+Gurmukhi:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="bg-void text-gray-200 min-h-screen">
+<body class="bg-void text-gray-200 min-h-screen {% block body_class %}{% endblock %}">
     <!-- Star field background -->
     <div class="star-field"></div>
 
-    <!-- Navigation -->
-    <nav class="nav-bar sticky top-0 z-50">
-        <div class="max-w-[1600px] mx-auto px-4">
-            <div class="flex items-center justify-between h-12">
-                <a href="/" class="flex items-center gap-2 group">
-                    <div class="w-6 h-6 rounded-full bg-star-500 shadow-[0_0_12px_rgba(245,158,11,0.4)] flex items-center justify-center">
-                        <div class="w-2 h-2 rounded-full bg-star-200"></div>
-                    </div>
-                    <span class="font-['Space_Mono'] text-star-400 text-sm tracking-wider group-hover:text-star-300 transition-colors">SHABADVERSE</span>
-                </a>
-            </div>
-        </div>
-    </nav>
+    <!-- Top bar (minimal — logo is in sidebar on app page) -->
+    <div class="nav-bar sticky top-0 z-50" style="height:4px;"></div>
 
     <!-- Main Content -->
     <main class="max-w-[1600px] mx-auto px-4 py-4 relative z-10">

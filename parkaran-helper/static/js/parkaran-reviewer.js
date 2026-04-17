@@ -11,6 +11,7 @@ const ReviewState = {
     parkaran: [],       // [{id, title, gurmukhi, raag, ang, tags, ...}]
     fullData: [],       // Full shabad data from /api/graph/shabads
     selectedIdx: -1,    // Currently selected shabad index
+    selectedId: null,   // ID of selected shabad (survives reorder)
 };
 
 /* ===== INIT (called by tab switch) ===== */
@@ -76,9 +77,12 @@ function selectShabad(idx) {
     const s = ReviewState.fullData[idx];
     if (!s) return;
 
+    // Track by ID so reordering the library doesn't change what's reviewed
+    ReviewState.selectedId = s.id || s.shabad_id || null;
+
     // Highlight the matching row in the shared library list (left column)
-    document.querySelectorAll("#libraryList .parkaran-sidebar-item").forEach((item, i) => {
-        item.classList.toggle("selected", i === idx);
+    document.querySelectorAll("#libraryList .parkaran-sidebar-item").forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === String(ReviewState.selectedId));
     });
 
     // Build detail
@@ -154,10 +158,10 @@ function selectShabad(idx) {
         <!-- Connection to next -->
         ${idx < ReviewState.fullData.length - 1 ? renderConnectionDetail(s, ReviewState.fullData[idx + 1], idx) : ""}
 
-        <!-- Nav buttons -->
-        <div style="display:flex;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.03);">
-            ${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" class="btn-ghost">&larr; PREVIOUS</button>` : ""}
-            ${idx < ReviewState.fullData.length - 1 ? `<button onclick="selectShabad(${idx + 1})" class="btn-secondary">NEXT &rarr;</button>` : ""}
+        <!-- Nav buttons (PREVIOUS left, NEXT right; matching styles) -->
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.03);">
+            <div>${idx > 0 ? `<button onclick="selectShabad(${idx - 1})" class="btn-secondary">&larr; PREVIOUS</button>` : ""}</div>
+            <div>${idx < ReviewState.fullData.length - 1 ? `<button onclick="selectShabad(${idx + 1})" class="btn-secondary">NEXT &rarr;</button>` : ""}</div>
         </div>
     `;
 }
@@ -165,15 +169,15 @@ function selectShabad(idx) {
 function renderConnectionDetail(current, next, idx) {
     const shared = current.shared_tags_with_next || [];
     const strength = shared.length >= 3 ? "STRONG" : shared.length >= 1 ? "MODERATE" : "WEAK";
-    const color = shared.length >= 3 ? "rgba(16,185,129,0.6)" : shared.length >= 1 ? "rgba(245,158,11,0.5)" : "rgba(107,95,82,0.5)";
-    const bgColor = shared.length >= 3 ? "rgba(16,185,129,0.03)" : shared.length >= 1 ? "rgba(245,158,11,0.03)" : "rgba(107,95,82,0.03)";
-    const borderColor = shared.length >= 3 ? "rgba(16,185,129,0.15)" : shared.length >= 1 ? "rgba(245,158,11,0.1)" : "rgba(107,95,82,0.1)";
+    const color = shared.length >= 3 ? "rgba(16,185,129,0.8)" : shared.length >= 1 ? "rgba(245,158,11,0.7)" : "rgba(107,95,82,0.7)";
+    const bgColor = shared.length >= 3 ? "rgba(16,185,129,0.06)" : shared.length >= 1 ? "rgba(245,158,11,0.06)" : "rgba(107,95,82,0.06)";
+    const borderColor = shared.length >= 3 ? "rgba(16,185,129,0.25)" : shared.length >= 1 ? "rgba(245,158,11,0.2)" : "rgba(107,95,82,0.2)";
 
     const nextGurmukhi = next.gurmukhi || "";
     const nextTitle = next.title || "Unknown";
 
     return `
-        <div style="margin-top:20px;padding:12px 16px;background:${bgColor};border:1px solid ${borderColor};border-radius:6px;">
+        <div onclick="selectShabad(${idx + 1})" style="margin-top:20px;padding:12px 16px;background:${bgColor};border:1px solid ${borderColor};border-radius:6px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='${color}';this.style.background='${bgColor.replace(/[\d.]+\)$/, (m) => (parseFloat(m) * 2).toFixed(2) + ')')}';" onmouseout="this.style.borderColor='${borderColor}';this.style.background='${bgColor}'">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                 <span style="font-family:'IBM Plex Mono';font-size:8px;color:${color};font-weight:700;letter-spacing:0.1em;">TRANSITION TO ${idx + 2}</span>
                 <span style="font-family:'IBM Plex Mono';font-size:8px;color:${color};opacity:0.7;">${strength} (${shared.length} shared tag${shared.length !== 1 ? "s" : ""})</span>
