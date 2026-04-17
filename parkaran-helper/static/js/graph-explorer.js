@@ -5,6 +5,14 @@
  * localStorage-backed parkaran state, proper BaniDB ID handling.
  */
 
+/* ===== THEME-AWARE COLORS (for Cytoscape hardcoded values) ===== */
+function isLightTheme() {
+    return document.documentElement.getAttribute("data-theme") === "light";
+}
+function themeColor(dark, light) {
+    return isLightTheme() ? light : dark;
+}
+
 /* ===== STATE ===== */
 const State = {
     cy: null,
@@ -174,7 +182,7 @@ function getStyles() {
                 label: "data(label)",
                 "background-color": "data(themeColor)",
                 "border-width": 0,
-                color: "rgba(232,220,200,0.5)",
+                color: themeColor("rgba(232,220,200,0.5)", "rgba(28,22,16,0.5)"),
                 "font-family": "Noto Sans Gurmukhi, sans-serif",
                 "font-size": "13px",
                 "text-wrap": "ellipsis",
@@ -186,7 +194,7 @@ function getStyles() {
                 "overlay-opacity": 0,
                 "overlay-padding": 8,
                 "text-outline-width": 2,
-                "text-outline-color": "#0f0d13",
+                "text-outline-color": themeColor("#0f0d13", "#f8f5f0"),
                 "text-outline-opacity": 0.7,
             },
         },
@@ -254,7 +262,7 @@ function getStyles() {
                 height: 6,
                 "overlay-opacity": 0,
                 "text-outline-width": 2,
-                "text-outline-color": "#0f0d13",
+                "text-outline-color": themeColor("#0f0d13", "#f8f5f0"),
                 "text-outline-opacity": 0.6,
             },
         },
@@ -263,7 +271,7 @@ function getStyles() {
             selector: "node[type='tagLabel']:active, node[type='tagLabel'].cy-hover",
             style: {
                 color: "rgba(245,158,11,0.95)",
-                "text-outline-color": "#0f0d13",
+                "text-outline-color": themeColor("#0f0d13", "#f8f5f0"),
                 "text-outline-opacity": 1,
             },
         },

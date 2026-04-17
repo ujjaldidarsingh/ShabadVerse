@@ -13,15 +13,10 @@ function initTheme() {
     const saved = localStorage.getItem("shabadverse_theme");
     if (saved) {
         document.documentElement.setAttribute("data-theme", saved);
-    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-        document.documentElement.setAttribute("data-theme", "light");
     }
-    // Listen for OS theme changes (only if user hasn't manually overridden)
-    window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
-        if (!localStorage.getItem("shabadverse_theme")) {
-            document.documentElement.setAttribute("data-theme", e.matches ? "light" : "dark");
-        }
-    });
+    // Default is dark (the Celestial Observatory theme we built out).
+    // Light theme is available via the toggle button.
+    // No OS auto-detection; dark is the brand default.
 }
 
 window.toggleTheme = function () {
@@ -30,8 +25,29 @@ window.toggleTheme = function () {
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("shabadverse_theme", next);
 
-    // Re-render Cytoscape — node/edge colors need to update
+    // Re-render Cytoscape — node/edge/label colors are hardcoded at init time.
+    // Update the styles that depend on theme, then re-render.
     if (typeof State !== "undefined" && State.cy) {
+        const isLight = next === "light";
+        const outlineColor = isLight ? "#f8f5f0" : "#0f0d13";
+        const labelColor = isLight ? "rgba(28,22,16,0.5)" : "rgba(232,220,200,0.5)";
+        const tagLabelColor = isLight ? "rgba(163,92,0,0.55)" : "rgba(245,158,11,0.45)";
+
+        State.cy.style()
+            .selector("node[type='shabad']").style({
+                "color": labelColor,
+                "text-outline-color": outlineColor,
+            })
+            .selector("node.center-node").style({
+                "color": isLight ? "#1c1610" : "#f5e6c8",
+                "text-outline-color": outlineColor,
+            })
+            .selector("node[type='tagLabel']").style({
+                "color": tagLabelColor,
+                "text-outline-color": outlineColor,
+            })
+            .update();
+
         State.cy.resize();
     }
 };

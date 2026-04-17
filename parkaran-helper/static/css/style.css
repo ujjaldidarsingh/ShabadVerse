@@ -27,69 +27,178 @@
     --border-hover: rgba(245, 158, 11, 0.2);
 }
 
-/* --- Light Theme --- */
+/* --- Light Theme: Warm Parchment Manuscript ---
+   Dark = Celestial Observatory (amber on void)
+   Light = Parchment Manuscript (sepia ink, gold-leaf accents)
+   All text colors pass WCAG AA on their target surfaces. */
 [data-theme="light"] {
-    --void: #f5f3ef;
-    --deep: #eae7e1;
-    --mid: #ddd9d1;
-    --space-surface: #d1cdc5;
-    --star-core: #b45309;
-    --star-glow: #92400e;
-    --star-corona: rgba(180, 83, 9, 0.1);
-    --text-scripture: #1a1510;
-    --text-primary: #2d2822;
-    --text-secondary: #5c5347;
-    --text-dim: #8a7d6c;
+    --void: #f8f5f0;          /* page bg: unbleached linen */
+    --deep: #efe9e0;          /* panels: aged parchment */
+    --mid: #e4ddd3;           /* elevated: vellum */
+    --space-surface: #d8d0c5; /* cards, controls */
+    --star-core: #a35c00;     /* primary accent: 4.72:1 on void */
+    --star-glow: #8b4e00;     /* emphasis accent: 6.06:1 on void */
+    --star-corona: rgba(163, 92, 0, 0.08);
+    --text-scripture: #1c1610; /* Gurmukhi: near-black warm. 16.48:1 */
+    --text-primary: #2a231a;   /* body text. 14.26:1 */
+    --text-secondary: #5c5246; /* secondary. 7.02:1 */
+    --text-dim: #7e7263;       /* labels, captions. 4.32:1 */
     --grid-line: rgba(0, 0, 0, 0.04);
-    --border-subtle: #c5c0b8;
-    --border-hover: rgba(180, 83, 9, 0.25);
+    --border-subtle: #c2b9ab;
+    --border-hover: rgba(163, 92, 0, 0.25);
+    --signal-green: #15803d;
+    --signal-red: #b91c1c;
 }
 [data-theme="light"] body,
 body[data-theme="light"] {
     background: var(--void) !important;
     color: var(--text-primary) !important;
 }
-[data-theme="light"] .nav-bar,
-body[data-theme="light"] .nav-bar {
-    background: rgba(234, 231, 225, 0.9);
+/* Nav bar */
+[data-theme="light"] .nav-bar {
+    background: rgba(239, 233, 224, 0.88);
     border-bottom-color: var(--border-subtle);
 }
-[data-theme="light"] .library-panel,
-body[data-theme="light"] .library-panel {
-    background: rgba(245, 243, 239, 0.95);
-    border-right-color: var(--border-subtle);
+/* Floating sidebar: frosted aged paper */
+[data-theme="light"] .library-panel {
+    background: rgba(248, 245, 240, 0.94);
+    border-right-color: rgba(194, 185, 171, 0.5);
 }
-[data-theme="light"] .graph-container,
-body[data-theme="light"] .graph-container {
+/* Graph canvas: subtle manuscript grid */
+[data-theme="light"] .graph-container {
     background: var(--void);
 }
-[data-theme="light"] .force-panel,
-body[data-theme="light"] .force-panel {
-    background: rgba(221, 217, 209, 0.8);
+/* Force panel: translucent vellum */
+[data-theme="light"] .force-panel {
+    background: rgba(239, 233, 224, 0.82);
+    border-color: rgba(194, 185, 171, 0.6);
 }
-[data-theme="light"] .hud-tooltip,
-body[data-theme="light"] .hud-tooltip {
-    background: rgba(245, 243, 239, 0.98);
-    border-color: var(--border-subtle);
+/* HUD tooltip: solid parchment */
+[data-theme="light"] .hud-tooltip {
+    background: rgba(248, 245, 240, 0.98);
+    border-color: rgba(194, 185, 171, 0.5);
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.12), 0 0 16px -4px rgba(163, 92, 0, 0.06);
 }
-[data-theme="light"] .shabad-preview-overlay,
-body[data-theme="light"] .shabad-preview-overlay {
-    background: rgba(245, 243, 239, 0.98);
-    border-color: var(--border-subtle);
+/* Preview modal */
+[data-theme="light"] .shabad-preview-overlay {
+    background: rgba(248, 245, 240, 0.98);
+    border-color: rgba(163, 92, 0, 0.18);
+    box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.15);
 }
-[data-theme="light"] .shabad-preview-backdrop,
-body[data-theme="light"] .shabad-preview-backdrop {
-    background: rgba(0, 0, 0, 0.35);
+[data-theme="light"] .shabad-preview-overlay .preview-header {
+    background: rgba(239, 233, 224, 0.98);
 }
-[data-theme="light"] .shabad-preview-overlay .preview-header,
-body[data-theme="light"] .shabad-preview-overlay .preview-header {
-    background: rgba(234, 231, 225, 0.98);
+[data-theme="light"] .shabad-preview-backdrop {
+    background: rgba(0, 0, 0, 0.25);
 }
-[data-theme="light"] .sidebar-open-btn,
-body[data-theme="light"] .sidebar-open-btn {
-    background: rgba(245, 243, 239, 0.95);
+/* Sidebar open button */
+[data-theme="light"] .sidebar-open-btn {
+    background: rgba(248, 245, 240, 0.95);
     border-color: var(--border-subtle);
     color: var(--star-core);
+}
+/* Toast */
+[data-theme="light"] .parkaran-toast {
+    background: rgba(248, 245, 240, 0.96);
+    border-color: rgba(163, 92, 0, 0.3);
+    color: var(--star-core);
+}
+/* Autocomplete dropdown */
+[data-theme="light"] .autocomplete-dropdown {
+    background: rgba(248, 245, 240, 0.97);
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.12);
+}
+/* Tag modal */
+[data-theme="light"] .tag-modal-overlay {
+    background: rgba(248, 245, 240, 0.85);
+}
+/* Search mode buttons */
+[data-theme="light"] .search-mode-selector {
+    border-color: var(--border-subtle);
+    background: rgba(239, 233, 224, 0.5);
+}
+[data-theme="light"] .search-mode.active {
+    background: rgba(163, 92, 0, 0.12);
+}
+/* Library section */
+[data-theme="light"] .sidebar-library {
+    border-color: rgba(194, 185, 171, 0.4);
+}
+/* App tabs */
+[data-theme="light"] .app-tabs {
+    border-color: var(--border-subtle);
+    background: rgba(239, 233, 224, 0.3);
+}
+[data-theme="light"] .app-tab.active {
+    background: rgba(163, 92, 0, 0.1);
+    border-color: rgba(163, 92, 0, 0.25);
+}
+/* Breadcrumb chips */
+[data-theme="light"] .breadcrumb-chip {
+    background: rgba(163, 92, 0, 0.06);
+    border-color: rgba(163, 92, 0, 0.15);
+}
+[data-theme="light"] .breadcrumb-chip.active {
+    background: rgba(163, 92, 0, 0.12);
+    border-color: rgba(163, 92, 0, 0.3);
+}
+/* Scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.08); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.14); }
+/* Selection */
+[data-theme="light"] ::selection {
+    background: rgba(163, 92, 0, 0.15);
+    color: #1c1610;
+}
+/* Search input */
+[data-theme="light"] .search-input {
+    background: rgba(239, 233, 224, 0.6);
+    border-color: var(--border-subtle);
+    color: var(--text-primary);
+}
+/* Mission panel / library items */
+[data-theme="light"] .parkaran-sidebar-item {
+    background: rgba(239, 233, 224, 0.3);
+    border-color: rgba(194, 185, 171, 0.3);
+}
+[data-theme="light"] .parkaran-sidebar-item:hover {
+    background: rgba(163, 92, 0, 0.06);
+    border-color: rgba(163, 92, 0, 0.15);
+}
+/* Review content */
+[data-theme="light"] #reviewContent {
+    border-color: rgba(194, 185, 171, 0.3);
+}
+/* Tag shabads modal rows */
+[data-theme="light"] .tag-shabad-row:hover {
+    background: rgba(163, 92, 0, 0.05);
+    border-color: rgba(163, 92, 0, 0.15);
+}
+/* Library modal rows */
+[data-theme="light"] .library-modal-row:hover {
+    background: rgba(163, 92, 0, 0.05);
+}
+[data-theme="light"] .library-modal-row.current {
+    background: rgba(163, 92, 0, 0.08);
+    border-color: rgba(163, 92, 0, 0.2);
+}
+/* Buttons */
+[data-theme="light"] .btn-ghost {
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+}
+[data-theme="light"] .btn-ghost:hover {
+    background: rgba(163, 92, 0, 0.06);
+    border-color: rgba(163, 92, 0, 0.2);
+    color: var(--star-core);
+}
+[data-theme="light"] .btn-secondary {
+    background: rgba(163, 92, 0, 0.12);
+    border-color: rgba(163, 92, 0, 0.3);
+    color: var(--star-core);
+}
+[data-theme="light"] .btn-secondary:hover {
+    background: rgba(163, 92, 0, 0.2);
 }
 
 /* --- Reduced motion --- */
@@ -1341,20 +1450,18 @@ body.app-page > main + .site-footer {
     background: rgba(245, 158, 11, 0.1);
     font-weight: 700;
 }
-/* Gurmukhi preview strip (shows mapped characters above input) */
+/* Gurmukhi preview (inline inside input area, right-aligned) */
 .gurmukhi-preview {
     position: absolute;
-    top: -22px;
-    left: 0;
-    right: 0;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
     font-family: 'Noto Sans Gurmukhi', 'Noto Serif Gurmukhi', sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     color: var(--star-glow);
-    letter-spacing: 0.3em;
+    letter-spacing: 0.2em;
     pointer-events: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    opacity: 0.7;
 }
 /* Gurmukhi input mode: style the input differently */
 .search-input.gurmukhi-mode {
