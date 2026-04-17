@@ -14,9 +14,14 @@ function initTheme() {
     if (saved) {
         document.documentElement.setAttribute("data-theme", saved);
     }
-    // Default is dark (the Celestial Observatory theme we built out).
-    // Light theme is available via the toggle button.
-    // No OS auto-detection; dark is the brand default.
+    updateThemeToggleUI(saved || "dark");
+}
+
+function updateThemeToggleUI(theme) {
+    const icon = document.getElementById("themeIcon");
+    const label = document.getElementById("themeLabel");
+    if (icon) icon.textContent = theme === "light" ? "☀" : "☾";
+    if (label) label.textContent = theme === "light" ? "DARK" : "LIGHT";
 }
 
 window.toggleTheme = function () {
@@ -24,6 +29,7 @@ window.toggleTheme = function () {
     const next = current === "light" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("shabadverse_theme", next);
+    updateThemeToggleUI(next);
 
     // Re-render Cytoscape — node/edge/label colors are hardcoded at init time.
     // Update the styles that depend on theme, then re-render.

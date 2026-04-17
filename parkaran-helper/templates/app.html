@@ -40,7 +40,7 @@
             <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a>
         </div>
 
-        <!-- Library actions + theme toggle -->
+        <!-- Library actions -->
         <div class="flex gap-1">
             <button type="button" id="libraryBtn" class="btn-ghost flex-1 text-[10px]" onclick="openLibraryModal()">
                 LIBRARY
@@ -48,14 +48,17 @@
             <button type="button" class="btn-ghost text-[10px]" onclick="shareLibraryURL()" title="Copy shareable link">
                 SHARE
             </button>
-            <button type="button" id="themeToggle" class="btn-ghost text-[10px]" onclick="toggleTheme()" title="Toggle light/dark theme">
-                &#x263C;
-            </button>
         </div>
     </aside>
 
     <!-- Sidebar collapsed toggle (visible when sidebar is hidden) -->
     <button id="sidebarOpen" class="sidebar-open-btn hidden" onclick="toggleSidebar()" title="Show sidebar">&#x276F;</button>
+
+    <!-- Theme toggle (top-right corner, always visible) -->
+    <button type="button" id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Switch between light and dark theme">
+        <span class="theme-toggle-icon" id="themeIcon">&#x263E;</span>
+        <span class="theme-toggle-label" id="themeLabel">LIGHT</span>
+    </button>
 
     <!-- FULL-WIDTH CONTENT AREA (behind sidebar) -->
     <section class="tab-content-area">
