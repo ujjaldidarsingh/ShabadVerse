@@ -577,17 +577,18 @@ async function expandShabad(shabadId) {
     // Fit to visible nodes — immediate fit first, then smooth refine
     const visibleNodes = cy.nodes().not(".faded").not("[type='tagLabel']");
     if (visibleNodes.length > 0) {
-        cy.fit(visibleNodes, 50); // immediate fit so nodes are visible
+        cy.fit(visibleNodes, 50);
         cy.animate({
             fit: { eles: visibleNodes, padding: 60 },
         }, {
             duration: 400,
             easing: "ease-out-cubic",
-            complete: () => { State.expanding = false; },
         });
-    } else {
-        State.expanding = false;
     }
+    // Reset expanding guard immediately — the critical async work (API call)
+    // is done. Don't depend on cy.animate callback which can silently skip
+    // if the animation is a no-op (already at target position).
+    State.expanding = false;
 }
 
 /** Position tag label nodes at the centroid of their cluster after force layout. */
