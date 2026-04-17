@@ -901,11 +901,86 @@ function initForceControls() {
     }, 300));
 }
 
-/* ===== SEARCH (first-letter default) ===== */
+/* ===== STTM KEYBOARD MAPPING (ASCII → Gurmukhi) ===== */
+
+const STTM_MAP = {
+    "a": "ੳ", "A": "ਅ", "e": "ੲ", "s": "ਸ", "h": "ਹ",
+    "k": "ਕ", "K": "ਖ", "g": "ਗ", "G": "ਘ", "|": "ਙ",
+    "c": "ਚ", "C": "ਛ", "j": "ਜ", "J": "ਝ", "\\": "ਞ",
+    "t": "ਟ", "T": "ਠ", "f": "ਡ", "F": "ਢ", "x": "ਣ",
+    "q": "ਤ", "Q": "ਥ", "d": "ਦ", "D": "ਧ", "n": "ਨ",
+    "p": "ਪ", "P": "ਫ", "b": "ਬ", "B": "ਭ", "m": "ਮ",
+    "X": "ਯ", "r": "ਰ", "l": "ਲ", "v": "ਵ", "V": "ੜ",
+    "S": "ਸ਼", "^": "ਖ਼", "Z": "ਗ਼", "z": "ਜ਼", "&": "ਫ਼", "L": "ਲ਼",
+    "w": "ਾ", "W": "ਾਂ", "i": "ਿ", "I": "ੀ", "u": "ੁ", "U": "ੂ",
+    "y": "ੇ", "Y": "ੈ", "o": "ੋ", "O": "ੌ", "M": "ੰ", "N": "ਂ",
+    "~": "ੱ", "`": "ੱ", "R": "੍ਰ", "H": "੍ਹ", "E": "ਓ",
+    " ": " ",
+};
+
+function asciiToGurmukhi(text) {
+    return text.split("").map((c) => STTM_MAP[c] || c).join("");
+}
+
+/* ===== SEARCH MODE STATE ===== */
+
+let searchMode = "transliteration"; // "transliteration" | "first-letter-start" | "first-letter-anywhere"
+
+function setSearchMode(mode) {
+    searchMode = mode;
+    const input = document.getElementById("graphSearch");
+    const preview = document.getElementById("gurmukhiPreview");
+
+    // Update mode buttons
+    document.querySelectorAll(".search-mode").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+
+    // Update input styling and placeholder
+    if (mode === "transliteration") {
+        input.classList.remove("gurmukhi-mode");
+        input.placeholder = "search e.g. tera naam, satgur ...";
+        preview.classList.add("hidden");
+    } else {
+        input.classList.add("gurmukhi-mode");
+        input.placeholder = mode === "first-letter-start"
+            ? "first letter from start e.g. h k s j k"
+            : "first letter anywhere e.g. n m";
+        preview.classList.remove("hidden");
+    }
+
+    // Clear and refocus
+    input.value = "";
+    preview.textContent = "";
+    document.getElementById("searchDropdown").classList.add("hidden");
+    input.focus();
+}
+
+function updateGurmukhiPreview() {
+    const input = document.getElementById("graphSearch");
+    const preview = document.getElementById("gurmukhiPreview");
+    if (searchMode === "transliteration") {
+        preview.classList.add("hidden");
+        return;
+    }
+    const gurmukhi = asciiToGurmukhi(input.value);
+    preview.textContent = gurmukhi;
+    preview.classList.remove("hidden");
+}
+
+/* ===== SEARCH ===== */
 
 function initSearch() {
     const input = document.getElementById("graphSearch");
     const dropdown = document.getElementById("searchDropdown");
+
+    // Wire up mode selector buttons
+    document.querySelectorAll(".search-mode").forEach((btn) => {
+        btn.addEventListener("click", () => setSearchMode(btn.dataset.mode));
+    });
+
+    // Update Gurmukhi preview on each keystroke in first-letter modes
+    input.addEventListener("input", () => updateGurmukhiPreview());
 
     input.addEventListener("input", debounce(async () => {
         const q = input.value.trim();
@@ -915,36 +990,41 @@ function initSearch() {
         }
 
         try {
-            // Search locally against transliteration titles (instant, English-friendly).
-            // Matches any shabad whose transliteration title contains all search words.
-            const ql = q.toLowerCase();
-            const searchWords = ql.split(/\s+/).filter(Boolean);
-            const local = [];
-            for (const [sid, m] of Object.entries(State.metadata)) {
-                if (local.length >= 12) break;
-                const title = (m.title || "").toLowerCase();
-                if (searchWords.every((w) => title.includes(w))) {
-                    local.push({ id: sid, ...m });
-                }
-            }
+            let results = [];
 
-            // If no transliteration matches, try tag/theme search
-            if (local.length === 0) {
+            if (searchMode === "transliteration") {
+                // Local search against English transliteration titles
+                const searchWords = q.toLowerCase().split(/\s+/).filter(Boolean);
                 for (const [sid, m] of Object.entries(State.metadata)) {
-                    if (local.length >= 8) break;
-                    if ((m.tags || []).join(" ").toLowerCase().includes(ql) ||
-                        (m.primary_theme || "").toLowerCase().includes(ql)) {
-                        local.push({ id: sid, ...m });
+                    if (results.length >= 12) break;
+                    const title = (m.title || "").toLowerCase();
+                    if (searchWords.every((w) => title.includes(w))) {
+                        results.push({ id: sid, ...m });
                     }
                 }
-            }
+                // Fallback: tag/theme search
+                if (results.length === 0) {
+                    const ql = q.toLowerCase();
+                    for (const [sid, m] of Object.entries(State.metadata)) {
+                        if (results.length >= 8) break;
+                        if ((m.tags || []).join(" ").toLowerCase().includes(ql) ||
+                            (m.primary_theme || "").toLowerCase().includes(ql)) {
+                            results.push({ id: sid, ...m });
+                        }
+                    }
+                }
+                // Render local results
+                if (results.length === 0) {
+                    dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>';
+                } else {
+                    dropdown.innerHTML = results.map((m) => searchResultHTML(m.id, m)).join("");
+                }
 
-            const results = local;
-
-            if (!results || results.length === 0) {
-                // Final fallback: BaniDB first-letter search (Gurmukhi keyboard)
+            } else {
+                // Gurmukhi first-letter search via BaniDB
                 const flQuery = q.replace(/\s+/g, "");
-                const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=1`);
+                const stype = searchMode === "first-letter-start" ? 1 : 2;
+                const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=${stype}`);
                 if (baniResults && baniResults.length > 0) {
                     dropdown.innerHTML = baniResults.slice(0, 10).map((r) => {
                         const sid = String(r.banidb_shabad_id);
@@ -959,16 +1039,11 @@ function initSearch() {
                             brief_meaning: m.brief_meaning || "",
                         }, r.title_gurmukhi, r.first_line_translation);
                     }).join("");
-                    dropdown.classList.remove("hidden");
-                    return;
+                } else {
+                    dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>';
                 }
             }
 
-            if (results.length === 0) {
-                dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>';
-            } else {
-                dropdown.innerHTML = results.map((m) => searchResultHTML(m.id, m)).join("");
-            }
             dropdown.classList.remove("hidden");
         } catch (err) {
             console.error("Search error:", err);

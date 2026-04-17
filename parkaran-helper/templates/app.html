@@ -63,8 +63,14 @@
         <div id="exploreTab" class="tab-pane">
             <!-- Search bar (floats at top of explore area) -->
             <div id="exploreCommandBar" class="explore-search-bar">
+                <div class="search-mode-selector">
+                    <button type="button" class="search-mode active" data-mode="transliteration" title="English transliteration search">ABC</button>
+                    <button type="button" class="search-mode" data-mode="first-letter-start" title="First letter from start (Gurmukhi keyboard)">ੳ▸</button>
+                    <button type="button" class="search-mode" data-mode="first-letter-anywhere" title="First letter anywhere (Gurmukhi keyboard)">▸ੳ▸</button>
+                </div>
                 <div class="search-cmd relative flex-1 max-w-lg">
-                    <input type="text" id="graphSearch" class="search-input" placeholder="search e.g. tera naam, satgur ...">
+                    <input type="text" id="graphSearch" class="search-input" placeholder="search e.g. tera naam, satgur ..." autocomplete="off" spellcheck="false">
+                    <div id="gurmukhiPreview" class="gurmukhi-preview hidden"></div>
                     <div id="searchDropdown" class="autocomplete-dropdown hidden"></div>
                 </div>
                 <button class="btn-ghost" onclick="openTagBrowser()">TAGS</button>

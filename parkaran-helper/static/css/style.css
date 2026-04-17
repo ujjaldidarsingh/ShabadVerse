@@ -1310,6 +1310,58 @@ body.app-page > main + .site-footer {
     align-items: center;
     gap: 8px;
 }
+/* Search mode selector */
+.search-mode-selector {
+    display: flex;
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.search-mode {
+    background: transparent;
+    border: none;
+    padding: 6px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.12s;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+.search-mode:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+.search-mode.active {
+    color: var(--star-core);
+    background: rgba(245, 158, 11, 0.1);
+    font-weight: 700;
+}
+/* Gurmukhi preview strip (shows mapped characters above input) */
+.gurmukhi-preview {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    right: 0;
+    font-family: 'Noto Sans Gurmukhi', 'Noto Serif Gurmukhi', sans-serif;
+    font-size: 14px;
+    color: var(--star-glow);
+    letter-spacing: 0.3em;
+    pointer-events: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Gurmukhi input mode: style the input differently */
+.search-input.gurmukhi-mode {
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+}
 /* Graph controls (bottom of graph) */
 .graph-controls {
     position: absolute;
