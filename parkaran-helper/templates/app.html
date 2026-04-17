@@ -1,123 +1,140 @@
 {% extends "base.html" %}
 {% block title %}ShabadVerse{% endblock %}
+{% block body_class %}app-page{% endblock %}
 
 {% block content %}
-<div class="app-shell flex flex-col" style="height: calc(100vh - 5.5rem);">
-    <!-- Top bar: search + tags + random (only visible in Explore mode) -->
-    <div id="exploreCommandBar" class="flex items-center gap-2 mb-2 flex-shrink-0">
-        <div class="search-cmd relative flex-1 max-w-lg">
-            <input type="text" id="graphSearch" class="search-input" placeholder="first letters e.g. h k s j k ...">
-            <div id="searchDropdown" class="autocomplete-dropdown hidden"></div>
+<div class="app-shell" style="height: calc(100vh - 4px);">
+    <!-- FLOATING SIDEBAR (over content) -->
+    <aside class="library-panel" id="sidebarPanel">
+        <!-- Logo (inside sidebar per #13) -->
+        <div class="sidebar-logo">
+            <div class="w-5 h-5 rounded-full bg-star-500 shadow-[0_0_8px_rgba(245,158,11,0.3)] flex items-center justify-center flex-shrink-0">
+                <div class="w-1.5 h-1.5 rounded-full bg-star-200"></div>
+            </div>
+            <span class="font-['Space_Mono'] text-star-400 text-[11px] tracking-wider">SHABADVERSE</span>
+            <button id="sidebarToggle" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">&#x276E;</button>
         </div>
-        <button class="btn-ghost" onclick="openTagBrowser()">TAGS</button>
-        <button class="btn-ghost" onclick="surpriseMe()">RANDOM</button>
-    </div>
 
-    <!-- Main area: left flow column + right tab content -->
-    <div class="flex gap-3 flex-1 min-h-0">
-        <!-- LEFT: Library flow panel (persistent across tabs) -->
-        <aside class="library-panel flex-shrink-0 flex flex-col gap-2">
-            <!-- Tab bar -->
-            <div class="app-tabs">
-                <button type="button" class="app-tab active" id="tabExplore" data-tab="explore">EXPLORE</button>
-                <button type="button" class="app-tab" id="tabReview" data-tab="review">REVIEW</button>
+        <!-- Tab bar -->
+        <div class="app-tabs">
+            <button type="button" class="app-tab active" id="tabExplore" data-tab="explore">EXPLORE</button>
+            <button type="button" class="app-tab" id="tabReview" data-tab="review">REVIEW</button>
+        </div>
+
+        <!-- Library flow list -->
+        <div class="sidebar-library flex-1 flex flex-col min-h-0">
+            <div class="sidebar-library-header">
+                <span id="libraryName" class="library-name" title="">LIBRARY</span>
+                <span id="libraryCount" class="text-[9px] text-gray-600 font-normal tracking-normal">0</span>
             </div>
+            <p id="libraryEmpty" class="text-gray-700 text-[10px] text-center py-6 font-['IBM_Plex_Mono'] tracking-wide">
+                Click shabads to<br>build your library
+            </p>
+            <div id="libraryList" class="flex-1 overflow-y-auto p-1.5 space-y-1"></div>
+        </div>
 
-            <!-- Library flow list -->
-            <div class="mission-panel flex-1 flex flex-col min-h-0">
-                <div class="mission-panel-header library-header">
-                    <div class="flex items-center justify-between w-full">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span id="libraryName" class="library-name" title="">LIBRARY</span>
-                            <span id="libraryCount" class="text-[9px] text-gray-600 font-normal tracking-normal">0</span>
-                        </div>
-                    </div>
-                </div>
-                <p id="libraryEmpty" class="text-gray-700 text-[10px] text-center py-8 font-['IBM_Plex_Mono'] tracking-wide">
-                    Click shabads to<br>build your library
-                </p>
-                <div id="libraryList" class="flex-1 overflow-y-auto p-1.5 space-y-1"></div>
-            </div>
+        <!-- BaniDB credit -->
+        <div class="sidebar-footer">
+            Gurbani sourced from
+            <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a>
+            /
+            <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a>
+        </div>
 
-            <!-- Library management button (bottom) -->
-            <button type="button" id="libraryBtn" class="btn-ghost w-full text-[10px]" onclick="openLibraryModal()">
+        <!-- Library actions + theme toggle -->
+        <div class="flex gap-1">
+            <button type="button" id="libraryBtn" class="btn-ghost flex-1 text-[10px]" onclick="openLibraryModal()">
                 LIBRARY
             </button>
-        </aside>
+            <button type="button" class="btn-ghost text-[10px]" onclick="shareLibraryURL()" title="Copy shareable link">
+                SHARE
+            </button>
+            <button type="button" id="themeToggle" class="btn-ghost text-[10px]" onclick="toggleTheme()" title="Toggle light/dark theme">
+                &#x263C;
+            </button>
+        </div>
+    </aside>
 
-        <!-- RIGHT: Tab content area -->
-        <section class="tab-content-area flex-1 min-w-0 relative">
-            <!-- EXPLORE TAB -->
-            <div id="exploreTab" class="tab-pane">
-                <div class="graph-container relative rounded-md border border-white/[0.04] overflow-hidden h-full">
-                    <div id="cy" class="w-full h-full"></div>
+    <!-- Sidebar collapsed toggle (visible when sidebar is hidden) -->
+    <button id="sidebarOpen" class="sidebar-open-btn hidden" onclick="toggleSidebar()" title="Show sidebar">&#x276F;</button>
 
-                    <!-- Loading -->
-                    <div id="graphLoading" class="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <div class="orbital-spinner"></div>
-                        <div class="font-['IBM_Plex_Mono'] text-gray-600 text-xs tracking-wider">LOADING GRAPH DATA</div>
-                    </div>
-
-                    <!-- Empty state -->
-                    <div id="graphEmpty" class="absolute inset-0 flex flex-col items-center justify-center hidden">
-                        <div class="text-[64px] opacity-[0.04] mb-4 font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
-                        <div class="font-['Space_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Begin exploring</div>
-                        <div class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-1.5 tracking-wide">search / browse tags / random</div>
-                        <div id="graphStats" class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-6 tracking-wider opacity-60"></div>
-                    </div>
-
-                    <!-- Breadcrumbs + inline RESET -->
-                    <div id="breadcrumbs" class="absolute top-2.5 left-2.5 flex items-center gap-1 flex-wrap max-w-[70%]"></div>
-
-                    <!-- Controls -->
-                    <div class="absolute bottom-3 left-3 flex items-center gap-2 flex-wrap">
-                        <div class="force-panel" style="padding:4px 8px;display:flex;align-items:center;gap:6px;">
-                            <label style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.4);letter-spacing:0.1em;">SPREAD</label>
-                            <input type="range" id="forceDistance" min="80" max="400" step="10" value="250" style="width:100px;accent-color:#f59e0b;">
-                            <span id="forceDistanceVal" style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.5);width:24px;">200</span>
-                        </div>
-                        <div class="force-panel threshold-slider" id="thresholdControl" style="padding:4px 8px;display:none;align-items:center;gap:6px;">
-                            <label style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.4);letter-spacing:0.1em;">SELECTIVE</label>
-                            <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35" style="width:100px;accent-color:#f59e0b;">
-                            <span id="thresholdScore" style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(245,158,11,0.5);min-width:28px;">0.35</span>
-                        </div>
-                        <button onclick="State.cy && State.cy.fit(50)" class="btn-ghost">FIT</button>
-                    </div>
-
-                    <!-- Node tooltip -->
-                    <div id="nodeTooltip" class="absolute hidden hud-tooltip z-50"></div>
+    <!-- FULL-WIDTH CONTENT AREA (behind sidebar) -->
+    <section class="tab-content-area">
+        <!-- EXPLORE TAB -->
+        <div id="exploreTab" class="tab-pane">
+            <!-- Search bar (floats at top of explore area) -->
+            <div id="exploreCommandBar" class="explore-search-bar">
+                <div class="search-cmd relative flex-1 max-w-lg">
+                    <input type="text" id="graphSearch" class="search-input" placeholder="search e.g. tera naam, satgur ...">
+                    <div id="searchDropdown" class="autocomplete-dropdown hidden"></div>
                 </div>
+                <button class="btn-ghost" onclick="openTagBrowser()">TAGS</button>
+                <button class="btn-ghost" onclick="surpriseMe()">RANDOM</button>
             </div>
 
-            <!-- REVIEW TAB -->
-            <div id="reviewTab" class="tab-pane hidden">
-                <div class="reviewer-tab-wrapper h-full flex flex-col">
-                    <!-- Review empty state -->
-                    <div id="reviewEmpty" class="flex-1 flex flex-col items-center justify-center hidden">
-                        <div class="text-[64px] opacity-[0.04] mb-4 font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
-                        <div class="font-['Space_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Nothing to review</div>
-                        <div class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-1.5 tracking-wide">
-                            Switch to <button class="link-btn" onclick="switchToTab('explore')">Explore</button> and add shabads to your library
-                        </div>
-                    </div>
+            <div class="graph-container relative overflow-hidden h-full">
+                <div id="cy" class="w-full h-full"></div>
 
-                    <!-- Review loading state -->
-                    <div id="reviewLoading" class="flex-1 flex items-center justify-center hidden">
-                        <div class="font-['IBM_Plex_Mono'] text-gray-600 text-[10px]">LOADING REVIEW...</div>
-                    </div>
+                <!-- Loading -->
+                <div id="graphLoading" class="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <div class="orbital-spinner"></div>
+                    <div class="font-['IBM_Plex_Mono'] text-gray-600 text-xs tracking-wider">LOADING GRAPH DATA</div>
+                </div>
 
-                    <!-- Review main content (one column, detail only — flow list lives in left library column) -->
-                    <div id="reviewContent" class="hidden flex-1 min-h-0 overflow-y-auto rounded-md border border-white/[0.04]">
-                        <div id="detailContent" style="padding:24px;">
-                            <div style="text-align:center;padding:80px 0;">
-                                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#4a3f35;">Click a shabad in your library to read</div>
-                            </div>
+                <!-- Empty state -->
+                <div id="graphEmpty" class="absolute inset-0 flex flex-col items-center justify-center hidden">
+                    <div class="text-[64px] opacity-[0.04] mb-4 font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
+                    <div class="font-['Space_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Begin exploring</div>
+                    <div class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-1.5 tracking-wide">search / browse tags / random</div>
+                    <div id="graphStats" class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-6 tracking-wider opacity-60"></div>
+                </div>
+
+                <!-- Breadcrumbs -->
+                <div id="breadcrumbs" class="absolute top-2.5 left-2.5 flex items-center gap-1 flex-wrap max-w-[65%]" style="left: 260px;"></div>
+
+                <!-- Controls (bottom) -->
+                <div class="graph-controls">
+                    <div class="force-panel">
+                        <label>SPREAD</label>
+                        <input type="range" id="forceDistance" min="80" max="400" step="10" value="250">
+                        <span id="forceDistanceVal">200</span>
+                    </div>
+                    <div class="force-panel" id="thresholdControl" style="display:none;">
+                        <label>SELECTIVE</label>
+                        <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35">
+                        <span id="thresholdScore">0.35</span>
+                    </div>
+                    <button onclick="State.cy && State.cy.fit(50)" class="btn-ghost">FIT</button>
+                </div>
+
+                <!-- Node tooltip -->
+                <div id="nodeTooltip" class="absolute hidden hud-tooltip z-50"></div>
+            </div>
+        </div>
+
+        <!-- REVIEW TAB -->
+        <div id="reviewTab" class="tab-pane hidden">
+            <div class="reviewer-tab-wrapper h-full flex flex-col">
+                <div id="reviewEmpty" class="flex-1 flex flex-col items-center justify-center hidden">
+                    <div class="text-[64px] opacity-[0.04] mb-4 font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
+                    <div class="font-['Space_Mono'] text-gray-600 text-xs tracking-[0.2em] uppercase">Nothing to review</div>
+                    <div class="font-['IBM_Plex_Mono'] text-gray-700 text-[10px] mt-1.5 tracking-wide">
+                        Switch to <button class="link-btn" onclick="switchToTab('explore')">Explore</button> and add shabads to your library
+                    </div>
+                </div>
+                <div id="reviewLoading" class="flex-1 flex items-center justify-center hidden">
+                    <div class="font-['IBM_Plex_Mono'] text-gray-600 text-[10px]">LOADING REVIEW...</div>
+                </div>
+                <div id="reviewContent" class="hidden flex-1 min-h-0 overflow-y-auto">
+                    <div id="detailContent" style="padding:24px 32px;">
+                        <div style="text-align:center;padding:80px 0;">
+                            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#4a3f35;">Click a shabad in your library to read</div>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
-    </div>
+        </div>
+    </section>
 </div>
 
 <!-- Shabad preview modal -->
@@ -144,7 +161,7 @@
     </div>
 </div>
 
-<!-- Tag browser modal (existing constellation map) -->
+<!-- Tag browser modal (constellation map) -->
 <div id="tagModal" class="fixed inset-0 z-50 hidden">
     <div class="tag-modal-overlay absolute inset-0" onclick="closeTagBrowser()"></div>
     <div class="relative z-10 mx-auto mt-16 max-w-2xl max-h-[75vh] overflow-y-auto rounded-md bg-[#161420] border border-white/[0.06] p-5">

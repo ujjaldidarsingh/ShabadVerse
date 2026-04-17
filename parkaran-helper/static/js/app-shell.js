@@ -7,7 +7,77 @@
  * redirects.
  */
 
+/* ===== THEME (light/dark, OS-aware with user override) ===== */
+
+function initTheme() {
+    const saved = localStorage.getItem("shabadverse_theme");
+    if (saved) {
+        document.documentElement.setAttribute("data-theme", saved);
+    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+        document.documentElement.setAttribute("data-theme", "light");
+    }
+    // Listen for OS theme changes (only if user hasn't manually overridden)
+    window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
+        if (!localStorage.getItem("shabadverse_theme")) {
+            document.documentElement.setAttribute("data-theme", e.matches ? "light" : "dark");
+        }
+    });
+}
+
+window.toggleTheme = function () {
+    const current = document.documentElement.getAttribute("data-theme");
+    const next = current === "light" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("shabadverse_theme", next);
+
+    // Re-render Cytoscape — node/edge colors need to update
+    if (typeof State !== "undefined" && State.cy) {
+        State.cy.resize();
+    }
+};
+
+initTheme();
+
 (function () {
+    // Sidebar collapse/expand
+    window.toggleSidebar = function () {
+        const panel = document.getElementById("sidebarPanel");
+        const openBtn = document.getElementById("sidebarOpen");
+        const collapsed = panel.classList.toggle("collapsed");
+        openBtn.classList.toggle("hidden", !collapsed);
+
+        // Shift search bar + controls + breadcrumbs when sidebar collapses
+        const offset = collapsed ? "16px" : "260px";
+        const searchBar = document.querySelector(".explore-search-bar");
+        const controls = document.querySelector(".graph-controls");
+        const breadcrumbs = document.getElementById("breadcrumbs");
+        if (searchBar) searchBar.style.left = offset;
+        if (controls) controls.style.left = offset;
+        if (breadcrumbs) breadcrumbs.style.left = offset;
+
+        // Re-fit graph after sidebar toggle
+        if (typeof State !== "undefined" && State.cy) {
+            requestAnimationFrame(() => {
+                State.cy.resize();
+                if (State.centerNode) {
+                    const visible = State.cy.nodes().not(".faded").not("[type='tagLabel']");
+                    if (visible.length > 0) State.cy.fit(visible, 50);
+                }
+            });
+        }
+    };
+
+    // Mobile: tap sidebar logo to toggle drawer
+    const sidebarLogo = document.querySelector(".sidebar-logo");
+    if (sidebarLogo) {
+        sidebarLogo.addEventListener("click", (e) => {
+            if (window.innerWidth <= 768) {
+                e.stopPropagation();
+                document.getElementById("sidebarPanel")?.classList.toggle("mobile-open");
+            }
+        });
+    }
+
     function wireTabs() {
         const exploreBtn = document.getElementById("tabExplore");
         const reviewBtn = document.getElementById("tabReview");
@@ -35,15 +105,74 @@
     function readTabFromURL() {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get("tab");
+
+        // Check for shared library in URL: ?items=id1,id2,id3&name=LibraryName
+        const sharedItems = params.get("items");
+        const sharedName = params.get("name");
+        if (sharedItems && typeof State !== "undefined") {
+            const ids = sharedItems.split(",").map((s) => s.trim()).filter(Boolean);
+            if (ids.length > 0) {
+                // Load shared items into a new temp library (don't overwrite user's own)
+                const lib = typeof getLibrary === "function" ? getLibrary() : { parkarans: {}, currentId: null };
+                const sharedId = "shared_" + Date.now().toString(36);
+                const items = ids.map((id) => {
+                    const m = State.metadata[id] || {};
+                    return {
+                        id,
+                        title: m.title || "",
+                        gurmukhi: m.gurmukhi || "",
+                        raag: m.raag || "",
+                        ang: m.ang || 0,
+                        tags: m.tags || [],
+                    };
+                });
+                lib.parkarans[sharedId] = {
+                    name: sharedName || `Shared (${ids.length} shabads)`,
+                    items,
+                    created: new Date().toISOString(),
+                    updated: new Date().toISOString(),
+                };
+                lib.currentId = sharedId;
+                if (typeof setLibrary === "function") setLibrary(lib);
+                State.parkaran = [...items];
+                if (typeof renderParkaran === "function") renderParkaran();
+                if (typeof updateLibraryNameDisplay === "function") updateLibraryNameDisplay();
+
+                // Re-center graph on first item
+                queueMicrotask(() => {
+                    if (ids[0] && typeof expandShabad === "function") expandShabad(ids[0]);
+                });
+
+                // Clean URL without reloading
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, "", cleanUrl);
+            }
+        }
+
         if (tab === "review" || tab === "explore") {
-            // Wait until graph-explorer's State.parkaran is populated before
-            // switching — the Review tab check for empty library needs to
-            // reflect what's actually loaded.
             queueMicrotask(() => {
                 if (typeof switchToTab === "function") switchToTab(tab);
             });
         }
     }
+
+    // Share current library as a URL
+    window.shareLibraryURL = function () {
+        if (typeof State === "undefined" || !State.parkaran.length) return;
+        const ids = State.parkaran.map((p) => p.id).join(",");
+        const lib = typeof getLibrary === "function" ? getLibrary() : {};
+        const current = lib.currentId ? lib.parkarans?.[lib.currentId] : null;
+        const name = encodeURIComponent(current?.name || "Shared Library");
+        const url = `${window.location.origin}/?items=${ids}&name=${name}`;
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(url).then(() => {
+                if (typeof showToast === "function") showToast("Link copied to clipboard");
+            });
+        } else {
+            window.prompt("Copy this link to share:", url);
+        }
+    };
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", () => {

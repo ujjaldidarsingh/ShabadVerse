@@ -914,16 +914,22 @@ function initSearch() {
             return;
         }
 
-        // First-letter search (strip spaces)
-        const flQuery = q.replace(/\s+/g, "");
-
         try {
-            const results = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=1`);
+            // Search locally against transliteration titles (instant, English-friendly).
+            // Matches any shabad whose transliteration title contains all search words.
+            const ql = q.toLowerCase();
+            const searchWords = ql.split(/\s+/).filter(Boolean);
+            const local = [];
+            for (const [sid, m] of Object.entries(State.metadata)) {
+                if (local.length >= 12) break;
+                const title = (m.title || "").toLowerCase();
+                if (searchWords.every((w) => title.includes(w))) {
+                    local.push({ id: sid, ...m });
+                }
+            }
 
-            if (!results || results.length === 0) {
-                // Fallback: local tag/theme search
-                const ql = q.toLowerCase();
-                const local = [];
+            // If no transliteration matches, try tag/theme search
+            if (local.length === 0) {
                 for (const [sid, m] of Object.entries(State.metadata)) {
                     if (local.length >= 8) break;
                     if ((m.tags || []).join(" ").toLowerCase().includes(ql) ||
@@ -931,25 +937,37 @@ function initSearch() {
                         local.push({ id: sid, ...m });
                     }
                 }
-                dropdown.innerHTML = local.length === 0
-                    ? '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>'
-                    : local.map((m) => searchResultHTML(m.id, m)).join("");
+            }
+
+            const results = local;
+
+            if (!results || results.length === 0) {
+                // Final fallback: BaniDB first-letter search (Gurmukhi keyboard)
+                const flQuery = q.replace(/\s+/g, "");
+                const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=1`);
+                if (baniResults && baniResults.length > 0) {
+                    dropdown.innerHTML = baniResults.slice(0, 10).map((r) => {
+                        const sid = String(r.banidb_shabad_id);
+                        const m = State.metadata[sid] || {};
+                        return searchResultHTML(sid, {
+                            gurmukhi: r.title_gurmukhi || m.gurmukhi || "",
+                            title: r.title_transliteration || m.title || "",
+                            raag: r.raag || m.raag || "",
+                            writer: r.writer || m.writer || "",
+                            ang: r.ang_number || m.ang || 0,
+                            is_repertoire: false,
+                            brief_meaning: m.brief_meaning || "",
+                        }, r.title_gurmukhi, r.first_line_translation);
+                    }).join("");
+                    dropdown.classList.remove("hidden");
+                    return;
+                }
+            }
+
+            if (results.length === 0) {
+                dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>';
             } else {
-                dropdown.innerHTML = results.slice(0, 10).map((r) => {
-                    const sid = String(r.banidb_shabad_id);
-                    const m = State.metadata[sid] || {};
-                    const matchedVerse = r.title_gurmukhi || m.gurmukhi || "";
-                    const matchedEnglish = r.first_line_translation || "";
-                    return searchResultHTML(sid, {
-                        gurmukhi: matchedVerse,
-                        title: r.title_transliteration || m.title || "",
-                        raag: r.raag || m.raag || "",
-                        writer: r.writer || m.writer || "",
-                        ang: r.ang_number || m.ang || 0,
-                        is_repertoire: m.is_repertoire || false,
-                        brief_meaning: m.brief_meaning || "",
-                    }, matchedVerse, matchedEnglish);
-                }).join("");
+                dropdown.innerHTML = results.map((m) => searchResultHTML(m.id, m)).join("");
             }
             dropdown.classList.remove("hidden");
         } catch (err) {
@@ -1582,6 +1600,17 @@ function renderParkaran() {
         `;
     });
     container.innerHTML = html;
+
+    // Click library items → select for review (if in review mode)
+    container.querySelectorAll(".parkaran-sidebar-item").forEach((item) => {
+        item.addEventListener("click", () => {
+            const idx = parseInt(item.dataset.idx, 10);
+            if (activeTab === "review" && typeof selectShabad === "function") {
+                selectShabad(idx);
+            }
+        });
+        item.style.cursor = activeTab === "review" ? "pointer" : "grab";
+    });
 
     setupParkaranDrag();
 }
