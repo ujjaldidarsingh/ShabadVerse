@@ -110,9 +110,6 @@ class BaniDBMatcher:
         if row:
             return json.loads(row[0])
 
-        # Rate limit
-        time.sleep(0.5)
-
         url = f"{self.base_url}/search/{quote(query)}"
         params = {"searchtype": stype, "source": config.BANIDB_SOURCE}
 

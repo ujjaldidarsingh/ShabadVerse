@@ -13,6 +13,14 @@ function themeColor(dark, light) {
     return isLightTheme() ? light : dark;
 }
 
+/* ===== LOADING BAR ===== */
+function showLoadingBar() {
+    document.getElementById("searchLoadingBar")?.classList.remove("hidden");
+}
+function hideLoadingBar() {
+    document.getElementById("searchLoadingBar")?.classList.add("hidden");
+}
+
 /* ===== STATE ===== */
 const State = {
     cy: null,
@@ -361,6 +369,7 @@ async function expandShabad(shabadId) {
     // display-layer concern; the neighbor set from the API is the same.
     const cacheKey = `${sid}_${threshold}`;
     if (!State.neighborCache[cacheKey]) {
+        showLoadingBar();
         try {
             let url = `/api/graph/neighbors/${sid}?threshold=${threshold}`;
             if (tukEnglish) {
@@ -370,8 +379,10 @@ async function expandShabad(shabadId) {
         } catch (err) {
             console.error("Neighbor fetch failed:", err);
             State.expanding = false;
+            hideLoadingBar();
             return;
         }
+        hideLoadingBar();
     }
 
     const neighborData = State.neighborCache[cacheKey];
@@ -642,7 +653,7 @@ function showTooltip(shabadId, nodeEl) {
             ${tagPills ? `<div class="tt-tags">${tagPills}</div>` : ""}
             <div class="tt-actions">
                 <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN SET" : "+ ADD"}</button>
-                <button class="tt-btn tt-btn-explore${isCurrentCenter ? " tt-btn-disabled" : ""}" data-action="explore" data-id="${sid}"${isCurrentCenter ? ' disabled title="Already centered"' : ""}>EXPLORE &rarr;</button>
+                <button class="tt-btn tt-btn-explore${isCurrentCenter ? " tt-btn-disabled" : ""}" data-action="explore" data-id="${sid}"${isCurrentCenter ? ' disabled title="Already centered"' : ""}>EXPLORE&nbsp;&rarr;</button>
                 <button class="tt-btn tt-btn-preview" data-action="preview" data-id="${sid}">PREVIEW</button>
                 <button class="tt-btn" data-action="verses" data-id="${sid}" style="color:rgba(200,200,210,0.4);">VERSES</button>
             </div>
@@ -1031,10 +1042,12 @@ function initSearch() {
                 }
 
             } else {
-                // Gurmukhi first-letter search via BaniDB
+                // Gurmukhi first-letter search via BaniDB (may be slow on first call)
+                showLoadingBar();
                 const flQuery = q.replace(/\s+/g, "");
                 const stype = searchMode === "first-letter-start" ? 1 : 2;
                 const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=${stype}`);
+                hideLoadingBar();
                 if (baniResults && baniResults.length > 0) {
                     dropdown.innerHTML = baniResults.slice(0, 10).map((r) => {
                         const sid = String(r.banidb_shabad_id);
@@ -1057,6 +1070,7 @@ function initSearch() {
             dropdown.classList.remove("hidden");
         } catch (err) {
             console.error("Search error:", err);
+            hideLoadingBar();
         }
     }, 300));
 
