@@ -6,13 +6,12 @@
 <div class="app-shell" style="height: calc(100vh - 4px);">
     <!-- FLOATING SIDEBAR (over content) -->
     <aside class="library-panel" id="sidebarPanel">
-        <!-- Logo (inside sidebar per #13) -->
+        <!-- Logo (yellow circle toggles sidebar) -->
         <div class="sidebar-logo">
-            <div class="w-5 h-5 rounded-full bg-star-500 shadow-[0_0_8px_rgba(245,158,11,0.3)] flex items-center justify-center flex-shrink-0">
+            <button onclick="toggleSidebar()" class="sidebar-orb" title="Toggle sidebar" aria-label="Toggle sidebar">
                 <div class="w-1.5 h-1.5 rounded-full bg-star-200"></div>
-            </div>
+            </button>
             <span class="font-['Space_Mono'] text-star-400 text-[11px] tracking-wider">SHABADVERSE</span>
-            <button id="sidebarToggle" class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">&#x276E;</button>
         </div>
 
         <!-- Tab bar -->
