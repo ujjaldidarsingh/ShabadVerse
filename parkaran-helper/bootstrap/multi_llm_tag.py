@@ -259,6 +259,18 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
     print(f"  {len(shabads)} shabads loaded.")
 
     shard = load_llm_reasoning(llm)
+
+    # Load AK source map so we can prioritize Amrit Keertan shabads.
+    # The flip-the-script methodology: tag the 2,078 AK shabads first across
+    # all four LLMs so we can derive a tradition-grounded taxonomy from canon
+    # before tagging the remaining 3,464 non-AK shabads. The non-AK pass will
+    # then prompt with the AK-derived vocabulary as a constraint.
+    sources_path = Path(config.DATA_DIR) / "sggs_sources.json"
+    ak_set: set[str] = set()
+    if sources_path.exists():
+        sources_data = json.loads(sources_path.read_text(encoding="utf-8"))
+        ak_set = {sid for sid, fields in sources_data.items() if fields.get("amrit_keertan")}
+
     pending = []
     skipped = 0
     for s in shabads:
@@ -271,6 +283,17 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
             skipped += 1
             continue
         pending.append(s)
+
+    # AK-first ordering: process Amrit Keertan shabads before non-AK ones.
+    # ang_number breaks ties so we still walk SGGS in a sensible reading order
+    # within each group.
+    pending.sort(key=lambda s: (
+        0 if str(s.get("banidb_shabad_id")) in ak_set else 1,
+        s.get("ang_number", 0),
+        int(s.get("banidb_shabad_id", 0) or 0),
+    ))
+    ak_pending = sum(1 for s in pending if str(s.get("banidb_shabad_id")) in ak_set)
+    print(f"  AK shabads pending: {ak_pending} (will be processed first)")
 
     if limit is not None:
         pending = pending[:limit]
