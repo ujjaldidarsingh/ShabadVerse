@@ -65,9 +65,14 @@ NEW_VOCAB_PATH = Path(config.DATA_DIR) / "tag_vocabulary.json"
 
 # ---- LLM identifiers --------------------------------------------------------
 
-OLLAMA_LLMS = {"qwen3:14b", "deepseek-r1:14b", "gemma2:27b"}
+# gemma2:27b kept as a permitted name even though we're not running it in this
+# pass — leaves the option open without forcing a code change later.
+OLLAMA_LLMS = {"qwen3:14b", "deepseek-r1:14b", "llama3.1:8b", "gemma2:27b"}
 ANTHROPIC_LLMS = {"claude-sonnet-4-5"}
 ALL_LLMS = sorted(OLLAMA_LLMS | ANTHROPIC_LLMS)
+# The four LLMs actually used in this consensus pass (Meta + Alibaba +
+# DeepSeek-AI + Anthropic — four independent training families).
+CONSENSUS_LLMS = ["qwen3:14b", "deepseek-r1:14b", "llama3.1:8b", "claude-sonnet-4-5"]
 
 # ---- Prompt -----------------------------------------------------------------
 
@@ -224,15 +229,14 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
         return
 
     # Concurrency:
-    # - Ollama on a single local model: keep concurrency low (1-2) so the model
-    #   doesn't thrash. Each call holds the model active.
-    # - Anthropic free-tier limits are 50 RPM + 8K output tokens/min. With a
-    #   ~3s round-trip per call, concurrency=2 gives ~40 RPM — under the cap
-    #   with headroom for retries. Anything higher just wastes time on 429s.
+    # - Ollama on a single local model: cap at 2 so the GPU isn't thrashed.
+    #   Each in-flight call holds the model warm.
+    # - Anthropic: paid Tier 1+ supports 1,000+ RPM, so we honor the requested
+    #   concurrency directly. Free-tier (50 RPM) callers should pass --concurrency 2.
     if llm in OLLAMA_LLMS:
         concurrency = max(1, min(max_concurrent, 2))
     else:
-        concurrency = max(1, min(max_concurrent, 2))
+        concurrency = max(1, max_concurrent)
 
     print(f"  Running with concurrency={concurrency}; saving every {save_every} shabads.")
     print()
@@ -333,20 +337,22 @@ def run_consensus(min_votes: int) -> None:
     shabads = json.loads(SGGS_PATH.read_text(encoding="utf-8"))
     by_sid = {str(s["banidb_shabad_id"]): s for s in shabads}
 
-    # Coverage report.
-    coverage = {llm: 0 for llm in ALL_LLMS}
+    # Coverage report — counted against the four LLMs we chose for consensus,
+    # not every name the script knows about (e.g. gemma2:27b is permitted but
+    # not currently part of the run).
+    coverage = {llm: 0 for llm in CONSENSUS_LLMS}
     full_coverage = 0
     for sid, llm_results in reasoning.items():
-        ok_llms = [llm for llm in ALL_LLMS if isinstance(llm_results.get(llm), dict) and "tags" in llm_results[llm]]
+        ok_llms = [llm for llm in CONSENSUS_LLMS if isinstance(llm_results.get(llm), dict) and "tags" in llm_results[llm]]
         for llm in ok_llms:
             coverage[llm] += 1
-        if len(ok_llms) == len(ALL_LLMS):
+        if len(ok_llms) == len(CONSENSUS_LLMS):
             full_coverage += 1
 
     print("Per-LLM coverage:")
     for llm, n in coverage.items():
         print(f"  {llm:<22} {n}")
-    print(f"  shabads with all 4 LLMs: {full_coverage}")
+    print(f"  shabads with all {len(CONSENSUS_LLMS)} LLMs: {full_coverage}")
     print()
 
     print(f"Applying consensus rule (min_votes={min_votes})...")
