@@ -75,9 +75,14 @@ NEW_VOCAB_PATH = Path(config.DATA_DIR) / "tag_vocabulary.json"
 OLLAMA_LLMS = {"qwen3:14b", "deepseek-r1:14b", "llama3.1:8b", "gemma2:27b"}
 ANTHROPIC_LLMS = {"claude-sonnet-4-5"}
 ALL_LLMS = sorted(OLLAMA_LLMS | ANTHROPIC_LLMS)
-# The four LLMs actually used in this consensus pass (Meta + Alibaba +
-# DeepSeek-AI + Anthropic — four independent training families).
-CONSENSUS_LLMS = ["qwen3:14b", "deepseek-r1:14b", "llama3.1:8b", "claude-sonnet-4-5"]
+# The LLMs actually voting in the consensus pass. Three local Ollama models
+# from three independent training families (Alibaba, DeepSeek-AI, Meta).
+# claude-sonnet-4-5 was originally part of the lineup but is on hold pending
+# credit top-up; its existing 3,428 tagged shabads stay in the reasoning shard
+# and can be re-included later by adding it back to this list. With three
+# voters, min_votes=2 means a 2-of-3 supermajority — actually a stronger
+# consensus bar than the 2-of-4 default would have been.
+CONSENSUS_LLMS = ["qwen3:14b", "deepseek-r1:14b", "llama3.1:8b"]
 
 # ---- Prompt -----------------------------------------------------------------
 
