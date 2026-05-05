@@ -116,21 +116,41 @@ def call_ollama(model: str, prompt: str, max_tokens: int = 800) -> dict:
 
 
 def call_anthropic(model: str, prompt: str, max_tokens: int = 800) -> dict:
-    """Run a single Anthropic message generation."""
+    """Run a single Anthropic message generation. Retries on 429 with exponential backoff.
+
+    Free-tier accounts hit 50 RPM and 8K output tokens/min limits quickly. We
+    back off long enough to clear a fresh minute window rather than hammering.
+    """
     import anthropic
 
     client = anthropic.Anthropic()
-    msg = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        temperature=0.2,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = msg.content[0].text.strip()
-    # Strip any accidental markdown fences just in case.
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
-    return json.loads(text)
+    last_err = None
+    for attempt in range(6):
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = msg.content[0].text.strip()
+            # Strip any accidental markdown fences just in case.
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
+            return json.loads(text)
+        except anthropic.RateLimitError as err:
+            last_err = err
+            # 5s, 15s, 35s, 75s, 155s, 315s — covers up to ~10 minutes of backoff.
+            wait = 5 * (2**attempt) + 5
+            time.sleep(wait)
+        except anthropic.APIStatusError as err:
+            # 5xx are worth retrying; 4xx other than 429 are fatal.
+            if 500 <= err.status_code < 600:
+                last_err = err
+                time.sleep(5 * (attempt + 1))
+            else:
+                raise
+    raise RuntimeError(f"anthropic exhausted retries: {last_err}")
 
 
 def tag_one(llm: str, shabad: dict) -> dict:
@@ -188,7 +208,9 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
         sid = str(s.get("banidb_shabad_id"))
         if not sid or not s.get("english_translation"):
             continue
-        if reasoning.get(sid, {}).get(llm):
+        prev = reasoning.get(sid, {}).get(llm)
+        # Skip only successful results. Treat error rows as "not done" so resume retries them.
+        if isinstance(prev, dict) and "tags" in prev and not prev.get("error"):
             skipped += 1
             continue
         pending.append(s)
@@ -204,12 +226,13 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
     # Concurrency:
     # - Ollama on a single local model: keep concurrency low (1-2) so the model
     #   doesn't thrash. Each call holds the model active.
-    # - Anthropic: API supports many concurrent calls; default 8 is a good
-    #   throughput/back-pressure tradeoff.
+    # - Anthropic free-tier limits are 50 RPM + 8K output tokens/min. With a
+    #   ~3s round-trip per call, concurrency=2 gives ~40 RPM — under the cap
+    #   with headroom for retries. Anything higher just wastes time on 429s.
     if llm in OLLAMA_LLMS:
         concurrency = max(1, min(max_concurrent, 2))
     else:
-        concurrency = max(1, min(max_concurrent, 8))
+        concurrency = max(1, min(max_concurrent, 2))
 
     print(f"  Running with concurrency={concurrency}; saving every {save_every} shabads.")
     print()

@@ -655,6 +655,18 @@ body.app-page > main + .site-footer {
     background: rgba(245, 158, 11, 0.04);
 }
 
+/* AK MODE button — active state shows that the boost is live */
+.btn-ghost.ak-mode-active {
+    color: var(--star-core);
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+    font-weight: 600;
+}
+.btn-ghost.ak-mode-active::before {
+    content: "● ";
+    color: rgba(245, 158, 11, 0.9);
+}
+
 .btn-add {
     width: 1.75rem;
     height: 1.75rem;

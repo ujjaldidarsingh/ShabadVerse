@@ -62,6 +62,7 @@ const State = {
     expanding: false,   // guard against concurrent expandShabad calls
     selectedTuk: {},    // {shabadId: {gurmukhi, english, index}} — per-shabad tuk selection
     verseCache: {},     // {shabadId: versesArray} — cached verse data
+    akMode: false,      // when true, /api/graph/neighbors gets ak_boost=1 to lift AK shabads
     forces: {           // Obsidian-style force parameters
         center: 0.08,   // gravity: 0.01-0.5 (low = spread out)
         repel: 50000,   // nodeRepulsion: 5000-200000 (high = push apart)
@@ -155,6 +156,7 @@ async function init() {
         initSearch();
         initThresholdSlider();
         initForceControls();
+        initAkMode();
 
         // Escape key closes modals and tooltip
         document.addEventListener("keydown", (e) => {
@@ -450,6 +452,9 @@ async function expandShabad(shabadId) {
             let url = `/api/graph/neighbors/${sid}?threshold=${threshold}`;
             if (tukEnglish) {
                 url += `&tuk_english=${encodeURIComponent(tukEnglish)}`;
+            }
+            if (State.akMode) {
+                url += `&ak_boost=1`;
             }
             State.neighborCache[cacheKey] = await API.get(url);
         } catch (err) {
@@ -986,6 +991,35 @@ function initThresholdSlider() {
         expandShabad(sid);
     }, 200));
 }
+
+/**
+ * AK MODE: when active, /api/graph/neighbors gets ak_boost=1, which lifts
+ * Amrit Keertan-flagged shabads (~2,078 of 5,542) in the suggestion order.
+ * State persists in localStorage so the toggle survives reloads. Re-clearing
+ * the neighbor cache forces fresh server-side ranking on toggle.
+ */
+function initAkMode() {
+    const btn = document.getElementById("akModeToggle");
+    if (!btn) return;
+    State.akMode = localStorage.getItem("shabadverse_ak_mode") === "1";
+    btn.classList.toggle("ak-mode-active", State.akMode);
+    btn.setAttribute("aria-pressed", String(State.akMode));
+}
+
+window.toggleAkMode = function () {
+    State.akMode = !State.akMode;
+    localStorage.setItem("shabadverse_ak_mode", State.akMode ? "1" : "0");
+    const btn = document.getElementById("akModeToggle");
+    if (btn) {
+        btn.classList.toggle("ak-mode-active", State.akMode);
+        btn.setAttribute("aria-pressed", String(State.akMode));
+    }
+    // Invalidate the neighbor cache so the next expand re-queries with the new mode.
+    State.neighborCache = {};
+    if (State.centerNode) {
+        expandShabad(State.centerNode);
+    }
+};
 
 function getThreshold() {
     const slider = document.getElementById("thresholdSlider");

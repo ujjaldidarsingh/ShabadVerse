@@ -15,6 +15,13 @@ _graph_data = None
 _tag_vocab = None
 _sggs_lookup = None
 _sggs_vector_store = None
+_sggs_sources = None
+
+# AK boost factor — applied multiplicatively to AK-flagged neighbors when
+# ?ak_boost=true. 1.30 lifts an AK shabad with a base similarity of 0.40 to
+# 0.52, which moves it up roughly one rank in a typical 8-neighbor cluster
+# without overpowering high-quality non-AK matches.
+AK_BOOST_FACTOR = 1.30
 
 
 def _get_sggs_vector_store():
@@ -62,6 +69,25 @@ def _get_sggs_lookup():
     return _sggs_lookup
 
 
+def _get_sggs_sources() -> dict[str, dict]:
+    """Lazy-load shabad source flags (Amrit Keertan today, others later).
+
+    Maps shabad_id -> {amrit_keertan: bool, ak_chapters: list[int], ...}.
+    Built by bootstrap/index_amrit_keertan.py from BaniDB. Returns an empty
+    dict if the file isn't present (graceful degradation — AK boost just
+    becomes a no-op when source data is missing).
+    """
+    global _sggs_sources
+    if _sggs_sources is None:
+        path = os.path.join(config.DATA_DIR, "sggs_sources.json")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                _sggs_sources = json.load(f)
+        else:
+            _sggs_sources = {}
+    return _sggs_sources
+
+
 @graph_bp.route("/graph/init")
 def graph_init():
     """Return metadata + tag_index + tag_vocab for client-side graph rendering."""
@@ -99,11 +125,24 @@ def graph_neighbors(shabad_id):
     """
     graph = _get_graph()
     sggs_lookup = _get_sggs_lookup()
+    sources = _get_sggs_sources()
     metadata = graph.get("metadata", {})
 
     threshold = request.args.get("threshold", 0.3, type=float)
     per_tag_cap = request.args.get("per_tag", 8, type=int)
     tuk_english = request.args.get("tuk_english", "", type=str).strip()
+    # AK boost: when on, multiply AK-flagged neighbor scores by AK_BOOST_FACTOR
+    # before threshold-filtering and per-tag sort. This lifts canonically-recited
+    # shabads in the recommendation order without excluding non-AK matches.
+    ak_boost = request.args.get("ak_boost", "", type=str).lower() in ("1", "true", "yes")
+
+    def is_ak(nid: str) -> bool:
+        return bool(sources.get(str(nid), {}).get("amrit_keertan"))
+
+    def boosted(score: float, nid: str) -> float:
+        if ak_boost and is_ak(nid):
+            return min(1.0, score * AK_BOOST_FACTOR)
+        return score
 
     # Get this shabad's tags from graph metadata
     my_meta = metadata.get(str(shabad_id), {})
@@ -124,7 +163,8 @@ def graph_neighbors(shabad_id):
                 nid = str(r["id"])
                 n_meta = metadata.get(nid, {})
                 n_sggs = sggs_lookup.get(nid, {})
-                score = max(0, min(1, 1 - (r.get("distance") or 0.5)))
+                base_score = max(0, min(1, 1 - (r.get("distance") or 0.5)))
+                score = boosted(base_score, nid)
                 if score < threshold:
                     continue
                 tuk_results[nid] = {
@@ -137,6 +177,7 @@ def graph_neighbors(shabad_id):
                     "ang": n_meta.get("ang") or r["metadata"].get("ang", 0),
                     "tags": n_meta.get("tags", []),
                     "is_repertoire": False,
+                    "is_amrit_keertan": is_ak(nid),
                     "primary_theme": n_meta.get("primary_theme") or r["metadata"].get("primary_theme", ""),
                     "mood": n_meta.get("mood") or r["metadata"].get("mood", ""),
                     "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or r["metadata"].get("brief_meaning", ""),
@@ -144,7 +185,15 @@ def graph_neighbors(shabad_id):
 
     # ── GRAPH PATH: pre-computed neighbors ──
     raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
-    neighbors = [n for n in raw_neighbors if n["score"] >= threshold]
+    if ak_boost:
+        # Apply AK boost to a copy so the cached graph isn't mutated.
+        neighbors = []
+        for n in raw_neighbors:
+            new_score = boosted(n["score"], n["id"])
+            if new_score >= threshold:
+                neighbors.append({**n, "score": new_score})
+    else:
+        neighbors = [n for n in raw_neighbors if n["score"] >= threshold]
 
     # Group neighbors by thematic direction
     my_tags_set = set(my_tags)
@@ -191,6 +240,7 @@ def graph_neighbors(shabad_id):
             "ang": n_meta.get("ang", 0),
             "tags": n_meta.get("tags", []),
             "is_repertoire": False,
+            "is_amrit_keertan": is_ak(nid),
             "primary_theme": n_meta.get("primary_theme", ""),
             "mood": n_meta.get("mood", ""),
             "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or "",
