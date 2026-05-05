@@ -125,11 +125,20 @@ def call_ollama(model: str, prompt: str, max_tokens: int = 800) -> dict:
     return json.loads(text)
 
 
+class AnthropicCreditExhausted(Exception):
+    """Raised when the API rejects calls because the org's credit balance is too low.
+    Surfaced to run_pass so it can stop the whole pass instead of churning through
+    thousands of doomed-to-fail shabads.
+    """
+
+
 def call_anthropic(model: str, prompt: str, max_tokens: int = 800) -> dict:
     """Run a single Anthropic message generation. Retries on 429 with exponential backoff.
 
     Free-tier accounts hit 50 RPM and 8K output tokens/min limits quickly. We
     back off long enough to clear a fresh minute window rather than hammering.
+    Credit-exhaustion 400s are treated as fatal and bubble up via
+    AnthropicCreditExhausted so the caller can stop the whole pass.
     """
     import anthropic
 
@@ -153,6 +162,13 @@ def call_anthropic(model: str, prompt: str, max_tokens: int = 800) -> dict:
             # 5s, 15s, 35s, 75s, 155s, 315s — covers up to ~10 minutes of backoff.
             wait = 5 * (2**attempt) + 5
             time.sleep(wait)
+        except anthropic.BadRequestError as err:
+            # Credit-balance-too-low surfaces as a 400. Don't retry, don't waste
+            # more requests — bail out so the user can top up.
+            msg_text = str(err).lower()
+            if "credit balance" in msg_text or "billing" in msg_text:
+                raise AnthropicCreditExhausted(str(err)) from err
+            raise
         except anthropic.APIStatusError as err:
             # 5xx are worth retrying; 4xx other than 429 are fatal.
             if 500 <= err.status_code < 600:
@@ -323,6 +339,7 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
     def submit(executor: ThreadPoolExecutor, item: dict):
         return executor.submit(tag_one, llm, item)
 
+    bailed_out = False
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         future_to_shabad = {submit(executor, s): s for s in pending}
         for future in as_completed(future_to_shabad):
@@ -332,6 +349,24 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
                 result = future.result()
                 shard[sid] = result
                 completed += 1
+            except AnthropicCreditExhausted as err:
+                # Stop the whole pass — every remaining call will fail the same
+                # way until credits are added. Don't write an error row; just save
+                # what we have and bail.
+                save_llm_reasoning(llm, shard)
+                print()
+                print("=" * 70)
+                print(f"STOPPED: Anthropic credit balance exhausted.")
+                print(f"  {err}")
+                print(f"  add credit at https://console.anthropic.com/settings/billing")
+                print(f"  then re-run this same command — it will resume from where it left off.")
+                print("=" * 70)
+                bailed_out = True
+                # Cancel any not-yet-started futures.
+                for f in future_to_shabad:
+                    if not f.done():
+                        f.cancel()
+                break
             except Exception as err:
                 failed += 1
                 err_summary = str(err)[:200]
@@ -350,7 +385,10 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
 
     save_llm_reasoning(llm, shard)
     elapsed = time.time() - started
-    print(f"\nDone with {llm}. ok={completed}, fail={failed}, elapsed={elapsed/60:.1f} min")
+    if bailed_out:
+        print(f"Partial pass for {llm}: ok={completed}, fail={failed}, elapsed={elapsed/60:.1f} min")
+    else:
+        print(f"\nDone with {llm}. ok={completed}, fail={failed}, elapsed={elapsed/60:.1f} min")
 
 
 # ---- Consensus --------------------------------------------------------------
