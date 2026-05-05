@@ -376,7 +376,9 @@ def graph_search():
     q = request.args.get("q", "").strip()
     searchtype = request.args.get("searchtype", 4, type=int)
 
-    if searchtype in (1, 2):
+    # BaniDB first-letter search modes (0 = from start, 1 = anywhere, 2 = full word).
+    # Strip spaces for first-letter modes (0 and 1); keep them for word-based searches.
+    if searchtype in (0, 1):
         q = q.replace(" ", "")
 
     if not q or len(q) < 2:

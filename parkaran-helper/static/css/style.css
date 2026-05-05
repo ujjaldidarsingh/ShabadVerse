@@ -158,6 +158,28 @@ body[data-theme="light"] {
     border-color: var(--border-subtle);
     color: var(--text-primary);
 }
+/* Default search input has .gurmukhi-mode class; force readable text in light mode
+   (base rule sets color to --text-dim which fades to near-invisible on parchment). */
+[data-theme="light"] .search-input.gurmukhi-mode {
+    color: var(--text-primary);
+}
+/* Override the hardcoded dark focus background so the input doesn't go dark
+   on first click in light mode (uddam #17). */
+[data-theme="light"] .search-input:focus {
+    background: rgba(248, 245, 240, 0.95);
+    border-color: rgba(163, 92, 0, 0.45);
+    box-shadow: 0 0 0 2px rgba(163, 92, 0, 0.08), 0 0 12px -4px rgba(163, 92, 0, 0.15);
+}
+/* Sidebar footer (BaniDB credit) — base rgba(200,200,210,0.3) is invisible on parchment. */
+[data-theme="light"] .sidebar-footer {
+    color: var(--text-dim);
+}
+[data-theme="light"] .sidebar-footer a {
+    color: var(--star-core);
+}
+[data-theme="light"] .sidebar-footer a:hover {
+    color: var(--star-glow);
+}
 /* Mission panel / library items */
 [data-theme="light"] .parkaran-sidebar-item {
     background: rgba(239, 233, 224, 0.3);

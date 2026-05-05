@@ -98,6 +98,39 @@ const VERSE_CACHE_MAX = 50;
 
 /* ===== INIT ===== */
 
+/**
+ * Fetch /api/graph/init with retry-on-failure and a "still booting" label
+ * that kicks in after 3 seconds. On Lightsail the Flask process can take
+ * 5-15s to come up after a fresh deploy; users hitting the page during that
+ * window saw the empty graph state with no explanation. Now they see a
+ * clear "ShabadVerse is booting…" message and the request retries until
+ * the backend responds (Batch 6 B8).
+ */
+async function fetchInitWithBootBanner() {
+    const labelTimer = setTimeout(() => {
+        setLoadingProgress(10, "ShabadVerse is booting…");
+    }, 3000);
+    const stillBootingTimer = setTimeout(() => {
+        setLoadingProgress(10, "Still booting — usually under 15 seconds");
+    }, 8000);
+    try {
+        // Retry up to 6 times with backoff (covers ~30s of cold-start).
+        let lastErr = null;
+        for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+                return await API.get("/api/graph/init");
+            } catch (err) {
+                lastErr = err;
+                await new Promise((r) => setTimeout(r, 1500 + attempt * 1000));
+            }
+        }
+        throw lastErr || new Error("init unreachable");
+    } finally {
+        clearTimeout(labelTimer);
+        clearTimeout(stillBootingTimer);
+    }
+}
+
 async function init() {
     const loadingEl = document.getElementById("graphLoading");
     const emptyEl = document.getElementById("graphEmpty");
@@ -105,7 +138,7 @@ async function init() {
 
     try {
         setLoadingProgress(10, "Loading shabad metadata");
-        const data = await API.get("/api/graph/init");
+        const data = await fetchInitWithBootBanner();
         State.metadata = data.metadata || {};
         State.tagIndex = data.tag_index || {};
         State.tagVocab = data.tag_vocab || {};
@@ -285,11 +318,15 @@ function getStyles() {
             },
         },
         // ── Tag label (clickable: opens tag-shabads modal) ──
+        // Width/height = "label" sizes the node's hit area to the rendered text.
+        // Previously hardcoded to 6x6 — clicks only landed on a tiny center dot,
+        // not on the visible label (Batch 6 B7).
         {
             selector: "node[type='tagLabel']",
             style: {
                 label: "data(label)",
                 "background-color": "rgba(245,158,11,0.08)",
+                "background-opacity": 0,
                 "border-width": 0,
                 color: "rgba(245,158,11,0.45)",
                 "font-family": "IBM Plex Mono, monospace",
@@ -299,8 +336,10 @@ function getStyles() {
                 "text-valign": "center",
                 "text-max-width": "200px",
                 "text-wrap": "wrap",
-                width: 6,
-                height: 6,
+                shape: "round-rectangle",
+                width: "label",
+                height: "label",
+                padding: "6px",
                 "overlay-opacity": 0,
                 "text-outline-width": 2,
                 "text-outline-color": themeColor("#0f0d13", "#f8f5f0"),
@@ -764,7 +803,14 @@ function hideTooltip() {
     hidePreview();
 }
 
-/** Show shabad preview as a centered modal with backdrop. */
+/**
+ * Show shabad preview as a centered modal with backdrop.
+ *
+ * Race-condition guard (Batch 6 B5): if loadPreview(A) is in flight and the user
+ * triggers loadPreview(B), the slower fetch must NOT overwrite the modal that's
+ * now showing B. We stamp the modal with the latest requested sid (modal.dataset.sid)
+ * and bail from any continuation whose sid no longer matches.
+ */
 async function loadPreview(shabadId) {
     const sid = String(shabadId);
     const modal = document.getElementById("shabadPreviewModal");
@@ -790,11 +836,16 @@ async function loadPreview(shabadId) {
             if (keys.length >= 50) delete State.verseCache[keys[0]];
             State.verseCache[sid] = data.verses || [];
         } catch (err) {
+            // Only show the error if we're still the active preview
+            if (modal.dataset.sid !== sid || modal.classList.contains("hidden")) return;
             preview.innerHTML = '<div class="preview-header"><span>Could not load preview</span><button class="preview-close" aria-label="Close preview">&times;</button></div>';
             wirePreviewCloseButtons();
             return;
         }
     }
+
+    // Bail if a newer loadPreview has taken over the modal while we were awaiting.
+    if (modal.dataset.sid !== sid || modal.classList.contains("hidden")) return;
 
     const verses = State.verseCache[sid];
     const meta = State.metadata[sid] || {};
@@ -1084,7 +1135,9 @@ function initSearch() {
                 dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">SEARCHING</span></div>';
                 dropdown.classList.remove("hidden");
                 const flQuery = q.replace(/\s+/g, "");
-                const stype = searchMode === "first-letter-start" ? 1 : 2;
+                // BaniDB searchtypes: 0 = first-letter from start, 1 = first-letter anywhere, 2 = full word.
+                // Our two modes map to BaniDB's 0 and 1, NOT 1 and 2.
+                const stype = searchMode === "first-letter-start" ? 0 : 1;
                 const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=${stype}`);
                 if (baniResults && baniResults.length > 0) {
                     dropdown.innerHTML = baniResults.slice(0, 10).map((r) => {
@@ -1117,14 +1170,27 @@ function initSearch() {
             dropdown.classList.add("hidden");
         }
     });
+
+    // Delegated handler for autocomplete items. Using dataset avoids the
+    // apostrophe-in-onclick injection bug (Harsimran's report, Batch 6 B6).
+    dropdown.addEventListener("click", (e) => {
+        const item = e.target.closest('[data-action="select-search"]');
+        if (!item) return;
+        const sid = item.dataset.sid || "";
+        const verse = item.dataset.verse || "";
+        const english = item.dataset.english || "";
+        if (sid) selectSearch(sid, verse, english);
+    });
 }
 
 function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
     const summary = m.brief_meaning || m.primary_theme || "";
+    // Use data attributes (read via dataset) so apostrophes in verse/translation text
+    // never break the inline JS string. The dropdown click handler in initSearch reads these.
     const verseAttr = matchedVerse ? escAttr(matchedVerse.substring(0, 80)) : "";
     const engAttr = matchedEnglish ? escAttr(matchedEnglish.substring(0, 150)) : "";
     return `
-        <div class="autocomplete-item" onclick="selectSearch('${escAttr(sid)}', '${verseAttr}', '${engAttr}')">
+        <div class="autocomplete-item" data-action="select-search" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
             ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
             <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
@@ -1154,14 +1220,70 @@ function selectSearch(sid, matchedVerse, englishTranslation) {
 function openTagBrowser() {
     const modal = document.getElementById("tagModal");
     const grid = document.getElementById("tagGrid");
+    const filterInput = document.getElementById("tagFilterInput");
+    const filterCount = document.getElementById("tagFilterCount");
+    const filterEmpty = document.getElementById("tagFilterEmpty");
 
+    // Use data-tag (read via dataset) instead of inline onclick string-interpolation:
+    // 8 tags have apostrophes ("Guru's Grace" etc) and HTML attribute decoding of
+    // &#39; back to ' was breaking the inline JS string literal (Batch 6 B2).
     grid.innerHTML = State.allTags
         .filter((t) => t.tag !== "Repertoire")
-        .map((t) => `<div class="tag-chip" onclick="selectTag('${escAttr(t.tag)}')">${escapeHtml(t.tag)} <span class="count">${t.count}</span></div>`)
+        .map((t) => `<div class="tag-chip" data-tag="${escAttr(t.tag)}" data-tag-lc="${escAttr(t.tag.toLowerCase())}">${escapeHtml(t.tag)} <span class="count">${t.count}</span></div>`)
         .join("");
+
+    if (!grid.dataset.delegated) {
+        grid.addEventListener("click", (e) => {
+            const chip = e.target.closest("[data-tag]");
+            if (!chip || !grid.contains(chip)) return;
+            const tag = chip.dataset.tag;
+            if (tag) selectTag(tag);
+        });
+        grid.dataset.delegated = "1";
+    }
+
+    // F1: live filter for the constellation map. Search/match is local (~372 chips)
+    // so debounce isn't needed — we just toggle .hidden on each keystroke.
+    if (filterInput && !filterInput.dataset.wired) {
+        filterInput.addEventListener("input", () => {
+            const q = filterInput.value.trim().toLowerCase();
+            let visible = 0;
+            const chips = grid.querySelectorAll(".tag-chip");
+            chips.forEach((chip) => {
+                const match = !q || (chip.dataset.tagLc || "").includes(q);
+                chip.classList.toggle("hidden", !match);
+                if (match) visible++;
+            });
+            if (filterCount) {
+                filterCount.classList.toggle("hidden", !q);
+                filterCount.textContent = q ? `${visible} of ${chips.length} tags` : "";
+            }
+            if (filterEmpty) {
+                filterEmpty.classList.toggle("hidden", !q || visible > 0);
+            }
+        });
+        filterInput.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                if (filterInput.value) {
+                    filterInput.value = "";
+                    filterInput.dispatchEvent(new Event("input"));
+                } else {
+                    closeTagBrowser();
+                }
+            }
+        });
+        filterInput.dataset.wired = "1";
+    }
+    if (filterInput) {
+        filterInput.value = "";
+        if (filterCount) filterCount.classList.add("hidden");
+        if (filterEmpty) filterEmpty.classList.add("hidden");
+    }
 
     document.getElementById("tagDetail").classList.add("hidden");
     modal.classList.remove("hidden");
+    // Auto-focus the filter so users can type immediately.
+    setTimeout(() => filterInput?.focus(), 50);
 }
 
 function closeTagBrowser() {
@@ -1179,12 +1301,26 @@ async function selectTag(tag) {
 
     try {
         const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=20`);
+        // data-sid (read via dataset) avoids the inline-onclick apostrophe pitfall
+        // for shabad IDs and any future title interpolation.
         list.innerHTML = data.shabads.map((s) => `
-            <div class="autocomplete-item" onclick="closeTagBrowser(); expandShabad('${escAttr(s.id)}')">
+            <div class="autocomplete-item" data-action="open-shabad" data-sid="${escAttr(s.id)}">
                 <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
                 <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
             </div>
         `).join("");
+        if (!list.dataset.delegated) {
+            list.addEventListener("click", (e) => {
+                const item = e.target.closest('[data-action="open-shabad"]');
+                if (!item || !list.contains(item)) return;
+                const sid = item.dataset.sid;
+                if (sid) {
+                    closeTagBrowser();
+                    expandShabad(sid);
+                }
+            });
+            list.dataset.delegated = "1";
+        }
     } catch (err) {
         list.innerHTML = `<div style="color:#ef4444;font-size:10px;">${escapeHtml(err.message)}</div>`;
     }
@@ -1304,7 +1440,10 @@ function renderBreadcrumbs() {
                 <button class="breadcrumb-close" data-sid="${escAttr(sid)}" data-idx="${idx}" aria-label="Remove from trail" title="Remove from trail">&times;</button>
             </span>
         `;
-    }).join('<span class="breadcrumb-sep">&rsaquo;</span>');
+    }).join("");
+    // Note: separators removed (Batch 6 B4). With flex-wrap, the chevron separators
+    // became orphan artifacts at row boundaries. Chip backgrounds already provide
+    // clear visual separation, and the order itself implies trail direction.
 
     el.innerHTML = `
         ${chips}
