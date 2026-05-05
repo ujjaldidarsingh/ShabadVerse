@@ -10,6 +10,7 @@ data/validation_checkpoint_*.json
 data/amrit_keertan_index.json
 data/sggs_sources.json
 data/tag_reasoning.json
+data/tag_reasoning/
 data/rebuild_audit.md
 *.sqlite3
 

@@ -60,7 +60,12 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True
 # ---- Paths ------------------------------------------------------------------
 
 SGGS_PATH = Path(config.SGGS_DATA_PATH)
-REASONING_PATH = Path(config.DATA_DIR) / "tag_reasoning.json"
+# Per-LLM reasoning files prevent the multi-process write race we hit when
+# three runs shared a single tag_reasoning.json: each process held its own
+# in-memory snapshot and overwrote the others' saves. The merged file is
+# rebuilt by --consensus from the per-LLM shards.
+REASONING_DIR = Path(config.DATA_DIR) / "tag_reasoning"
+REASONING_MERGED_PATH = Path(config.DATA_DIR) / "tag_reasoning.json"
 NEW_VOCAB_PATH = Path(config.DATA_DIR) / "tag_vocabulary.json"
 
 # ---- LLM identifiers --------------------------------------------------------
@@ -183,17 +188,64 @@ def tag_one(llm: str, shabad: dict) -> dict:
 
 # ---- Reasoning store --------------------------------------------------------
 
-def load_reasoning() -> dict:
-    if REASONING_PATH.exists():
-        return json.loads(REASONING_PATH.read_text(encoding="utf-8"))
+def _llm_to_filename(llm: str) -> str:
+    """Convert LLM name to a safe filename (e.g. 'qwen3:14b' → 'qwen3_14b.json')."""
+    return llm.replace(":", "_").replace("/", "_") + ".json"
+
+
+def llm_reasoning_path(llm: str) -> Path:
+    """Per-LLM reasoning file path (one file per LLM, no write contention)."""
+    return REASONING_DIR / _llm_to_filename(llm)
+
+
+def load_llm_reasoning(llm: str) -> dict:
+    """Load this LLM's reasoning shard. Falls back to merged file for back-compat
+    on the first run after the per-LLM split (so we don't lose existing data).
+    """
+    REASONING_DIR.mkdir(parents=True, exist_ok=True)
+    p = llm_reasoning_path(llm)
+    if p.exists():
+        return json.loads(p.read_text(encoding="utf-8"))
+    # Fallback: pull this LLM's slice out of the legacy merged file.
+    if REASONING_MERGED_PATH.exists():
+        legacy = json.loads(REASONING_MERGED_PATH.read_text(encoding="utf-8"))
+        return {sid: r[llm] for sid, r in legacy.items() if isinstance(r, dict) and llm in r}
     return {}
 
 
-def save_reasoning(reasoning: dict) -> None:
-    REASONING_PATH.write_text(
-        json.dumps(reasoning, ensure_ascii=False, indent=2),
+def save_llm_reasoning(llm: str, shabad_to_result: dict) -> None:
+    """Save this LLM's reasoning shard. {shabad_id: result}."""
+    REASONING_DIR.mkdir(parents=True, exist_ok=True)
+    llm_reasoning_path(llm).write_text(
+        json.dumps(shabad_to_result, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def load_merged_reasoning() -> dict:
+    """Merge all per-LLM shards into the consolidated {shabad_id: {llm: result}} shape.
+
+    Used by the --consensus pass and by anything that wants the unified view.
+    Always re-reads from disk so it sees the latest writes from any in-flight
+    process.
+    """
+    merged: dict = {}
+    if REASONING_DIR.exists():
+        for p in REASONING_DIR.glob("*.json"):
+            llm_name_from_file = p.stem.replace("_", ":", 1) if "_" in p.stem else p.stem
+            # Recover original LLM names: 'qwen3_14b' → 'qwen3:14b',
+            # 'claude-sonnet-4-5' → 'claude-sonnet-4-5'
+            for known in ALL_LLMS:
+                if _llm_to_filename(known) == p.name:
+                    llm_name_from_file = known
+                    break
+            shard = json.loads(p.read_text(encoding="utf-8"))
+            for sid, result in shard.items():
+                merged.setdefault(sid, {})[llm_name_from_file] = result
+    elif REASONING_MERGED_PATH.exists():
+        # Legacy single-file fallback.
+        merged = json.loads(REASONING_MERGED_PATH.read_text(encoding="utf-8"))
+    return merged
 
 
 # ---- Per-LLM pass -----------------------------------------------------------
@@ -206,14 +258,14 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
     shabads = json.loads(SGGS_PATH.read_text(encoding="utf-8"))
     print(f"  {len(shabads)} shabads loaded.")
 
-    reasoning = load_reasoning()
+    shard = load_llm_reasoning(llm)
     pending = []
     skipped = 0
     for s in shabads:
         sid = str(s.get("banidb_shabad_id"))
         if not sid or not s.get("english_translation"):
             continue
-        prev = reasoning.get(sid, {}).get(llm)
+        prev = shard.get(sid)
         # Skip only successful results. Treat error rows as "not done" so resume retries them.
         if isinstance(prev, dict) and "tags" in prev and not prev.get("error"):
             skipped += 1
@@ -255,16 +307,16 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
             sid = str(shabad["banidb_shabad_id"])
             try:
                 result = future.result()
-                reasoning.setdefault(sid, {})[llm] = result
+                shard[sid] = result
                 completed += 1
             except Exception as err:
                 failed += 1
                 err_summary = str(err)[:200]
-                reasoning.setdefault(sid, {})[llm] = {"error": err_summary}
+                shard[sid] = {"error": err_summary}
                 print(f"  shabad {sid} failed: {err_summary}")
 
             if (completed + failed) % save_every == 0:
-                save_reasoning(reasoning)
+                save_llm_reasoning(llm, shard)
                 rate = (completed + failed) / max(1, time.time() - started)
                 eta_s = (len(pending) - completed - failed) / max(rate, 0.001)
                 print(
@@ -273,7 +325,7 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
                     f"rate={rate:.2f}/s, eta={eta_s/60:.1f} min)"
                 )
 
-    save_reasoning(reasoning)
+    save_llm_reasoning(llm, shard)
     elapsed = time.time() - started
     print(f"\nDone with {llm}. ok={completed}, fail={failed}, elapsed={elapsed/60:.1f} min")
 
@@ -327,11 +379,19 @@ def consensus_tags(per_llm_tags: dict[str, list[str]], min_votes: int = 2) -> tu
 
 
 def run_consensus(min_votes: int) -> None:
-    if not REASONING_PATH.exists():
-        raise SystemExit(f"No reasoning file at {REASONING_PATH}. Run per-LLM passes first.")
+    if not REASONING_DIR.exists() and not REASONING_MERGED_PATH.exists():
+        raise SystemExit(
+            f"No reasoning data at {REASONING_DIR} or {REASONING_MERGED_PATH}. "
+            f"Run per-LLM passes first."
+        )
 
-    print(f"Loading reasoning from {REASONING_PATH}...")
-    reasoning = load_reasoning()
+    print(f"Loading reasoning from {REASONING_DIR} (per-LLM shards)...")
+    reasoning = load_merged_reasoning()
+    # Persist the merged view alongside the shards for inspection / archive.
+    REASONING_MERGED_PATH.write_text(
+        json.dumps(reasoning, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     print(f"Loading shabads from {SGGS_PATH}...")
     shabads = json.loads(SGGS_PATH.read_text(encoding="utf-8"))
