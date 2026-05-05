@@ -7,6 +7,10 @@ data/shabad_cache.db
 data/tag_vocabulary.json
 data/tag_validation_*.json
 data/validation_checkpoint_*.json
+data/amrit_keertan_index.json
+data/sggs_sources.json
+data/tag_reasoning.json
+data/rebuild_audit.md
 *.sqlite3
 
 # Environment

@@ -3,6 +3,8 @@
 ## Status: Active Development — Design Polish Pass
 
 ## Recent Work
+- 2026-05-05: Batch 6 beta-feedback fixes (B1-B8 + F1) — first-letter-anywhere search, apostrophe escape (data attributes + delegated handlers), light-mode contrast, breadcrumb wrap, preview race condition, Cytoscape tag label hit area, booting indicator, Constellation Map filter
+- 2026-04-17: Beta opened (uddamsingh, Tester A, Tarun, Harsimran feedback collected)
 - 2026-03-30: Design review (7.8/10), began fix pass — reviewer inline styles, touch targets, Gurmukhi-first
 - 2026-03-29: SAVE/LIBRARY on reviewer page, parkaran library (localStorage), GitHub repo + ngrok demo
 - 2026-03-25: Graph explorer, SGGS taxonomy (372 tags, 5,542 shabads), suggestion engine diversity
