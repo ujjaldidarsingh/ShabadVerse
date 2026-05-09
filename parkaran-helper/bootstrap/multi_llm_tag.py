@@ -112,6 +112,41 @@ Return a JSON object with exactly these keys:
 
 Return ONLY the JSON object — no preamble, no markdown fences, no commentary."""
 
+
+# Constrained-prompt template for the non-AK pass. The vocabulary list is the
+# AK-derived canonical taxonomy from Phase B.2 — LLMs are told to pick from
+# that list and only invent a new tag when no listed tag fits, which sharply
+# reduces tag noise across the full corpus (Flip A methodology).
+CONSTRAINED_PROMPT_TEMPLATE = """You are tagging a Sikh Gurbani shabad from Sri Guru Granth Sahib Ji.
+
+Translation:
+{translation}
+
+Rahao (core verse):
+{rahao}
+
+CANONICAL TAG VOCABULARY (derived from consensus tagging of canonically-recited Amrit Keertan shabads):
+{tag_vocabulary}
+
+Return a JSON object with exactly these keys:
+
+  "primary_theme":  one short phrase (2-4 words) capturing the dominant spiritual theme.
+                    Use canonical Gurbani terms when applicable (e.g. "Hukam", "Naam Simran",
+                    "Vichola", "Bhakti", "Vairag"). Avoid vague phrases like "Spiritual life".
+  "mood":           one short phrase capturing emotional register (e.g. "Devotional longing",
+                    "Joyful praise", "Contemplative peace", "Fearful surrender").
+  "brief_meaning":  one sentence in plain English summarizing what the shabad teaches.
+  "tags":           a JSON array of 3-6 short canonical tags. PREFER tags from the canonical
+                    vocabulary above. Only invent a new tag when none of the listed tags
+                    fit the shabad's content. Each tag should be 1-3 words.
+  "reasoning":      one sentence explaining WHY you chose these tags. Reference specific
+                    imagery, phrases, or arcs in the translation. If you used any tag NOT
+                    in the canonical vocabulary, name it explicitly and explain why no
+                    listed tag fit.
+
+Return ONLY the JSON object — no preamble, no markdown fences, no commentary."""
+
+
 # ---- LLM dispatchers --------------------------------------------------------
 
 def call_ollama(model: str, prompt: str, max_tokens: int = 800) -> dict:
@@ -184,12 +219,24 @@ def call_anthropic(model: str, prompt: str, max_tokens: int = 800) -> dict:
     raise RuntimeError(f"anthropic exhausted retries: {last_err}")
 
 
-def tag_one(llm: str, shabad: dict) -> dict:
-    """Tag a single shabad with a single LLM. Returns the parsed result + raw timing."""
-    prompt = PROMPT_TEMPLATE.format(
-        translation=(shabad.get("english_translation") or "")[:1200],
-        rahao=(shabad.get("rahao_english") or "(no rahao)")[:400],
-    )
+def tag_one(llm: str, shabad: dict, vocabulary: list[str] | None = None) -> dict:
+    """Tag a single shabad with a single LLM. Returns the parsed result + raw timing.
+
+    When `vocabulary` is provided (Phase B.4 non-AK pass), the constrained prompt
+    is used and the LLM is asked to prefer tags from that list. When None, the
+    free-form prompt is used (Phase B.1 AK pass and the original full-corpus pass).
+    """
+    if vocabulary:
+        prompt = CONSTRAINED_PROMPT_TEMPLATE.format(
+            translation=(shabad.get("english_translation") or "")[:1200],
+            rahao=(shabad.get("rahao_english") or "(no rahao)")[:400],
+            tag_vocabulary=", ".join(vocabulary),
+        )
+    else:
+        prompt = PROMPT_TEMPLATE.format(
+            translation=(shabad.get("english_translation") or "")[:1200],
+            rahao=(shabad.get("rahao_english") or "(no rahao)")[:400],
+        )
     started = time.time()
     if llm in OLLAMA_LLMS:
         result = call_ollama(llm, prompt)
@@ -204,6 +251,7 @@ def tag_one(llm: str, shabad: dict) -> dict:
         "tags": list(result.get("tags", [])) if isinstance(result.get("tags"), list) else [],
         "reasoning": result.get("reasoning", ""),
         "elapsed_s": round(time.time() - started, 2),
+        "constrained": bool(vocabulary),
     }
 
 
@@ -271,9 +319,52 @@ def load_merged_reasoning() -> dict:
 
 # ---- Per-LLM pass -----------------------------------------------------------
 
-def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) -> None:
+# Filter modes for run_pass:
+#   "all"     — every shabad with an english_translation (default, AK-first ordered)
+#   "ak"      — Amrit Keertan shabads only (Phase B.1, when you want to finish AK fast)
+#   "non-ak"  — only non-AK shabads (Phase B.4, paired with --vocabulary)
+FilterMode = str  # "all" | "ak" | "non-ak"
+
+
+def load_ak_set() -> set[str]:
+    """Load the set of SGGS shabad IDs flagged as Amrit Keertan."""
+    sources_path = Path(config.DATA_DIR) / "sggs_sources.json"
+    if not sources_path.exists():
+        return set()
+    sources_data = json.loads(sources_path.read_text(encoding="utf-8"))
+    return {sid for sid, fields in sources_data.items() if fields.get("amrit_keertan")}
+
+
+def load_vocabulary_file(path: Path) -> list[str]:
+    """Load a tag vocabulary file produced by --consensus.
+
+    Accepts the tag_vocabulary.json shape ({theme_tags: {tag: {...}}}) or a
+    plain JSON list of strings. Returns a deterministic sort order so the
+    prompt is stable across runs (which lets prompt caching kick in for
+    LLMs that support it).
+    """
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(raw, list):
+        tags = [t for t in raw if isinstance(t, str)]
+    elif isinstance(raw, dict) and "theme_tags" in raw:
+        tags = list(raw["theme_tags"].keys())
+    else:
+        raise SystemExit(f"Vocabulary file at {path} not in a known shape.")
+    return sorted(set(tags))
+
+
+def run_pass(
+    llm: str,
+    max_concurrent: int,
+    save_every: int,
+    limit: int | None,
+    filter_mode: FilterMode = "all",
+    vocabulary_path: Path | None = None,
+) -> None:
     if llm not in ALL_LLMS:
         raise SystemExit(f"Unknown LLM '{llm}'. Choose from: {', '.join(ALL_LLMS)}")
+    if filter_mode not in ("all", "ak", "non-ak"):
+        raise SystemExit(f"Unknown filter mode '{filter_mode}'. Choose: all, ak, non-ak.")
 
     print(f"Loading SGGS shabads from {SGGS_PATH}...")
     shabads = json.loads(SGGS_PATH.read_text(encoding="utf-8"))
@@ -281,22 +372,31 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
 
     shard = load_llm_reasoning(llm)
 
-    # Load AK source map so we can prioritize Amrit Keertan shabads.
-    # The flip-the-script methodology: tag the 2,078 AK shabads first across
-    # all four LLMs so we can derive a tradition-grounded taxonomy from canon
-    # before tagging the remaining 3,464 non-AK shabads. The non-AK pass will
-    # then prompt with the AK-derived vocabulary as a constraint.
-    sources_path = Path(config.DATA_DIR) / "sggs_sources.json"
-    ak_set: set[str] = set()
-    if sources_path.exists():
-        sources_data = json.loads(sources_path.read_text(encoding="utf-8"))
-        ak_set = {sid for sid, fields in sources_data.items() if fields.get("amrit_keertan")}
+    # Load AK source map so we can prioritize / filter on AK membership.
+    # Flip-the-script methodology: tag the 2,078 AK shabads first across all
+    # LLMs so we can derive a tradition-grounded taxonomy from canon before
+    # tagging the remaining 3,464 non-AK shabads with that taxonomy as a
+    # constraint.
+    ak_set = load_ak_set()
+
+    vocabulary: list[str] | None = None
+    if vocabulary_path is not None:
+        vocabulary = load_vocabulary_file(vocabulary_path)
+        print(f"  loaded {len(vocabulary)} tags from {vocabulary_path.name} for constrained prompt")
 
     pending = []
     skipped = 0
+    filtered_out = 0
     for s in shabads:
         sid = str(s.get("banidb_shabad_id"))
         if not sid or not s.get("english_translation"):
+            continue
+        in_ak = sid in ak_set
+        if filter_mode == "ak" and not in_ak:
+            filtered_out += 1
+            continue
+        if filter_mode == "non-ak" and in_ak:
+            filtered_out += 1
             continue
         prev = shard.get(sid)
         # Skip only successful results. Treat error rows as "not done" so resume retries them.
@@ -307,14 +407,18 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
 
     # AK-first ordering: process Amrit Keertan shabads before non-AK ones.
     # ang_number breaks ties so we still walk SGGS in a sensible reading order
-    # within each group.
+    # within each group. (For filter_mode="ak" or "non-ak", every entry has the
+    # same first key so the secondary keys do all the work.)
     pending.sort(key=lambda s: (
         0 if str(s.get("banidb_shabad_id")) in ak_set else 1,
         s.get("ang_number", 0),
         int(s.get("banidb_shabad_id", 0) or 0),
     ))
     ak_pending = sum(1 for s in pending if str(s.get("banidb_shabad_id")) in ak_set)
-    print(f"  AK shabads pending: {ak_pending} (will be processed first)")
+    if filter_mode == "all":
+        print(f"  AK shabads pending: {ak_pending} (will be processed first)")
+    else:
+        print(f"  filter_mode={filter_mode}: filtered_out={filtered_out}")
 
     if limit is not None:
         pending = pending[:limit]
@@ -342,7 +446,7 @@ def run_pass(llm: str, max_concurrent: int, save_every: int, limit: int | None) 
     failed = 0
 
     def submit(executor: ThreadPoolExecutor, item: dict):
-        return executor.submit(tag_one, llm, item)
+        return executor.submit(tag_one, llm, item, vocabulary)
 
     bailed_out = False
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -444,7 +548,26 @@ def consensus_tags(per_llm_tags: dict[str, list[str]], min_votes: int = 2) -> tu
     return canonical, bucket
 
 
-def run_consensus(min_votes: int) -> None:
+def run_consensus(
+    min_votes: int,
+    ak_only: bool = False,
+    output_vocab_path: Path | None = None,
+    write_shabads: bool = True,
+) -> None:
+    """Apply multi-LLM consensus to per-LLM reasoning shards.
+
+    Args:
+        min_votes: tag must appear in at least this many LLMs to survive.
+        ak_only: when True, restrict consensus to Amrit Keertan shabads only.
+                 Used by Phase B.2 to derive the AK-grounded canonical taxonomy
+                 that constrains the non-AK pass (Phase B.4).
+        output_vocab_path: where to write the resulting vocabulary file. Default
+                 is data/tag_vocabulary.json. Phase B.2 writes to a separate
+                 ak_taxonomy.json so the full-corpus vocabulary isn't overwritten
+                 mid-pipeline.
+        write_shabads: when False (Phase B.2 mode), the consensus only emits
+                 the vocabulary file and skips writing back to sggs_all_shabads.json.
+    """
     if not REASONING_DIR.exists() and not REASONING_MERGED_PATH.exists():
         raise SystemExit(
             f"No reasoning data at {REASONING_DIR} or {REASONING_MERGED_PATH}. "
@@ -463,22 +586,32 @@ def run_consensus(min_votes: int) -> None:
     shabads = json.loads(SGGS_PATH.read_text(encoding="utf-8"))
     by_sid = {str(s["banidb_shabad_id"]): s for s in shabads}
 
-    # Coverage report — counted against the four LLMs we chose for consensus,
-    # not every name the script knows about (e.g. gemma2:27b is permitted but
-    # not currently part of the run).
+    ak_set = load_ak_set()
+    if ak_only:
+        before = len(reasoning)
+        reasoning = {sid: v for sid, v in reasoning.items() if sid in ak_set}
+        print(f"  AK-only filter: {before} → {len(reasoning)} shabads")
+
+    # Coverage report — counted against the LLMs we chose for consensus, not
+    # every name the script knows about (e.g. gemma2:27b is permitted but not
+    # currently part of the run; claude is parked).
     coverage = {llm: 0 for llm in CONSENSUS_LLMS}
     full_coverage = 0
     for sid, llm_results in reasoning.items():
-        ok_llms = [llm for llm in CONSENSUS_LLMS if isinstance(llm_results.get(llm), dict) and "tags" in llm_results[llm]]
+        ok_llms = [
+            llm for llm in CONSENSUS_LLMS
+            if isinstance(llm_results.get(llm), dict) and "tags" in llm_results[llm]
+        ]
         for llm in ok_llms:
             coverage[llm] += 1
         if len(ok_llms) == len(CONSENSUS_LLMS):
             full_coverage += 1
 
-    print("Per-LLM coverage:")
+    label = "AK shabads" if ak_only else "shabads"
+    print(f"Per-LLM coverage on {label}:")
     for llm, n in coverage.items():
         print(f"  {llm:<22} {n}")
-    print(f"  shabads with all {len(CONSENSUS_LLMS)} LLMs: {full_coverage}")
+    print(f"  with all {len(CONSENSUS_LLMS)} LLMs: {full_coverage}")
     print()
 
     print(f"Applying consensus rule (min_votes={min_votes})...")
@@ -496,14 +629,14 @@ def run_consensus(min_votes: int) -> None:
             continue
 
         canonical, _ = consensus_tags(per_llm_tags, min_votes=min_votes)
-        if sid in by_sid:
+        if write_shabads and sid in by_sid:
             shabad = by_sid[sid]
             shabad["tags"] = canonical
             shabad["tags_source"] = "multi_llm_consensus_v1"
 
-            # Take primary_theme/mood/brief_meaning from claude-sonnet-4-5 if available,
-            # else qwen3:14b, else any. (Field-level, not shabad-level fallback.)
-            for preferred in ("claude-sonnet-4-5", "qwen3:14b", "gemma2:27b", "deepseek-r1:14b"):
+            # Take primary_theme/mood/brief_meaning from the first available LLM
+            # in priority order. Field-level fallback, not shabad-level.
+            for preferred in ("claude-sonnet-4-5", "qwen3:14b", "gemma2:27b", "deepseek-r1:14b", "llama3.1:8b"):
                 r = llm_results.get(preferred)
                 if isinstance(r, dict) and r.get("primary_theme"):
                     shabad["primary_theme"] = r.get("primary_theme", shabad.get("primary_theme", ""))
@@ -512,29 +645,34 @@ def run_consensus(min_votes: int) -> None:
                     break
 
             updated += 1
-            for tag in canonical:
-                new_tag_counts[tag] = new_tag_counts.get(tag, 0) + 1
+        for tag in canonical:
+            new_tag_counts[tag] = new_tag_counts.get(tag, 0) + 1
 
-    print(f"  updated {updated} shabads; skipped {skipped_partial} with <{min_votes} LLM responses")
+    if write_shabads:
+        print(f"  updated {updated} shabads; skipped {skipped_partial} with <{min_votes} LLM responses")
+    else:
+        print(f"  consensus on {len(reasoning) - skipped_partial} shabads (vocabulary-only mode)")
 
     # Build new tag vocabulary.
-    print(f"\nWriting new {NEW_VOCAB_PATH.name}...")
+    vocab_path = output_vocab_path or NEW_VOCAB_PATH
+    print(f"\nWriting {vocab_path.name}...")
     theme_tags = {
         tag: {"description": "", "gurbani_term": "", "count": count}
         for tag, count in sorted(new_tag_counts.items(), key=lambda kv: (-kv[1], kv[0]))
     }
-    NEW_VOCAB_PATH.write_text(
+    vocab_path.write_text(
         json.dumps({"theme_tags": theme_tags, "mood_tags": {}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     print(f"  {len(theme_tags)} consensus theme tags.")
 
-    print(f"\nWriting updated {SGGS_PATH.name}...")
-    SGGS_PATH.write_text(
-        json.dumps(shabads, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    print(f"  saved {len(shabads)} shabads.")
+    if write_shabads:
+        print(f"\nWriting updated {SGGS_PATH.name}...")
+        SGGS_PATH.write_text(
+            json.dumps(shabads, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"  saved {len(shabads)} shabads.")
 
     # Top tags preview.
     print("\nTop 20 consensus tags:")
@@ -548,6 +686,44 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--llm", help=f"Run a single-LLM tagging pass. One of: {', '.join(ALL_LLMS)}")
     p.add_argument("--consensus", action="store_true", help="Apply consensus rule and rebuild tags.")
+    p.add_argument(
+        "--filter",
+        choices=("all", "ak", "non-ak"),
+        default="all",
+        help="Restrict the LLM pass to AK-only or non-AK shabads (default: all). "
+        "Used by Phase B.4 with --vocabulary to tag the rest of the corpus "
+        "after the AK-only consensus has been built.",
+    )
+    p.add_argument(
+        "--vocabulary",
+        type=Path,
+        default=None,
+        help="Path to a vocabulary JSON file (output of Phase B.2). When given, "
+        "the LLM pass uses the constrained-prompt template that asks the model "
+        "to prefer tags from this list (Phase B.4 non-AK tagging).",
+    )
+    p.add_argument(
+        "--ak-only",
+        action="store_true",
+        help="Restrict --consensus to Amrit Keertan shabads only. Phase B.2: "
+        "produces the AK-derived canonical taxonomy that Phase B.4's "
+        "--vocabulary then constrains the non-AK pass with.",
+    )
+    p.add_argument(
+        "--output-vocab",
+        type=Path,
+        default=None,
+        help="Where --consensus writes the resulting vocabulary file. Defaults to "
+        "data/tag_vocabulary.json. Phase B.2 should pass data/ak_taxonomy.json so "
+        "the full-corpus vocabulary isn't overwritten mid-pipeline.",
+    )
+    p.add_argument(
+        "--vocab-only",
+        action="store_true",
+        help="With --consensus, emit only the vocabulary file; do NOT modify "
+        "sggs_all_shabads.json. Used by Phase B.2 (the AK-only consensus is "
+        "an intermediate step, not the final tagging).",
+    )
     p.add_argument("--min-votes", type=int, default=2, help="Minimum LLM votes to keep a tag (default 2).")
     p.add_argument("--limit", type=int, default=None, help="Stop after N shabads (debug).")
     p.add_argument("--concurrency", type=int, default=8, help="Max concurrent in-flight calls.")
@@ -561,9 +737,21 @@ def main() -> None:
         return
 
     if args.llm:
-        run_pass(args.llm, args.concurrency, args.save_every, args.limit)
+        run_pass(
+            args.llm,
+            args.concurrency,
+            args.save_every,
+            args.limit,
+            filter_mode=args.filter,
+            vocabulary_path=args.vocabulary,
+        )
     else:
-        run_consensus(args.min_votes)
+        run_consensus(
+            args.min_votes,
+            ak_only=args.ak_only,
+            output_vocab_path=args.output_vocab,
+            write_shabads=not args.vocab_only,
+        )
 
 
 if __name__ == "__main__":
