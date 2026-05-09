@@ -202,10 +202,14 @@ def call_anthropic(model: str, prompt: str, max_tokens: int = 800) -> dict:
             wait = 5 * (2**attempt) + 5
             time.sleep(wait)
         except anthropic.BadRequestError as err:
-            # Credit-balance-too-low surfaces as a 400. Don't retry, don't waste
-            # more requests — bail out so the user can top up.
+            # Credit-balance-too-low and account-level usage-limit-reached both
+            # surface as 400s. Treat both as fatal-for-this-pass so we don't
+            # burn through thousands of doomed-to-fail calls. The user can
+            # either top up credits, raise the monthly limit, or wait for the
+            # limit to reset (msg includes the reset timestamp).
             msg_text = str(err).lower()
-            if "credit balance" in msg_text or "billing" in msg_text:
+            fatal_markers = ("credit balance", "billing", "usage limits", "usage limit")
+            if any(m in msg_text for m in fatal_markers):
                 raise AnthropicCreditExhausted(str(err)) from err
             raise
         except anthropic.APIStatusError as err:
