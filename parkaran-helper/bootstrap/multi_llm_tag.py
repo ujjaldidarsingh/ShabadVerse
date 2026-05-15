@@ -506,24 +506,84 @@ def run_pass(
 # ---- Consensus --------------------------------------------------------------
 
 _TAG_NORM_RE = re.compile(r"[^a-z0-9]+")
+_SYNONYMS_PATH = Path(config.DATA_DIR) / "tag_synonyms.json"
+
+# Module-level cache. Lazily loaded the first time normalize_tag() is called.
+_SYNONYM_MAP_CACHE: dict[str, str] | None = None
+_CANONICAL_SURFACE_CACHE: dict[str, str] | None = None
 
 
 def normalize_tag(tag: str) -> str:
     """Lowercase + strip non-alphanum so 'Naam Simran' == 'naam-simran' == 'NaamSimran'.
-    This collapses obvious surface variants without doing fancy stemming.
+    Collapses obvious surface variants without fancy stemming.
     """
     return _TAG_NORM_RE.sub("", tag.lower()).strip()
 
 
+def _load_synonym_indices() -> tuple[dict[str, str], dict[str, str]]:
+    """Load data/tag_synonyms.json into two indices.
+
+    Returns:
+        synonym_to_canonical: {normalized_variant: normalized_canonical} — used
+            to fold variants into the canonical bucket during consensus.
+        canonical_surface: {normalized_canonical: canonical_surface_form} —
+            used to render the canonical surface form when emitting consensus
+            output.
+    """
+    global _SYNONYM_MAP_CACHE, _CANONICAL_SURFACE_CACHE
+    if _SYNONYM_MAP_CACHE is not None and _CANONICAL_SURFACE_CACHE is not None:
+        return _SYNONYM_MAP_CACHE, _CANONICAL_SURFACE_CACHE
+
+    synonym_to_canonical: dict[str, str] = {}
+    canonical_surface: dict[str, str] = {}
+    if _SYNONYMS_PATH.exists():
+        raw = json.loads(_SYNONYMS_PATH.read_text(encoding="utf-8"))
+        for canonical_form, variants in raw.items():
+            if canonical_form.startswith("_"):
+                continue  # skip comment fields
+            canonical_norm = normalize_tag(canonical_form)
+            if not canonical_norm:
+                continue
+            canonical_surface[canonical_norm] = canonical_form
+            # The canonical itself maps to itself so direct uses (no synonym
+            # lookup needed) still emit the right surface form.
+            synonym_to_canonical[canonical_norm] = canonical_norm
+            if not isinstance(variants, list):
+                continue
+            for variant in variants:
+                if not isinstance(variant, str):
+                    continue
+                variant_norm = normalize_tag(variant)
+                if not variant_norm:
+                    continue
+                # Last-write-wins is acceptable here — if the same variant is
+                # listed under two canonicals, that's a curation bug worth
+                # surfacing during review, not silently muddling at consensus.
+                synonym_to_canonical[variant_norm] = canonical_norm
+
+    _SYNONYM_MAP_CACHE = synonym_to_canonical
+    _CANONICAL_SURFACE_CACHE = canonical_surface
+    return synonym_to_canonical, canonical_surface
+
+
 def consensus_tags(per_llm_tags: dict[str, list[str]], min_votes: int = 2) -> tuple[list[str], dict]:
-    """Apply the consensus rule.
+    """Apply the consensus rule with synonym-aware folding.
+
+    Variants listed in data/tag_synonyms.json are folded into their canonical
+    form BEFORE counting votes, so e.g. {"Ego", "Ego dissolution", "Haumai"}
+    from three LLMs all count toward "Haumai" rather than each getting one
+    vote and then being dropped as singletons.
 
     Returns:
         (canonical_tags, vote_detail)
-        canonical_tags: ordered list of agreed tags (first-seen surface form per
-                        normalized key, ordered by vote count desc)
-        vote_detail: {normalized_tag: {votes, surface_forms, voters}}
+        canonical_tags: ordered list of agreed tags. Surface form is taken from
+                        the synonym map's canonical when applicable; otherwise
+                        the first-seen surface form per normalized key.
+        vote_detail: {normalized_tag: {votes, surface_forms, voters,
+                       canonical_surface}}
     """
+    synonym_to_canonical, canonical_surface = _load_synonym_indices()
+
     bucket: dict[str, dict] = {}
     for llm, tags in per_llm_tags.items():
         seen_in_this_llm: set[str] = set()
@@ -533,21 +593,31 @@ def consensus_tags(per_llm_tags: dict[str, list[str]], min_votes: int = 2) -> tu
             tag = tag.strip()
             if not tag:
                 continue
-            key = normalize_tag(tag)
-            if not key or key in seen_in_this_llm:
+            raw_key = normalize_tag(tag)
+            if not raw_key:
+                continue
+            # Fold variant into its canonical's normalized key.
+            key = synonym_to_canonical.get(raw_key, raw_key)
+            if key in seen_in_this_llm:
                 continue
             seen_in_this_llm.add(key)
             entry = bucket.setdefault(
                 key,
-                {"votes": 0, "surface_forms": [], "voters": []},
+                {"votes": 0, "surface_forms": [], "voters": [], "canonical_surface": None},
             )
             entry["votes"] += 1
             if tag not in entry["surface_forms"]:
                 entry["surface_forms"].append(tag)
             entry["voters"].append(llm)
+            if entry["canonical_surface"] is None and key in canonical_surface:
+                entry["canonical_surface"] = canonical_surface[key]
 
     ordered = sorted(bucket.items(), key=lambda kv: (-kv[1]["votes"], kv[0]))
-    canonical = [b["surface_forms"][0] for _, b in ordered if b["votes"] >= min_votes]
+    canonical = [
+        (b["canonical_surface"] or b["surface_forms"][0])
+        for _, b in ordered
+        if b["votes"] >= min_votes
+    ]
     return canonical, bucket
 
 

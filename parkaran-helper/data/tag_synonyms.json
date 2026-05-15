@@ -1,0 +1,83 @@
+{
+  "_comment": "Canonical tag synonym map. Keys are canonical surface forms; values are arrays of variants the consensus should fold into the canonical. Variants are matched after normalize_tag() — case-insensitive, non-alphanum stripped. Only include synonyms you're confident describe the same Sikh concept; keep the list conservative.",
+
+  "Haumai": ["Ego", "Ego dissolution", "Ego death", "Ego self", "Ego destruction", "Self-conceit", "Self-pride", "Pride", "Hubris"],
+
+  "Ik Onkar": ["Ek Onkar", "Ik Oankar", "Ek Oankar", "One God", "Oneness of God", "Divine Oneness", "Divine Unity", "Unity of God", "Unity of the Divine", "One Creator", "Onkar"],
+
+  "Shanti": ["Peace", "Inner Peace", "Spiritual Peace", "Calm", "Contemplative Peace", "Mental Peace", "Stillness", "Tranquility", "Serenity"],
+
+  "Manmukh vs Gurmukh": ["Gurmukh vs Manmukh", "Manmukh-Gurmukh", "Manmukh and Gurmukh", "Gurmukh and Manmukh", "Gurmukh-Manmukh"],
+
+  "Naam": ["Divine Name", "Holy Name", "God's Name", "Name of God", "The Name"],
+
+  "Seva": ["Selfless Service", "Service to Humanity", "Service", "Devoted Service"],
+
+  "Kirat Karo": ["Honest Living", "Earning Honestly", "Honest Work", "Righteous Earning"],
+
+  "Vand Chhako": ["Sharing", "Selfless Sharing", "Sharing with Others", "Vand Chakna"],
+
+  "Sat Naam": ["True Name", "Eternal Name", "Sat Nam"],
+
+  "Saadh Sangat": ["Holy Company", "Holy Congregation", "Sat Sangat", "Sangat of the Saints"],
+
+  "Gurmukh": ["Guru-oriented", "Guru-focused", "Following the Guru"],
+
+  "Manmukh": ["Self-willed", "Self-centered", "Ego-centered", "Egotistical"],
+
+  "Dharma": ["Righteousness", "Dharm", "Righteous Path", "Moral Path", "Duty", "Righteous Duty"],
+
+  "Karma": ["Actions", "Past Actions", "Deeds", "Past Deeds"],
+
+  "Mukti": ["Liberation", "Salvation", "Spiritual Liberation", "Moksha", "Release"],
+
+  "Anand": ["Joy", "Spiritual Joy", "Bliss", "Spiritual Bliss", "Joyfulness", "Eternal Joy"],
+
+  "Vichar": ["Contemplation", "Reflection", "Meditation on Truth", "Spiritual Contemplation"],
+
+  "Simran": ["Remembrance", "Divine Remembrance", "Spiritual Remembrance"],
+
+  "Prem": ["Love", "Devotional Love", "Spiritual Love", "Divine Love"],
+
+  "Birha": ["Separation", "Longing", "Separation and Longing", "Pangs of Separation", "Viraha", "Yearning for the Divine"],
+
+  "Vairag": ["Detachment", "Renunciation", "Worldly Detachment", "Detachment from Maya"],
+
+  "Vismad": ["Wonder", "Spiritual Wonder", "Wonderment", "Astonishment"],
+
+  "Awe": ["Reverential Awe", "Divine Awe"],
+
+  "Bhakti": ["Devotion", "Devotional Love", "Bhagti", "Loving Devotion"],
+
+  "Hukam": ["Divine Will", "Divine Command", "God's Will", "Will of God", "Divine Order", "God's Command"],
+
+  "Maya": ["Worldly Illusion", "Illusion", "Material Illusion", "Worldly Attachment"],
+
+  "Sangat": ["Holy Company", "Spiritual Company", "Congregation"],
+
+  "Naam Simran": ["Remembrance of the Name", "Meditation on the Name", "Recitation of the Name", "Chanting the Name"],
+
+  "Guru's Wisdom": ["Wisdom of the Guru", "Guru's Teachings", "Teachings of the Guru", "Guru's Knowledge", "Guru's Guidance"],
+
+  "Guru's Grace": ["Grace of the Guru", "Guru Kirpa", "Blessings of the Guru"],
+
+  "Divine Grace": ["God's Grace", "Grace of God", "Kirpa", "Nadar", "Mercy", "Divine Mercy", "God's Mercy"],
+
+  "Surrender": ["Submission", "Self-Surrender", "Total Surrender", "Surrender to God"],
+
+  "Humility": ["Humbleness", "Meekness", "Vinay", "Vinaya"],
+
+  "Chardi Kala": ["Spiritual Upliftment", "High Spirits", "Eternal Optimism", "Rising Spirits"],
+
+  "Sahaj": ["Spiritual Poise", "Equipoise", "Sahaj Awastha", "Natural State"],
+
+  "Reincarnation": ["Rebirth", "Cycle of Birth and Death", "Transmigration", "Samsara"],
+
+  "Impermanence": ["Transience", "Mortality", "Transient Life", "Fleeting Life"],
+
+  "Dasvandh": ["One-Tenth", "Tithe", "Tenth"],
+
+  "Truth": ["Sat", "Eternal Truth", "Divine Truth"],
+
+  "Faith": ["Bharosa", "Trust in God", "Trust", "Belief"]
+}
