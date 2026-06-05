@@ -481,6 +481,57 @@ def graph_search():
     return jsonify(results[:30])
 
 
+@graph_bp.route("/graph/semantic-search")
+def graph_semantic_search():
+    """Natural-language search: embed a free-text phrase and return the SGGS
+    shabads whose meaning is closest.
+
+    Lets a user describe what they're thinking of ("someone who walks the path
+    and inspires others to walk it") and get a ranked set of shabads by meaning,
+    not by first-letters. Rides on the same ONNX MiniLM embedder + ChromaDB
+    SGGS collection used by the tuk-aware neighbor path.
+
+    Query params:
+        q (str): the natural-language phrase (min 3 chars)
+        limit (int): max results (default 10, capped 25)
+    """
+    q = request.args.get("q", "").strip()
+    limit = max(1, min(request.args.get("limit", 10, type=int), 25))
+
+    if not q or len(q) < 3:
+        return jsonify([])
+
+    store = _get_sggs_vector_store()
+    if store.get_count() == 0:
+        return jsonify([])
+
+    sggs_lookup = _get_sggs_lookup()
+    metadata = _get_graph().get("metadata", {})
+
+    matches = store.search_similar(q, n_results=limit)
+    results = []
+    for m in matches:
+        sid = str(m["id"])
+        s = sggs_lookup.get(sid, {})
+        meta = metadata.get(sid, {})
+        # Cosine distance → similarity (ChromaDB uses cosine space here).
+        distance = m.get("distance")
+        score = round(max(0.0, 1.0 - distance), 3) if distance is not None else None
+        results.append({
+            "banidb_shabad_id": sid,
+            "title_gurmukhi": s.get("display_gurmukhi") or s.get("gurmukhi_text", "")[:60] or meta.get("gurmukhi", ""),
+            "title_transliteration": s.get("display_name") or s.get("transliteration", "")[:80] or meta.get("title", ""),
+            "first_line_translation": s.get("brief_meaning") or s.get("rahao_english") or "",
+            "ang_number": s.get("ang_number") or meta.get("ang") or 0,
+            "raag": s.get("sggs_raag") or meta.get("raag", ""),
+            "writer": s.get("writer") or meta.get("writer", ""),
+            "primary_theme": s.get("primary_theme") or meta.get("primary_theme", ""),
+            "score": score,
+        })
+
+    return jsonify(results)
+
+
 @graph_bp.route("/tags")
 def list_tags():
     """Return all tags with counts and descriptions."""

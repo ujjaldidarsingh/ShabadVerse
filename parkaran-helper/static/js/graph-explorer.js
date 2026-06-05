@@ -262,7 +262,7 @@ function getStyles() {
                 "font-family": "Noto Sans Gurmukhi, sans-serif",
                 "font-size": "13px",
                 "text-wrap": "ellipsis",
-                "text-max-width": "160px",
+                "text-max-width": "300px",
                 width: 10,
                 height: 10,
                 "text-valign": "bottom",
@@ -314,7 +314,7 @@ function getStyles() {
                 color: "#f5e6c8",
                 "font-size": "14px",
                 "font-weight": "bold",
-                "text-max-width": "200px",
+                "text-max-width": "360px",
                 "border-color": "rgba(245,158,11,0.6)",
                 "border-width": 2,
             },
@@ -481,7 +481,7 @@ async function expandShabad(shabadId) {
 
     // Add or update center node — use searched tuk if available
     const meta = State.metadata[sid] || {};
-    const centerLabel = tuk ? trunc(tuk.gurmukhi, 28) : trunc(meta.gurmukhi || meta.title || "?", 28);
+    const centerLabel = tuk ? trunc(tuk.gurmukhi, 48) : trunc(meta.gurmukhi || meta.title || "?", 48);
     let centerEl = cy.getElementById(sid);
     if (centerEl.length === 0) {
         cy.add({
@@ -580,7 +580,7 @@ async function expandShabad(shabadId) {
                         id: nid,
                         shabadId: nid,
                         type: "shabad",
-                        label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 22),
+                        label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 40),
                         isRepertoire: n.is_repertoire || nmeta.is_repertoire || false,
                         themeColor: shabadThemeColor(nTheme),
                     },
@@ -1069,7 +1069,7 @@ function asciiToGurmukhi(text) {
 
 /* ===== SEARCH MODE STATE ===== */
 
-let searchMode = "first-letter-start"; // "first-letter-start" | "first-letter-anywhere" | "transliteration"
+let searchMode = "first-letter-start"; // "first-letter-start" | "first-letter-anywhere" | "transliteration" | "semantic"
 
 function setSearchMode(mode) {
     searchMode = mode;
@@ -1082,7 +1082,12 @@ function setSearchMode(mode) {
     });
 
     // Update input styling and placeholder
-    if (mode === "transliteration") {
+    if (mode === "semantic") {
+        // Natural-language / meaning search — plain text, no Gurmukhi preview.
+        input.classList.remove("gurmukhi-mode");
+        input.placeholder = "describe it e.g. walking the path and inspiring others to follow";
+        preview.classList.add("hidden");
+    } else if (mode === "transliteration") {
         input.classList.remove("gurmukhi-mode");
         input.placeholder = "search e.g. tera naam, satgur ...";
         preview.classList.add("hidden");
@@ -1104,7 +1109,8 @@ function setSearchMode(mode) {
 function updateGurmukhiPreview() {
     const input = document.getElementById("graphSearch");
     const preview = document.getElementById("gurmukhiPreview");
-    if (searchMode === "transliteration") {
+    // Only the first-letter Gurmukhi modes show the transliterated preview.
+    if (searchMode === "transliteration" || searchMode === "semantic") {
         preview.classList.add("hidden");
         return;
     }
@@ -1129,13 +1135,43 @@ function initSearch() {
 
     input.addEventListener("input", debounce(async () => {
         const q = input.value.trim();
-        if (q.length < 2) {
+        // Semantic search needs a fuller phrase to be meaningful; other modes
+        // are useful from 2 chars.
+        const minLen = searchMode === "semantic" ? 4 : 2;
+        if (q.length < minLen) {
             dropdown.classList.add("hidden");
             return;
         }
 
         try {
             let results = [];
+
+            if (searchMode === "semantic") {
+                // Natural-language meaning search via ONNX embedding + ChromaDB.
+                dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">FINDING BY MEANING</span></div>';
+                dropdown.classList.remove("hidden");
+                const semResults = await API.get(`/api/graph/semantic-search?q=${encodeURIComponent(q)}&limit=10`);
+                if (semResults && semResults.length > 0) {
+                    dropdown.innerHTML = semResults.map((r) => {
+                        const sid = String(r.banidb_shabad_id);
+                        const m = State.metadata[sid] || {};
+                        return searchResultHTML(sid, {
+                            gurmukhi: r.title_gurmukhi || m.gurmukhi || "",
+                            title: r.title_transliteration || m.title || "",
+                            raag: r.raag || m.raag || "",
+                            writer: r.writer || m.writer || "",
+                            ang: r.ang_number || m.ang || 0,
+                            is_repertoire: false,
+                            brief_meaning: r.first_line_translation || m.brief_meaning || "",
+                            score: r.score,
+                        }, "", r.first_line_translation);
+                    }).join("");
+                } else {
+                    dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO MATCHES — try describing it differently</div>';
+                }
+                dropdown.classList.remove("hidden");
+                return;
+            }
 
             if (searchMode === "transliteration") {
                 // Single-pass search: check title first, then tags/theme as fallback.
@@ -1223,8 +1259,13 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
     // never break the inline JS string. The dropdown click handler in initSearch reads these.
     const verseAttr = matchedVerse ? escAttr(matchedVerse.substring(0, 80)) : "";
     const engAttr = matchedEnglish ? escAttr(matchedEnglish.substring(0, 150)) : "";
+    // Semantic results carry a 0–1 relevance score; render it as a small badge.
+    const scoreBadge = (typeof m.score === "number")
+        ? `<span style="float:right;font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.55);letter-spacing:0.05em;">${Math.round(m.score * 100)}% match</span>`
+        : "";
     return `
         <div class="autocomplete-item" data-action="select-search" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
+            ${scoreBadge}
             ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
             <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
