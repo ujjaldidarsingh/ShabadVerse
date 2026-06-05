@@ -3,6 +3,8 @@
 ## Status: Active Development — Design Polish Pass
 
 ## Recent Work
+- 2026-06-05: Batch 8/9 on `batch-8-9-staging` → deployed to STAGING (test.shabadverse.com / :5051), prod untouched. (1) generous graph labels (40/300px neighbors, 48/360px center); (2) /about page (methodology + AI transparency); (3) dropped torch — ChromaDB ONNX MiniLM, image 9.84GB→1.71GB, RAM 682MB→376MB; (4) natural-language meaning search (✨ mode + /api/graph/semantic-search). Awaiting Ujjal review before promote-to-main.
+- 2026-05-15: Batch 7 database rebuild SHIPPED — 4-LLM consensus tagging (qwen3+deepseek-r1+llama3.1+claude), AK indexing (2,078 shabads), 248 canonical tags, synonym-merge, AK boost endpoint + UI toggle, similarity graph rebuilt (15.9 avg neighbors)
 - 2026-05-05: Batch 6 beta-feedback fixes (B1-B8 + F1) — first-letter-anywhere search, apostrophe escape (data attributes + delegated handlers), light-mode contrast, breadcrumb wrap, preview race condition, Cytoscape tag label hit area, booting indicator, Constellation Map filter
 - 2026-04-17: Beta opened (uddamsingh, Tester A, Tarun, Harsimran feedback collected)
 - 2026-03-30: Design review (7.8/10), began fix pass — reviewer inline styles, touch targets, Gurmukhi-first
@@ -91,3 +93,16 @@
 - [ ] docs: deploy guide (Docker, systemd, or similar)
 - [ ] docs: bootstrap pipeline runbook (recovery from partial failures)
 - [ ] test: E2E browser tests (Playwright or similar)
+
+## Deployment topology (Lightsail 18.220.187.85)
+- **Prod**: `/opt/shabadverse/parkaran-helper`, branch `main`, compose project `parkaran-helper`, container :5050. Caddy `shabadverse.com → :5050`. Still torch image until next prod rebuild.
+- **Staging**: `/opt/shabadverse-staging/parkaran-helper`, branch `batch-8-9-staging`, compose project `shabadverse-staging` (`docker-compose.staging.yml`), container :5051. Caddy `test.shabadverse.com → :5051` (needs DNS A record `test → 18.220.187.85`).
+- TLS via Caddy (`/etc/caddy/Caddyfile`, backup `.bak`). Data baked into image at build (no volumes); regenerated `data/` must be copied in before `--build`.
+
+## Promote staging → prod (after Ujjal approves test.shabadverse.com)
+1. `git checkout main && git merge --ff-only batch-8-9-staging && git push origin main`
+2. Server: `cd /opt/shabadverse/parkaran-helper && sudo git pull`
+3. Overlay regenerated data (the ONNX `chroma_db`) into prod `data/` — tar from local, extract over `data/chroma_db` (prod still holds the old sentence-transformer vectors)
+4. `sudo cp -a data data.bak.$(date +%F)` then `sudo docker compose up -d --build` (prod image drops 9.84GB→~1.7GB, frees ~300MB RAM)
+5. Smoke test shabadverse.com: `/`, `/about`, `/api/graph/semantic-search?q=...`, AK boost
+6. Tear down staging once satisfied: `sudo docker compose -p shabadverse-staging down` + remove the `test.` Caddy block (or keep staging as a permanent pre-prod)

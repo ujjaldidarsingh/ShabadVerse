@@ -1,0 +1,18 @@
+services:
+  shabadverse:
+    build: .
+    ports:
+      - "5051:5050"
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+# Staging compose for test.shabadverse.com.
+# Runs a second container on :5051 from the feature branch, isolated from
+# prod (parkaran-helper project on :5050). Caddy routes test.shabadverse.com
+# → localhost:5051.
+#
+# Deploy on the server:
+#   cd /opt/shabadverse-staging/parkaran-helper
+#   git fetch origin <branch> && git checkout <branch>
+#   # overlay regenerated data/ (e.g. ONNX chroma_db) into data/ here
+#   sudo docker compose -f docker-compose.staging.yml -p shabadverse-staging up -d --build
