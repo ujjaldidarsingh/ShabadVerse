@@ -32,6 +32,13 @@ def app_shell():
     return render_template("app.html")
 
 
+@app.route("/about")
+def about():
+    """Public explainer: what ShabadVerse is, how to use it, and how the
+    tag taxonomy and connections are built (AI transparency)."""
+    return render_template("about.html")
+
+
 @app.route("/explore")
 def explore_redirect():
     """Legacy route — redirect to the unified app with Explore tab active."""

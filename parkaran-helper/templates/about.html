@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}About ShabadVerse{% endblock %}
+{% block body_class %}about-page{% endblock %}
+
+{% block content %}
+<div class="about-wrap">
+
+    <!-- Header -->
+    <header class="about-header">
+        <a href="/" class="about-back" title="Back to the explorer">&#x276E; EXPLORER</a>
+        <div class="about-logo">
+            <span class="about-mark">&#x0A74;</span>
+            <span class="about-wordmark">SHABADVERSE</span>
+        </div>
+        <a href="https://github.com/ujjaldidarsingh/ShabadVerse" target="_blank" rel="noopener" class="about-back">GITHUB &#x276F;</a>
+    </header>
+
+    <!-- Hero -->
+    <section class="about-hero">
+        <h1>A map of the Guru's connections.</h1>
+        <p class="about-lede">
+            ShabadVerse turns Sri Guru Granth Sahib Ji into an interactive graph. Every one of the
+            5,542 shabads is a star; the threads between them trace shared themes, so you can wander
+            from one shabad to its kin and discover where a thought travels across Gurbani.
+        </p>
+    </section>
+
+    <!-- Demo video slot -->
+    <section class="about-section">
+        <h2>See it in motion</h2>
+        <div class="about-video-slot" id="aboutVideoSlot">
+            <div class="about-video-placeholder">
+                <span class="about-video-icon">&#x25B6;</span>
+                <span>Walkthrough video coming soon</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- How to use -->
+    <section class="about-section">
+        <h2>How to use it</h2>
+        <ol class="about-steps">
+            <li>
+                <strong>Search four ways.</strong> Type English transliteration (<span class="kbd">ABC</span>),
+                first letters from the start of a line (<span class="kbd">&#x0A73;&#x25B8;</span>) or from anywhere
+                in it (<span class="kbd">&#x25B8;&#x0A73;&#x25B8;</span>), or just describe what you are thinking of
+                in plain words (<span class="kbd">&#x2728;</span>) and let meaning search find the closest shabads.
+            </li>
+            <li>
+                <strong>Browse the Constellation Map.</strong> Open <span class="kbd">TAGS</span> to see the full
+                theme vocabulary; filter it, pick a theme, and jump to any shabad that carries it.
+            </li>
+            <li>
+                <strong>Expand to explore.</strong> Tap a shabad to make it the center; its neighbors fan out by
+                shared theme. Follow the trail and your path stays in the breadcrumbs above.
+            </li>
+            <li>
+                <strong>Build a library.</strong> Add shabads as you go, then switch to <span class="kbd">REVIEW</span>
+                to read them in full. Save and share your collection with a link.
+            </li>
+        </ol>
+    </section>
+
+    <!-- Legend -->
+    <section class="about-section">
+        <h2>Reading the graph</h2>
+        <ul class="about-legend">
+            <li><span class="legend-dot" style="background:rgba(245,158,11,0.9);box-shadow:0 0 8px rgba(245,158,11,0.5);"></span> The bright center is the shabad you are exploring now.</li>
+            <li><span class="legend-dot" style="background:#10b981;"></span> Green dots are shabads already in your library.</li>
+            <li><span class="legend-dot" style="background:rgba(200,195,185,0.6);"></span> Pale dots are neighbors, colored by their primary mood when one stands out.</li>
+            <li><span class="legend-label">Theme</span> Amber words floating in the field are theme labels; click one to see every shabad under it.</li>
+            <li><span class="legend-edge"></span> A thicker thread means a stronger thematic match.</li>
+        </ul>
+    </section>
+
+    <!-- Methodology -->
+    <section class="about-section">
+        <h2>How the connections are built</h2>
+        <p>
+            The threads are not hand-drawn and they are not guesses from a single model. Each shabad's
+            themes come from a consensus of four independent language models, and the graph is grounded
+            in the shabads the Panth already sings together.
+        </p>
+        <div class="about-grid">
+            <div class="about-card">
+                <div class="about-card-num">4</div>
+                <div class="about-card-label">models vote on every shabad</div>
+                <p>Qwen3, DeepSeek-R1, Llama 3.1, and Claude Sonnet each read every shabad and propose themes. A theme only survives if at least two of the four agree, which strips out one-model noise.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-num">2,078</div>
+                <div class="about-card-label">Amrit Keertan shabads ground the vocabulary</div>
+                <p>The canonical tag set is derived first from the shabads in Amrit Keertan, the keertan the Panth holds in common, then extended to the rest of Gurbani; tradition sets the vocabulary, not the model.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-num">248</div>
+                <div class="about-card-label">canonical themes</div>
+                <p>Synonyms and near-duplicates collapse into one canonical term, so "Haumai," "ego," and "ego dissolution" all count as one idea rather than three thin tags.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-num">5,542</div>
+                <div class="about-card-label">shabads, ~16 neighbors each</div>
+                <p>Two shabads connect on a blend of shared themes (Jaccard overlap) and meaning (sentence-embedding similarity), so the links reflect both label and substance.</p>
+            </div>
+        </div>
+        <p class="about-source">
+            Gurbani text, transliteration, and translations come from
+            <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a>, an initiative of the
+            <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a> project.
+        </p>
+    </section>
+
+    <!-- AI transparency -->
+    <section class="about-section about-transparency">
+        <h2>Straight talk about the AI</h2>
+        <ul class="about-honest">
+            <li>
+                <strong>What the AI did.</strong> It read translations and proposed themes; four models
+                cross-checked each other. It also powers meaning search, which compares your phrase to
+                each shabad as a vector. The app itself was built with Claude Code.
+            </li>
+            <li>
+                <strong>What it did not do.</strong> It did not write, edit, or reinterpret a single line of
+                Gurbani. The scripture is BaniDB's; the AI only labels and links.
+            </li>
+            <li>
+                <strong>Where it can be wrong.</strong> Themes are machine judgments and some will miss the
+                mark. Treat them as a way to navigate, not as a teaching. When a tag feels off, it probably is,
+                and your eye on the original shabad is the final word.
+            </li>
+            <li>
+                <strong>Tell us.</strong> Found a bad connection or a missing theme? Open an issue on
+                <a href="https://github.com/ujjaldidarsingh/ShabadVerse" target="_blank" rel="noopener">GitHub</a>.
+                The taxonomy gets better every time someone does.
+            </li>
+        </ul>
+    </section>
+
+    <!-- Credits -->
+    <footer class="about-credits">
+        <p>Built by Ujjal Didar Singh Sekhon. Gurbani from BaniDB / SikhiToTheMax. Code on
+            <a href="https://github.com/ujjaldidarsingh/ShabadVerse" target="_blank" rel="noopener">GitHub</a>.</p>
+        <a href="/" class="about-cta">Start exploring &#x276F;</a>
+    </footer>
+
+</div>
+{% endblock %}
