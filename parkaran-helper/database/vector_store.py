@@ -1,18 +1,55 @@
-"""ChromaDB vector store for semantic shabad search."""
+"""ChromaDB vector store for semantic shabad search.
+
+Embeddings use ChromaDB's built-in ONNX export of all-MiniLM-L6-v2
+(ONNXMiniLM_L6_V2). This is the SAME model that the previous
+SentenceTransformerEmbeddingFunction wrapped, minus the torch runtime —
+it runs on onnxruntime (which ChromaDB already ships), so the Docker
+image drops the multi-GB torch/CUDA stack while keeping identical 384-dim
+vectors and live query embedding for semantic search.
+"""
 
 import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 import config
 
 
 class ShabadVectorStore:
     def __init__(self, collection_name=None):
-        self.embedding_fn = SentenceTransformerEmbeddingFunction(
-            model_name=config.EMBEDDING_MODEL
-        )
+        # ONNXMiniLM_L6_V2 is hardcoded to all-MiniLM-L6-v2; no model_name arg.
+        # The ~90MB ONNX model is downloaded on first use and cached; the
+        # Dockerfile pre-warms this cache at build time so runtime needs no network.
+        self.embedding_fn = ONNXMiniLM_L6_V2()
         self.client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH)
+        self.collection_name = collection_name or config.PERSONAL_COLLECTION_NAME
+        try:
+            self.collection = self.client.get_or_create_collection(
+                name=self.collection_name,
+                embedding_function=self.embedding_fn,
+                metadata={"hnsw:space": "cosine"},
+            )
+        except ValueError as err:
+            # A legacy collection persisted with a different embedding function
+            # (pre-ONNX migration) raises an embedding-function conflict. Open it
+            # as-is rather than crashing the app; collections that need ONNX
+            # should be rebuilt via reset_collection() (the bootstrap re-embed).
+            if "embedding function" not in str(err).lower():
+                raise
+            self.collection = self.client.get_collection(name=self.collection_name)
+
+    def reset_collection(self):
+        """Drop and recreate this collection with the ONNX embedding function.
+
+        Required when migrating from the old SentenceTransformer-embedded
+        collection: ChromaDB pins an embedding-function config to each
+        collection, so a clean re-embed must start from a fresh collection.
+        """
+        try:
+            self.client.delete_collection(self.collection_name)
+        except (ValueError, chromadb.errors.NotFoundError):
+            # Collection didn't exist yet — nothing to drop.
+            pass
         self.collection = self.client.get_or_create_collection(
-            name=collection_name or config.PERSONAL_COLLECTION_NAME,
+            name=self.collection_name,
             embedding_function=self.embedding_fn,
             metadata={"hnsw:space": "cosine"},
         )

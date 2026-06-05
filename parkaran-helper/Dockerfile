@@ -2,14 +2,15 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system deps for sentence-transformers
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python deps
+# Install Python deps. No build-essential needed anymore — torch is gone;
+# chromadb + onnxruntime ship prebuilt wheels.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
+
+# Pre-warm the ONNX all-MiniLM-L6-v2 model into the image cache so the
+# container never needs network at runtime to embed search queries. Without
+# this, the first semantic search would block ~10s downloading the model.
+RUN python -c "from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2; ONNXMiniLM_L6_V2()(['warmup'])"
 
 # Copy application code
 COPY app.py wsgi.py config.py ./
