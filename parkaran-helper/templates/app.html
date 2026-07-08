@@ -132,12 +132,12 @@
                         <input type="range" id="forceDistance" min="80" max="400" step="10" value="250">
                         <span id="forceDistanceVal">200</span>
                     </div>
-                    <div class="force-panel" id="thresholdControl" style="display:none;">
+                    <div class="force-panel" id="thresholdControl" style="display:none;" title="Match strictness: raise it to show only the closest connections, lower it to see more distant ones">
                         <label>SELECTIVE</label>
                         <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35">
                         <span id="thresholdScore">0.35</span>
                     </div>
-                    <button id="akModeToggle" type="button" class="btn-ghost" onclick="toggleAkMode()" title="Boost Amrit Keertan shabads in suggestions">AK MODE</button>
+                    <button id="akModeToggle" type="button" class="btn-ghost" onclick="toggleAkMode()" title="Amrit Keertan mode: lift the shabads the Panth sings together, so suggestions favour keertan you are likely to know">AK MODE</button>
                     <button onclick="State.cy && State.cy.fit(50)" class="btn-ghost">FIT</button>
                 </div>
 

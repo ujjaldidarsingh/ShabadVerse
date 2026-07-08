@@ -653,10 +653,21 @@ def get_shabad_verses_graph(shabad_id):
             "is_rahao": is_rahao,
         })
 
+    # The graph metadata is missing a writer for 4,585 of 5,542 shabads, but the
+    # cached BaniDB response carries it. Surface raag/writer/ang from there so
+    # the preview header can place the shabad ("Raag Gauree / Guru Arjan Dev Ji
+    # / Ang 317") rather than half-naming it.
+    info = shabad_data.get("shabadInfo") or {}
+    def _english(node):
+        return node.get("english", "") if isinstance(node, dict) else ""
+
     return jsonify({
         "banidb_shabad_id": sid,
         "verses": verses,
         "rahao_index": rahao_index,
+        "raag": _english(info.get("raag")),
+        "writer": _english(info.get("writer")),
+        "ang": info.get("pageNo") or 0,
     })
 
 

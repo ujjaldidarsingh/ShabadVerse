@@ -62,6 +62,7 @@ const State = {
     expanding: false,   // guard against concurrent expandShabad calls
     selectedTuk: {},    // {shabadId: {gurmukhi, english, index}} — per-shabad tuk selection
     verseCache: {},     // {shabadId: versesArray} — cached verse data
+    shabadInfoCache: {}, // {shabadId: {raag, writer, ang}} — from BaniDB, fills metadata gaps
     akMode: false,      // when true, /api/graph/neighbors gets ak_boost=1 to lift AK shabads
     matchMode: "shabad", // "shabad" | "line" — which matching algorithm expansions use
     forces: {           // Obsidian-style force parameters
@@ -196,7 +197,9 @@ async function init() {
         emptyEl.classList.remove("hidden");
         dismissLoadingOverlay();
     } catch (err) {
-        loadingEl.innerHTML = `<div class="text-red-400/80 text-xs" style="font-family:'IBM Plex Mono',monospace;">LOAD FAILED: ${escapeHtml(err.message)}</div>`;
+        // The detail belongs in the console for a bug report, not on screen.
+        console.error("ShabadVerse failed to start:", err);
+        loadingEl.innerHTML = `<div class="text-red-400/80 text-xs" style="font-family:'IBM Plex Mono',monospace;">Couldn't load the graph. Refresh to try again.</div>`;
         dismissLoadingOverlay();
     }
 }
@@ -773,7 +776,7 @@ function showTooltip(shabadId, nodeEl) {
             ${meta.gurmukhi ? `<div class="tt-gurmukhi">${isRep ? "&#9733; " : ""}${escapeHtml(meta.gurmukhi.substring(0, 45))}</div>` : ""}
             ${tukHtml}
             <div class="tt-meta">${escapeHtml([meta.raag, meta.writer, meta.ang ? "ANG " + meta.ang : ""].filter(Boolean).join(" / "))}</div>
-            ${summary ? `<div class="tt-summary">${escapeHtml(summary.substring(0, 120))}</div>` : ""}
+            ${summary ? `<div class="tt-summary">${escapeHtml(truncSentence(summary, 160))}</div>` : ""}
             ${tagPills ? `<div class="tt-tags">${tagPills}</div>` : ""}
             <div class="tt-actions">
                 <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN SET" : "+ ADD"}</button>
@@ -877,16 +880,36 @@ async function loadPreview(shabadId) {
     // Use cached verses if available
     if (!State.verseCache[sid]) {
         try {
-            const data = await API.get(`/api/graph/shabad/${sid}/verses`);
+            // The endpoint answers in ~70ms; if we're still waiting after 8s the
+            // request has hung. Fail with a way out rather than a modal that
+            // says LOADING... forever.
+            const data = await withTimeout(
+                API.get(`/api/graph/shabad/${sid}/verses`),
+                PREVIEW_TIMEOUT_MS,
+            );
             // Evict oldest cache entry if over 50
             const keys = Object.keys(State.verseCache);
             if (keys.length >= 50) delete State.verseCache[keys[0]];
             State.verseCache[sid] = data.verses || [];
+            // BaniDB knows the writer even where our graph metadata doesn't.
+            State.shabadInfoCache[sid] = { raag: data.raag, writer: data.writer, ang: data.ang };
         } catch (err) {
             // Only show the error if we're still the active preview
             if (modal.dataset.sid !== sid || modal.classList.contains("hidden")) return;
-            preview.innerHTML = '<div class="preview-header"><span>Could not load preview</span><button class="preview-close" aria-label="Close preview">&times;</button></div>';
+            preview.innerHTML = `
+                <div class="preview-header">
+                    <span>Couldn't load this shabad</span>
+                    <button class="preview-close" aria-label="Close preview">&times;</button>
+                </div>
+                <div class="preview-english" style="padding:16px 4px;">
+                    The verses didn't come through. Check your connection, then try again.
+                    <button class="btn-ghost" style="margin-top:12px;" data-action="retry-preview" data-sid="${escAttr(sid)}">RETRY</button>
+                </div>`;
             wirePreviewCloseButtons();
+            preview.querySelector('[data-action="retry-preview"]')?.addEventListener("click", () => {
+                delete State.verseCache[sid];
+                loadPreview(sid);
+            });
             return;
         }
     }
@@ -902,7 +925,16 @@ async function loadPreview(shabadId) {
         return;
     }
 
-    const headerText = escapeHtml(meta.raag ? `${meta.raag} / ANG ${meta.ang || "?"}` : `ANG ${meta.ang || "?"}`);
+    // Raag / writer / ang — the writer is how most readers place a shabad, and
+    // BaniDB supplies it even where our graph metadata leaves it blank.
+    const info = State.shabadInfoCache[sid] || {};
+    const headerText = escapeHtml(
+        [
+            info.raag || meta.raag,
+            info.writer || meta.writer,
+            `ANG ${info.ang || meta.ang || "?"}`,
+        ].filter(Boolean).join(" / ")
+    );
     preview.innerHTML = `
         <div class="preview-header">
             <span>${headerText}</span>
@@ -1324,9 +1356,11 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
     // never break the inline JS string. The dropdown click handler in initSearch reads these.
     const verseAttr = matchedVerse ? escAttr(matchedVerse.substring(0, 80)) : "";
     const engAttr = matchedEnglish ? escAttr(matchedEnglish.substring(0, 150)) : "";
-    // Semantic results carry a 0–1 relevance score; render it as a small badge.
+    // Semantic results carry a 0–1 cosine score. Showing it raw misleads: 0.53
+    // is an excellent match for an abstract phrase, but "53% match" reads as a
+    // coin flip. Bands describe the result instead of scoring it.
     const scoreBadge = (typeof m.score === "number")
-        ? `<span style="float:right;font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.55);letter-spacing:0.05em;">${Math.round(m.score * 100)}% match</span>`
+        ? `<span style="float:right;font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.55);letter-spacing:0.05em;">${matchStrengthLabel(m.score)}</span>`
         : "";
     return `
         <div class="autocomplete-item" data-action="select-search" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
@@ -1336,9 +1370,18 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
                 ${m.is_repertoire ? " &#9733;" : ""}
             </div>
-            ${summary ? `<div style="font-family:'IBM Plex Mono';color:var(--text-secondary);font-size:9px;margin-top:2px;">${escapeHtml(summary.substring(0, 80))}</div>` : ""}
+            ${summary ? `<div style="font-family:'IBM Plex Mono';color:var(--text-secondary);font-size:9px;margin-top:2px;">${escapeHtml(truncWords(summary, 90))}</div>` : ""}
         </div>
     `;
+}
+
+/** Describe a semantic-search cosine score in words. Thresholds come from the
+ *  observed distribution: abstract phrases top out near 0.7, and anything under
+ *  0.45 is thematically adjacent rather than a real match. */
+function matchStrengthLabel(score) {
+    if (score >= 0.55) return "STRONG MATCH";
+    if (score >= 0.45) return "GOOD MATCH";
+    return "RELATED";
 }
 
 function selectSearch(sid, matchedVerse, englishTranslation) {
@@ -1462,7 +1505,10 @@ async function selectTag(tag) {
             list.dataset.delegated = "1";
         }
     } catch (err) {
-        list.innerHTML = `<div style="color:var(--signal-red);font-size:10px;">${escapeHtml(err.message)}</div>`;
+        // Backend error strings ("NetworkError when attempting to fetch...") mean
+        // nothing to a reader; say what happened and what to do.
+        console.error("Tag shabads failed:", err);
+        list.innerHTML = `<div style="color:var(--signal-red);font-size:10px;">Couldn't load these shabads. Try again.</div>`;
     }
 }
 
@@ -1540,7 +1586,7 @@ async function openTagShabadsModal(tag) {
                 <span>${escapeHtml(tag.toUpperCase())} &mdash; ERROR</span>
                 <button class="preview-close" aria-label="Close tag list">&times;</button>
             </div>
-            <div class="preview-english" style="padding:16px 4px;color:var(--signal-red);">Could not load shabads: ${escapeHtml(err.message)}</div>
+            <div class="preview-english" style="padding:16px 4px;color:var(--signal-red);">Couldn't load these shabads. Check your connection and try again.</div>
         `;
         wireTagShabadsCloseButtons();
     }
@@ -1742,8 +1788,14 @@ function saveParkaran() {
     const currentId = ensureCurrentLibrary();
     const lib = getLibrary();
     if (lib.parkarans[currentId]) {
-        lib.parkarans[currentId].items = [...State.parkaran];
-        lib.parkarans[currentId].updated = new Date().toISOString();
+        const entry = lib.parkarans[currentId];
+        entry.items = [...State.parkaran];
+        entry.updated = new Date().toISOString();
+        // Name the library after what's in it — "Vairag & Hukam" says more at a
+        // glance than a timestamp. A name the user typed is never overwritten.
+        if (entry.autoNamed && entry.items.length > 0) {
+            entry.name = autoName(entry.items);
+        }
         setLibrary(lib);
     }
     // Also keep a working copy for fast restore
@@ -1757,6 +1809,8 @@ function saveCurrentParkaran(name) {
     const id = lib.currentId || generateId();
     lib.parkarans[id] = {
         name: name || autoName(State.parkaran),
+        // A name the user typed is theirs; only a derived one keeps re-deriving.
+        autoNamed: !name,
         items: [...State.parkaran],
         created: lib.parkarans[id]?.created || new Date().toISOString(),
         updated: new Date().toISOString(),
@@ -2140,17 +2194,14 @@ function ensureCurrentLibrary() {
     if (lib.currentId && lib.parkarans[lib.currentId]) {
         return lib.currentId;
     }
-    // Create a new library named by date
+    // A brand-new library has nothing to be named after yet. "Library Jul 8,
+    // 2026 09:30" is long enough to truncate in the sidebar and tells the reader
+    // nothing; saveParkaran() renames it after its own themes once it has some.
     const id = generateId();
     const now = new Date();
-    const dateStr = now.toLocaleDateString(undefined, {
-        month: "short", day: "numeric", year: "numeric",
-    });
-    const timeStr = now.toLocaleTimeString(undefined, {
-        hour: "2-digit", minute: "2-digit",
-    });
     lib.parkarans[id] = {
-        name: `Library ${dateStr} ${timeStr}`,
+        name: "Library",
+        autoNamed: true,
         items: [],
         created: now.toISOString(),
         updated: now.toISOString(),
@@ -2268,6 +2319,38 @@ function renameCurrentLibrary() {
 function trunc(text, max) {
     if (!text) return "";
     return text.length > max ? text.substring(0, max) + "..." : text;
+}
+
+/** Reject a promise that takes too long, so a hung fetch surfaces as an error
+ *  the user can act on instead of an indefinite spinner. */
+const PREVIEW_TIMEOUT_MS = 8000;
+
+function withTimeout(promise, ms) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+    ]);
+}
+
+/** Truncate English prose at a word boundary. Cutting mid-word ("will be h")
+ *  reads as a rendering bug; cutting at a space reads as an ellipsis. */
+function truncWords(text, max) {
+    if (!text || text.length <= max) return text || "";
+    const cut = text.substring(0, max);
+    const lastSpace = cut.lastIndexOf(" ");
+    // If there's no space near the end the "word" is pathological; hard-cut it.
+    return (lastSpace > max * 0.6 ? cut.substring(0, lastSpace) : cut).trimEnd() + "…";
+}
+
+/** Truncate at a sentence boundary when one falls in range, else at a word.
+ *  Summaries that stop at "...losing divine support and" leave the reader
+ *  hanging; stopping at the previous full stop does not. */
+function truncSentence(text, max) {
+    if (!text || text.length <= max) return text || "";
+    const window_ = text.substring(0, max);
+    const lastStop = Math.max(window_.lastIndexOf(". "), window_.lastIndexOf("; "));
+    if (lastStop > max * 0.5) return window_.substring(0, lastStop + 1);
+    return truncWords(text, max);
 }
 
 /* ===== ADAPTIVE LABELS ===== */
