@@ -1,6 +1,7 @@
 """Graph API endpoints for the interactive explorer."""
 
 import json
+import math
 import os
 from collections import defaultdict
 from flask import Blueprint, jsonify, request
@@ -15,6 +16,7 @@ _graph_data = None
 _tag_vocab = None
 _sggs_lookup = None
 _sggs_vector_store = None
+_lines_vector_store = None
 _sggs_sources = None
 
 # AK boost factor — applied multiplicatively to AK-flagged neighbors when
@@ -53,6 +55,157 @@ def _get_sggs_vector_store():
     if _sggs_vector_store is None:
         _sggs_vector_store = ShabadVectorStore(collection_name=config.SGGS_COLLECTION_NAME)
     return _sggs_vector_store
+
+
+def _get_lines_vector_store():
+    """Lazy-load the per-verse (tuk) ChromaDB collection used by line matching."""
+    global _lines_vector_store
+    if _lines_vector_store is None:
+        _lines_vector_store = ShabadVectorStore(collection_name=config.SGGS_LINES_COLLECTION_NAME)
+    return _lines_vector_store
+
+
+# ---- Line matching -----------------------------------------------------------
+#
+# Two matching algorithms answer two different questions:
+#
+#   match=shabad  "Which shabads are ABOUT the same things as this one?"
+#                 Precomputed: IDF-weighted tag Jaccard (50%) + shabad-summary
+#                 embedding cosine (50%). The unit of meaning is the whole shabad.
+#
+#   match=line    "Where else does THIS thought appear?"
+#                 Live: line-embedding cosine dominates; whole-shabad tags are
+#                 only a weak prior. The unit of meaning is the single tuk.
+#
+# The weights below are the substance of the difference. If tags were weighted
+# heavily in line mode, line mode would collapse back into shabad mode: the
+# container's themes would drown out the line's own meaning. Conversely a pure
+# line-cosine with no tag prior surfaces lexically-close lines from shabads with
+# no spiritual relationship. 85/15 keeps the line in charge while letting the
+# container break ties.
+LINE_EMBED_WEIGHT = 0.85
+LINE_TAG_PRIOR_WEIGHT = 0.15
+
+# A candidate line that is its own shabad's rahao carries more weight: that
+# thought is the shabad's thesis, not a passing phrase.
+LINE_RAHAO_BONUS = 0.05
+
+# Over-fetch lines so that after collapsing to one line per shabad we still have
+# a full neighbor set. Long shabads would otherwise crowd out whole shabads.
+LINE_FETCH_MULTIPLIER = 12
+
+
+def _weighted_jaccard(tags_a, tags_b, tag_index, n_shabads):
+    """IDF-weighted overlap of two tag sets. Mirrors bootstrap/build_graph.py so
+    the tag prior in line mode is on the same scale as shabad mode's tag term."""
+    set_a, set_b = set(tags_a or []), set(tags_b or [])
+    shared = set_a & set_b
+    if not shared:
+        return 0.0
+    union = set_a | set_b
+
+    def idf(tag):
+        return math.log(max(1, n_shabads) / max(1, len(tag_index.get(tag, []))))
+
+    union_w = sum(idf(t) for t in union)
+    return (sum(idf(t) for t in shared) / union_w) if union_w > 0 else 0.0
+
+
+def _resolve_anchor_line(shabad_id, line_index):
+    """Pick the line whose meaning drives a line-mode expansion.
+
+    Explicit choice wins. Otherwise the rahao: it is the shabad's own statement
+    of what it is about, so it is the most faithful default anchor. Failing that
+    (saloks carry no rahao), the first substantive line — structural headers like
+    "ਮਹਲਾ ੪ ॥" never enter the collection, so index order already skips them.
+
+    Returns (line_index, english, gurmukhi) or None when the shabad has no
+    embeddable lines at all.
+    """
+    store = _get_lines_vector_store()
+    got = store.collection.get(where={"shabad_id": str(shabad_id)})
+    metas = got.get("metadatas") or []
+    if not metas:
+        return None
+
+    by_index = {m["line_index"]: m for m in metas}
+
+    if line_index is not None and line_index in by_index:
+        chosen = by_index[line_index]
+    else:
+        rahao = [m for m in metas if m.get("is_rahao")]
+        chosen = rahao[0] if rahao else by_index[min(by_index)]
+
+    return chosen["line_index"], chosen["english"], chosen.get("gurmukhi", "")
+
+
+def _line_neighbors(shabad_id, line_index, limit, threshold, metadata, tag_index):
+    """Find shabads containing a line semantically closest to the anchor line.
+
+    Returns (results, anchor) where results is a list of dicts carrying the
+    matched line, and anchor describes the line we searched from.
+    """
+    anchor = _resolve_anchor_line(shabad_id, line_index)
+    if not anchor:
+        return [], None
+    anchor_idx, anchor_english, anchor_gurmukhi = anchor
+
+    store = _get_lines_vector_store()
+    if store.get_count() == 0:
+        return [], None
+
+    my_tags = metadata.get(str(shabad_id), {}).get("tags", [])
+    n_shabads = len(metadata) or 1
+
+    raw = store.search_similar(anchor_english, n_results=limit * LINE_FETCH_MULTIPLIER)
+
+    # Collapse to the single best line per shabad. Without this a long shabad
+    # that echoes the anchor across eight verses would occupy eight slots.
+    best_per_shabad = {}
+    seen_text = set()
+    for match in raw:
+        meta = match.get("metadata") or {}
+        cid = str(meta.get("shabad_id", ""))
+        if not cid or cid == str(shabad_id):
+            continue
+
+        english = (meta.get("english") or "").strip()
+        # Refrains repeat verbatim across shabads; one instance is informative,
+        # ten are noise.
+        text_key = english.lower()
+        if text_key in seen_text:
+            continue
+
+        distance = match.get("distance")
+        line_cos = max(0.0, 1.0 - distance) if distance is not None else 0.0
+        tag_prior = _weighted_jaccard(my_tags, metadata.get(cid, {}).get("tags", []), tag_index, n_shabads)
+
+        score = LINE_EMBED_WEIGHT * line_cos + LINE_TAG_PRIOR_WEIGHT * tag_prior
+        if meta.get("is_rahao"):
+            score = min(1.0, score + LINE_RAHAO_BONUS)
+
+        prev = best_per_shabad.get(cid)
+        if prev is None or score > prev["score"]:
+            if prev is not None:
+                seen_text.discard(prev["matched_line_english"].lower())
+            best_per_shabad[cid] = {
+                "id": cid,
+                "score": round(score, 3),
+                "line_score": round(line_cos, 3),
+                "matched_line_index": meta.get("line_index"),
+                "matched_line_gurmukhi": meta.get("gurmukhi", ""),
+                "matched_line_english": english,
+                "matched_line_is_rahao": bool(meta.get("is_rahao")),
+            }
+            seen_text.add(text_key)
+
+    results = [r for r in best_per_shabad.values() if r["score"] >= threshold]
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results[:limit], {
+        "line_index": anchor_idx,
+        "english": anchor_english,
+        "gurmukhi": anchor_gurmukhi,
+    }
 
 
 def _get_graph():
@@ -145,6 +298,11 @@ def graph_neighbors(shabad_id):
     Query params:
         threshold (float): Min score to include (default 0.3)
         per_tag (int): Max neighbors per tag cluster (default 8)
+        match (str): "shabad" (default) or "line". See the Line matching section
+            above — these are two different algorithms answering two different
+            questions, not one algorithm with a filter.
+        line_index (int): in match=line, anchor on this verse. Defaults to the
+            shabad's rahao, then its opening line.
     """
     graph = _get_graph()
     sggs_lookup = _get_sggs_lookup()
@@ -154,6 +312,10 @@ def graph_neighbors(shabad_id):
     threshold = request.args.get("threshold", 0.3, type=float)
     per_tag_cap = request.args.get("per_tag", 8, type=int)
     tuk_english = request.args.get("tuk_english", "", type=str).strip()
+    match_mode = request.args.get("match", "shabad", type=str).lower()
+    if match_mode not in ("shabad", "line"):
+        match_mode = "shabad"
+    line_index = request.args.get("line_index", type=int)
     # AK boost: when on, multiply AK-flagged neighbor scores by AK_BOOST_FACTOR
     # before threshold-filtering and per-tag sort. This lifts canonically-recited
     # shabads in the recommendation order without excluding non-AK matches.
@@ -206,8 +368,38 @@ def graph_neighbors(shabad_id):
                     "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or r["metadata"].get("brief_meaning", ""),
                 }
 
-    # ── GRAPH PATH: pre-computed neighbors ──
-    raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
+    tag_index = graph.get("tag_index", {})
+    line_anchor = None
+    line_info = {}  # nid -> matched-line detail, merged into the enriched neighbor
+
+    if match_mode == "line":
+        # ── LINE PATH: live per-verse search ──
+        # Neighbors are the shabads whose closest line most resembles our anchor
+        # line, scored by line-embedding cosine with the container's tags as a
+        # weak prior. Shaped like precomputed neighbors so the clustering,
+        # AK-boost and enrichment below need no special-casing.
+        hits, line_anchor = _line_neighbors(
+            shabad_id, line_index, 30, threshold, metadata, tag_index
+        )
+        raw_neighbors = []
+        for hit in hits:
+            nid = hit["id"]
+            line_info[nid] = hit
+            shared = list(set(my_tags) & set(metadata.get(nid, {}).get("tags", [])))
+            raw_neighbors.append({"id": nid, "score": hit["score"], "shared_tags": shared})
+
+        if not raw_neighbors:
+            # A handful of shabads carry no embeddable lines (headers only), and
+            # a strict threshold can filter everything out. Never hand back an
+            # empty expansion — fall back to the shabad-level graph.
+            match_mode = "shabad"
+            line_anchor = None
+            line_info = {}
+            raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
+    else:
+        # ── GRAPH PATH: pre-computed shabad-level neighbors ──
+        raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
+
     if ak_boost:
         # Apply AK boost to a copy so the cached graph isn't mutated.
         neighbors = []
@@ -222,7 +414,6 @@ def graph_neighbors(shabad_id):
     my_tags_set = set(my_tags)
     by_tag = defaultdict(list)
     seen_globally = set()
-    tag_index = graph.get("tag_index", {})
     n_shabads = len(metadata) or 1
 
     # First: add tuk vector results (semantically closest to searched verse)
@@ -269,6 +460,17 @@ def graph_neighbors(shabad_id):
             "mood": n_meta.get("mood", ""),
             "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or "",
         }
+        # In line mode, carry the verse that actually matched so the UI can show
+        # WHY this shabad surfaced rather than just that it did.
+        if nid in line_info:
+            hit = line_info[nid]
+            enriched.update({
+                "matched_line_index": hit["matched_line_index"],
+                "matched_line_gurmukhi": hit["matched_line_gurmukhi"],
+                "matched_line_english": hit["matched_line_english"],
+                "matched_line_is_rahao": hit["matched_line_is_rahao"],
+                "line_score": hit["line_score"],
+            })
 
         shared = set(n.get("shared_tags", []))
         n_all_tags = set(n_meta.get("tags", []))
@@ -280,10 +482,18 @@ def graph_neighbors(shabad_id):
             # which previously scattered a single neighbor across every
             # broad theme it happened to carry.
             label = _pick_cluster_tag(list(shared), tag_index, n_shabads)
-            if label:
-                by_tag[label].append(enriched)
         else:
-            by_tag[_pick_cluster_tag(list(new_tags), tag_index, n_shabads)].append(enriched)
+            label = _pick_cluster_tag(list(new_tags), tag_index, n_shabads)
+
+        # Line mode can surface a shabad sharing no tags at all — that is the
+        # point (the same thought in an unrelated container). Give it a home.
+        if not label:
+            label = (
+                _pick_cluster_tag(list(n_all_tags), tag_index, n_shabads)
+                or enriched.get("primary_theme")
+                or "Related"
+            )
+        by_tag[label].append(enriched)
 
     # Cap each cluster, sorted by score
     for tag in by_tag:
@@ -339,6 +549,10 @@ def graph_neighbors(shabad_id):
         },
         "threshold_used": threshold,
         "tuk_search": bool(tuk_results),
+        "match": match_mode,
+        # In line mode, the verse the expansion was anchored on. The frontend can
+        # show "matching on this line" and offer to re-anchor elsewhere.
+        "anchor_line": line_anchor,
     })
 
 

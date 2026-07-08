@@ -18,12 +18,15 @@ CHROMA_DB_PATH = os.path.join(DATA_DIR, "chroma_db")
 ENRICHED_DATA_PATH = os.path.join(DATA_DIR, "enriched_shabads.json")
 CACHE_DB_PATH = os.path.join(DATA_DIR, "shabad_cache.db")
 
-# Local embedding model (sentence-transformers)
+# Local embedding model (ChromaDB built-in ONNX export of all-MiniLM-L6-v2)
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # ChromaDB collection names
 PERSONAL_COLLECTION_NAME = "shabads"
 SGGS_COLLECTION_NAME = "sggs_shabads"
+# One vector per verse (tuk) rather than per shabad. Powers "match by line",
+# where the unit of meaning is the single line, not the whole shabad.
+SGGS_LINES_COLLECTION_NAME = "sggs_lines"
 
 # SGGS data
 SGGS_DATA_PATH = os.path.join(DATA_DIR, "sggs_all_shabads.json")

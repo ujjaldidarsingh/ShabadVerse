@@ -63,6 +63,7 @@ const State = {
     selectedTuk: {},    // {shabadId: {gurmukhi, english, index}} — per-shabad tuk selection
     verseCache: {},     // {shabadId: versesArray} — cached verse data
     akMode: false,      // when true, /api/graph/neighbors gets ak_boost=1 to lift AK shabads
+    matchMode: "shabad", // "shabad" | "line" — which matching algorithm expansions use
     forces: {           // Obsidian-style force parameters
         center: 0.08,   // gravity: 0.01-0.5 (low = spread out)
         repel: 50000,   // nodeRepulsion: 5000-200000 (high = push apart)
@@ -157,6 +158,7 @@ async function init() {
         initThresholdSlider();
         initForceControls();
         initAkMode();
+        initMatchMode();
 
         // Escape key closes modals and tooltip
         document.addEventListener("keydown", (e) => {
@@ -438,9 +440,17 @@ async function expandShabad(shabadId) {
     const threshold = getThreshold();
     const tuk = State.selectedTuk[sid];
     const tukEnglish = tuk?.english || "";
-    // Cache by shabad ID + threshold only. Tuk-specific suggestions are a
-    // display-layer concern; the neighbor set from the API is the same.
-    const cacheKey = `${sid}_${threshold}`;
+    // Matching algorithm: "shabad" (which shabads are about the same things) or
+    // "line" (where else this exact thought appears). When the user picked a
+    // specific verse, anchor line mode on that verse.
+    const matchMode = State.matchMode || "shabad";
+    const anchorLineIndex = (matchMode === "line" && typeof tuk?.index === "number" && tuk.index >= 0)
+        ? tuk.index
+        : null;
+    // Cache by shabad ID + threshold + match mode + anchor. Tuk-specific
+    // suggestions are otherwise a display-layer concern; the neighbor set from
+    // the API is the same.
+    const cacheKey = `${sid}_${threshold}_${matchMode}_${anchorLineIndex ?? "auto"}`;
     if (!State.neighborCache[cacheKey]) {
         // Show graph loading spinner during first fetch for this shabad
         const graphLoadingEl = document.getElementById("graphLoading");
@@ -450,7 +460,11 @@ async function expandShabad(shabadId) {
         }
         try {
             let url = `/api/graph/neighbors/${sid}?threshold=${threshold}`;
-            if (tukEnglish) {
+            if (matchMode === "line") {
+                url += `&match=line`;
+                if (anchorLineIndex !== null) url += `&line_index=${anchorLineIndex}`;
+            } else if (tukEnglish) {
+                // Shabad mode only: blend in vector hits for the searched verse.
                 url += `&tuk_english=${encodeURIComponent(tukEnglish)}`;
             }
             if (State.akMode) {
@@ -1005,6 +1019,29 @@ function initAkMode() {
     btn.classList.toggle("ak-mode-active", State.akMode);
     btn.setAttribute("aria-pressed", String(State.akMode));
 }
+
+/**
+ * Matching algorithm: "shabad" asks which shabads are about the same things;
+ * "line" asks where else this exact thought appears. The choice is sticky
+ * across expansions and reloads, and applies per expansion — a trail can mix
+ * modes hop to hop.
+ *
+ * The UI surface for this lands later; setMatchMode() is the seam it will use.
+ */
+function initMatchMode() {
+    const stored = localStorage.getItem("shabadverse_match_mode");
+    State.matchMode = stored === "line" ? "line" : "shabad";
+}
+
+window.setMatchMode = function (mode) {
+    const next = mode === "line" ? "line" : "shabad";
+    if (next === State.matchMode) return;
+    State.matchMode = next;
+    localStorage.setItem("shabadverse_match_mode", next);
+    // Cache keys include the mode, so switching re-queries rather than
+    // re-rendering a stale neighbor set.
+    if (State.centerNode) expandShabad(State.centerNode);
+};
 
 window.toggleAkMode = function () {
     State.akMode = !State.akMode;

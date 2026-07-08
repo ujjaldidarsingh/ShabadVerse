@@ -150,6 +150,50 @@ class ShabadVectorStore:
 
         print(f"Total in vector store: {self.collection.count()}")
 
+    def add_lines(self, lines):
+        """Add individual verses (tuks) to the vector store.
+
+        Each line is embedded on its English translation alone — the line IS the
+        unit of meaning here, so no shabad-level theme text is mixed in (that
+        would drag every line of a shabad toward the same point in vector space
+        and defeat line-level matching).
+
+        Expects dicts with: id, english, gurmukhi, shabad_id, line_index,
+        is_rahao, ang.
+        """
+        if not lines:
+            print("No lines to add.")
+            return
+
+        batch_size = 500
+        total_batches = (len(lines) + batch_size - 1) // batch_size
+        for i in range(0, len(lines), batch_size):
+            batch = lines[i : i + batch_size]
+            batch_num = i // batch_size + 1
+            print(
+                f"  Embedding batch {batch_num}/{total_batches} ({len(batch)} lines)...",
+                end=" ",
+                flush=True,
+            )
+            self.collection.upsert(
+                ids=[ln["id"] for ln in batch],
+                documents=[ln["english"] for ln in batch],
+                metadatas=[
+                    {
+                        "shabad_id": ln["shabad_id"],
+                        "line_index": ln["line_index"],
+                        "gurmukhi": ln["gurmukhi"],
+                        "english": ln["english"],
+                        "is_rahao": ln["is_rahao"],
+                        "ang": ln["ang"],
+                    }
+                    for ln in batch
+                ],
+            )
+            print("done")
+
+        print(f"Total lines in vector store: {self.collection.count()}")
+
     def search_similar(self, query_text, n_results=20, exclude_ids=None, where_filter=None):
         """
         Search for semantically similar shabads.
