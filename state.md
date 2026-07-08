@@ -3,7 +3,8 @@
 ## Status: Active Development — Design Polish Pass
 
 ## Recent Work
-- 2026-06-05: Batch 8/9 on `batch-8-9-staging` → deployed to STAGING (test.shabadverse.com / :5051), prod untouched. (1) generous graph labels (40/300px neighbors, 48/360px center); (2) /about page (methodology + AI transparency); (3) dropped torch — ChromaDB ONNX MiniLM, image 9.84GB→1.71GB, RAM 682MB→376MB; (4) natural-language meaning search (✨ mode + /api/graph/semantic-search). Awaiting Ujjal review before promote-to-main.
+- 2026-07-08: Ship-readiness pass on `batch-8-9-staging` (Fable review → Opus execution). (1) **Taxonomy sharpened**: the tagging prompt's example tags had anchored all four LLMs — 14 of the top 15 tags were prompt examples, "Divine Grace" covered 85% of the corpus, 40% of shabads were tagged only with mega-tags. Re-mined the existing per-LLM shards (no LLM re-run): top-tag coverage 85%→37%, vocab 248→116, all-mega shabads 2,197→0, mega-only edges 19%→1.6%. IDF-weighted Jaccard + coverage-capped cluster labels. (2) **Two matching algorithms**: match=shabad (tags+summary embedding) and match=line (per-verse embedding, 56,649 lines, 85/15 line-vs-tag weighting). (3) Viz: faded nodes drop labels (dense-graph palimpsest), light-mode contrast, mobile gate. (4) P1 robustness/microcopy. Awaiting Ujjal review on test.shabadverse.com.
+- 2026-06-05: Batch 8/9 on `batch-8-9-staging` → deployed to STAGING (test.shabadverse.com / :5051), prod untouched. (1) generous graph labels (40/300px neighbors, 48/360px center); (2) /about page (methodology + AI transparency); (3) dropped torch — ChromaDB ONNX MiniLM, image 9.84GB→1.71GB, RAM 682MB→376MB; (4) natural-language meaning search (✨ mode + /api/graph/semantic-search).
 - 2026-05-15: Batch 7 database rebuild SHIPPED — 4-LLM consensus tagging (qwen3+deepseek-r1+llama3.1+claude), AK indexing (2,078 shabads), 248 canonical tags, synonym-merge, AK boost endpoint + UI toggle, similarity graph rebuilt (15.9 avg neighbors)
 - 2026-05-05: Batch 6 beta-feedback fixes (B1-B8 + F1) — first-letter-anywhere search, apostrophe escape (data attributes + delegated handlers), light-mode contrast, breadcrumb wrap, preview race condition, Cytoscape tag label hit area, booting indicator, Constellation Map filter
 - 2026-04-17: Beta opened (uddamsingh, Tester A, Tarun, Harsimran feedback collected)
@@ -74,9 +75,9 @@
 - [ ] design: tag labels fully visible (max-width reactive, wrap not truncate)
 - [ ] design: reviewer detail panel max-width for readability
 - [ ] design: tag label collision avoidance on graph
-- [ ] feat: shabad labels show 4-5 Gurmukhi words (not 2)
+- [x] feat: shabad labels show 4-5 Gurmukhi words (not 2) — 40 chars, adaptive to graph density
 - [ ] feat: add-to-parkaran solidifies nodes with visual trail breadcrumbs
-- [ ] feat: tag taxonomy refinement (merge overlapping tags)
+- [x] feat: tag taxonomy refinement (merge overlapping tags) — 372 → 248 → 116 canonical, mega-tags capped
 - [ ] test: automated smoke test for all API endpoints
 - [ ] test: graph neighbor diversity regression test (experiments.tsv baseline)
 - [ ] perf: bundle Tailwind + Cytoscape locally (no CDN dependency)
@@ -85,7 +86,8 @@
 ### Ship (production deploy)
 - [ ] perf: lazy-load similarity_graph.json (7.4 MB blocks initial page load)
 - [ ] perf: graph node eviction strategy (cap visible nodes after 20+ expansions)
-- [ ] perf: cache SentenceTransformer model load at app startup
+- [x] perf: cache SentenceTransformer model load at app startup — obsolete: torch dropped for ChromaDB ONNX MiniLM (Batch 9)
+- [ ] feat: line/shabad match-mode UI (backend shipped; tooltip chips + trail glyphs pending)
 - [ ] feat: export parkaran as PDF/image/share link
 - [ ] feat: occasion-aware suggestions integrated into explore view
 - [ ] design: mobile responsive graph explorer (touch gestures, pinch zoom)

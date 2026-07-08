@@ -25,16 +25,17 @@
         </p>
     </section>
 
-    <!-- Demo video slot -->
+    {# Walkthrough video. Hidden until one exists — an empty "coming soon" box
+       is a promise the page cannot keep. Flip show_video in app.py once the
+       recording is embedded. #}
+    {% if show_video %}
     <section class="about-section">
         <h2>See it in motion</h2>
         <div class="about-video-slot" id="aboutVideoSlot">
-            <div class="about-video-placeholder">
-                <span class="about-video-icon">&#x25B6;</span>
-                <span>Walkthrough video coming soon</span>
-            </div>
+            {% block video_embed %}{% endblock %}
         </div>
     </section>
+    {% endif %}
 
     <!-- How to use -->
     <section class="about-section">
@@ -93,14 +94,14 @@
                 <p>The canonical tag set is derived first from the shabads in Amrit Keertan, the keertan the Panth holds in common, then extended to the rest of Gurbani; tradition sets the vocabulary, not the model.</p>
             </div>
             <div class="about-card">
-                <div class="about-card-num">248</div>
+                <div class="about-card-num">116</div>
                 <div class="about-card-label">canonical themes</div>
-                <p>Synonyms and near-duplicates collapse into one canonical term, so "Haumai," "ego," and "ego dissolution" all count as one idea rather than three thin tags.</p>
+                <p>Synonyms collapse into one canonical term, so "Haumai," "ego," and "ego dissolution" count as one idea rather than three thin tags. Themes so broad they fit most of Gurbani are kept off the map: a label on four shabads in five cannot tell two apart.</p>
             </div>
             <div class="about-card">
                 <div class="about-card-num">5,542</div>
-                <div class="about-card-label">shabads, ~16 neighbors each</div>
-                <p>Two shabads connect on a blend of shared themes (Jaccard overlap) and meaning (sentence-embedding similarity), so the links reflect both label and substance.</p>
+                <div class="about-card-label">shabads, ~17 neighbors each</div>
+                <p>Two shabads connect on a blend of shared themes and meaning (sentence-embedding similarity). Rare themes count for more than common ones, so a link says why these two belong together, not merely that both speak of the Divine.</p>
             </div>
         </div>
         <p class="about-source">

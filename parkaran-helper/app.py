@@ -36,7 +36,9 @@ def app_shell():
 def about():
     """Public explainer: what ShabadVerse is, how to use it, and how the
     tag taxonomy and connections are built (AI transparency)."""
-    return render_template("about.html")
+    # Flip to True once a walkthrough video is recorded and embedded. Until
+    # then the section is hidden rather than showing an empty placeholder.
+    return render_template("about.html", show_video=False)
 
 
 @app.route("/explore")

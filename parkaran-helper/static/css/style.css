@@ -379,9 +379,13 @@ body[data-theme="light"] {
     box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
 }
 
-/* --- Site Footer (hidden on unified app page; shown via sidebar-footer instead) --- */
+/* --- Site Footer (hidden on unified app page; shown via sidebar-footer instead.
+   Also hidden on /about, which credits BaniDB in its own credits block —
+   showing both stacked the same credit twice.) --- */
 body.app-page > .site-footer,
-body.app-page > main + .site-footer {
+body.app-page > main + .site-footer,
+body.about-page > .site-footer,
+body.about-page > main + .site-footer {
     display: none !important;
 }
 .site-footer {
