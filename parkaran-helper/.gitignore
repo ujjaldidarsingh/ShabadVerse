@@ -21,3 +21,4 @@ __pycache__/
 
 # Claude local
 .claude/launch.json
+data/*.pre_sharpen.json

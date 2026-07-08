@@ -23,6 +23,29 @@ _sggs_sources = None
 # without overpowering high-quality non-AK matches.
 AK_BOOST_FACTOR = 1.30
 
+# A tag carried by more than this share of the corpus is structural, not
+# distinctive: labelling a cluster "Naam Simran" when a third of Gurbani carries
+# that tag tells the reader nothing about why THESE shabads sit together. Such
+# tags stay on shabads and stay searchable; they just never title a cluster.
+CLUSTER_LABEL_MAX_COVERAGE = 0.25
+
+
+def _pick_cluster_tag(candidates, tag_index, n_shabads):
+    """Choose the most informative tag to title a cluster.
+
+    Prefers the rarest candidate that is below the coverage cap. If every
+    candidate is structural (e.g. a shabad tagged only with broad themes), falls
+    back to the rarest of them rather than dropping the cluster.
+    """
+    if not candidates:
+        return None
+    ranked = sorted(candidates, key=lambda t: len(tag_index.get(t, [])))
+    cap = CLUSTER_LABEL_MAX_COVERAGE * max(1, n_shabads)
+    for tag in ranked:
+        if len(tag_index.get(tag, [])) <= cap:
+            return tag
+    return ranked[0]
+
 
 def _get_sggs_vector_store():
     """Lazy-load SGGS ChromaDB vector store for tuk-aware search."""
@@ -199,6 +222,8 @@ def graph_neighbors(shabad_id):
     my_tags_set = set(my_tags)
     by_tag = defaultdict(list)
     seen_globally = set()
+    tag_index = graph.get("tag_index", {})
+    n_shabads = len(metadata) or 1
 
     # First: add tuk vector results (semantically closest to searched verse)
     for nid, enriched in tuk_results.items():
@@ -206,17 +231,16 @@ def graph_neighbors(shabad_id):
         tags = enriched.get("tags", [])
         if not tags:
             tags = [enriched.get("primary_theme") or "Similar"]
-        # Place under most relevant tag
+        # Place under the most distinctive tag this neighbor shares with us
         matching_tags = [t for t in tags if t in my_tags_set]
         if matching_tags:
-            by_tag[matching_tags[0]].append(enriched)
+            by_tag[_pick_cluster_tag(matching_tags, tag_index, n_shabads)].append(enriched)
         else:
             # Branching: use the neighbor's most specific tag
             n_all_tags = set(tags)
             new_tags = n_all_tags - my_tags_set
             if new_tags:
-                best_new = min(new_tags, key=lambda t: len(graph.get("tag_index", {}).get(t, [])))
-                by_tag[best_new].append(enriched)
+                by_tag[_pick_cluster_tag(list(new_tags), tag_index, n_shabads)].append(enriched)
             elif tags:
                 by_tag[tags[0]].append(enriched)
 
@@ -251,11 +275,15 @@ def graph_neighbors(shabad_id):
         new_tags = n_all_tags - my_tags_set
 
         if shared == my_tags_set or not new_tags:
-            for tag in shared:
-                by_tag[tag].append(enriched)
+            # Same thematic direction. Title the cluster with the most
+            # distinctive shared tag — one cluster, not one per shared tag,
+            # which previously scattered a single neighbor across every
+            # broad theme it happened to carry.
+            label = _pick_cluster_tag(list(shared), tag_index, n_shabads)
+            if label:
+                by_tag[label].append(enriched)
         else:
-            best_new = min(new_tags, key=lambda t: len(graph.get("tag_index", {}).get(t, [])))
-            by_tag[best_new].append(enriched)
+            by_tag[_pick_cluster_tag(list(new_tags), tag_index, n_shabads)].append(enriched)
 
     # Cap each cluster, sorted by score
     for tag in by_tag:

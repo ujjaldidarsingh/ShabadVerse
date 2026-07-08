@@ -1,7 +1,10 @@
 """Precompute similarity graph from tagged SGGS shabads.
 
-Scoring: tag overlap (Jaccard, 50%) + semantic embedding cosine (50%).
-Uses sentence-transformer embeddings from ChromaDB for contextual meaning —
+Scoring: IDF-weighted tag overlap (50%) + semantic embedding cosine (50%).
+Tag overlap is weighted by log(N/count) so that sharing a rare, telling tag
+counts for far more than sharing a corpus-wide one — plain Jaccard rated two
+shabads "similar" merely for both carrying a broad theme.
+Embeddings come from ChromaDB (ONNX all-MiniLM-L6-v2) for contextual meaning —
 NOT TF-IDF, which can't distinguish "not worthy of love" from "worthy of love".
 Repertoire is a visual marker, NOT a connector tag.
 """
@@ -9,6 +12,7 @@ Repertoire is a visual marker, NOT a connector tag.
 import sys
 import os
 import json
+import math
 import numpy as np
 from collections import defaultdict
 
@@ -23,12 +27,43 @@ NON_CONNECTOR_TAGS = {"Repertoire"}
 
 
 def jaccard_similarity(set_a, set_b):
-    """Jaccard similarity between two sets."""
+    """Plain Jaccard similarity between two sets (every tag counts equally)."""
     if not set_a or not set_b:
         return 0.0
     intersection = set_a & set_b
     union = set_a | set_b
     return len(intersection) / len(union)
+
+
+def build_tag_idf(tag_index, n_shabads):
+    """Inverse document frequency per tag: log(N / shabads-carrying-tag).
+
+    A tag shared by half the corpus says almost nothing about why two shabads
+    belong together; a tag shared by forty says a great deal. IDF encodes that.
+    """
+    return {
+        tag: math.log(n_shabads / max(1, len(sids)))
+        for tag, sids in tag_index.items()
+    }
+
+
+def weighted_jaccard(set_a, set_b, idf):
+    """IDF-weighted Jaccard: sum(idf over shared) / sum(idf over union).
+
+    Replaces plain Jaccard so that sharing a rare, telling tag ("Haumai", 184
+    shabads) outweighs sharing a broad one ("Naam Simran", 2,033). Without this,
+    two shabads that merely both mention the Divine score as "similar" as two
+    that share a specific spiritual argument.
+    """
+    if not set_a or not set_b:
+        return 0.0
+    shared = set_a & set_b
+    if not shared:
+        return 0.0
+    union = set_a | set_b
+    shared_w = sum(idf.get(t, 0.0) for t in shared)
+    union_w = sum(idf.get(t, 0.0) for t in union)
+    return shared_w / union_w if union_w > 0 else 0.0
 
 
 def embedding_cosine(vec_a, vec_b):
@@ -101,11 +136,20 @@ def build_graph():
     print(f"  Connector tags: {len(tag_index)}")
     print(f"  Avg shabads per tag: {sum(len(v) for v in tag_index.values()) / max(1, len(tag_index)):.0f}")
 
+    # IDF weights make edge scores reflect *why* two shabads connect, not just
+    # that they both carry a corpus-wide theme.
+    tag_idf = build_tag_idf(tag_index, len(shabad_tags))
+    _rarest = sorted(tag_idf.items(), key=lambda kv: -kv[1])[:3]
+    _commonest = sorted(tag_idf.items(), key=lambda kv: kv[1])[:3]
+    print(f"  IDF range: {_commonest[0][0]}={_commonest[0][1]:.2f} ... {_rarest[0][0]}={_rarest[0][1]:.2f}")
+
     # Build k-NN graph: tag-balanced neighbor selection
     # For each shabad, allocate slots per tag to ensure ALL tags get representation
     print("\nComputing tag-balanced similarity (Jaccard + embeddings)...")
     K_MAX = 40  # Increased from 20 — more data stored, filtered at query time
-    PER_TAG_MIN = 3  # Every tag gets at least 3 neighbors
+    PER_TAG_MIN = 3  # Every distinctive tag gets at least 3 neighbors
+    MEGA_TAG_COVERAGE = 0.25  # tag on >25% of corpus = structural, not a connector
+    MEGA_TAG_SLOTS = 1  # structural tags get a token slot, not a full quota
     neighbors = {}
     TAG_WEIGHT = 0.5
     EMBED_WEIGHT = 0.5
@@ -157,8 +201,10 @@ def build_graph():
                 else:
                     embed_misses += 1
 
-                # Core score: tag overlap + embedding (same as before)
-                tag_sim = jaccard_similarity(my_tags, their_tags)
+                # Core score: IDF-weighted tag overlap + embedding.
+                # Weighted (not plain) Jaccard so a shared rare tag counts for
+                # more than a shared corpus-wide one.
+                tag_sim = weighted_jaccard(my_tags, their_tags, tag_idf)
                 core_score = TAG_WEIGHT * tag_sim + EMBED_WEIGHT * embed_sim
 
                 # Branching score: embedding similarity + bonus for bringing new tags
@@ -194,12 +240,19 @@ def build_graph():
             if not merged:
                 empty_tag_clusters += 1
 
-        # Allocate slots: each tag gets max(PER_TAG_MIN, K_MAX / n_tags) slots
+        # Allocate slots: each tag gets max(PER_TAG_MIN, K_MAX / n_tags) slots.
+        # Exception: a structural tag (carried by >MEGA_TAG_COVERAGE of the
+        # corpus) gets a single slot. Giving it the full quota guaranteed that
+        # every shabad carrying it received neighbors linked by nothing else —
+        # the mega-tag pool is enormous, so those edges said only "both of these
+        # mention the Divine". Distinctive tags earn the remaining slots.
         slots_per_tag = max(PER_TAG_MIN, K_MAX // n_tags)
         selected = {}  # cid -> {score, shared_tags} (deduplicated, keep best score)
 
         for tag, candidates in per_tag_candidates.items():
-            for cid, score, shared in candidates[:slots_per_tag]:
+            is_mega = len(tag_index.get(tag, [])) > MEGA_TAG_COVERAGE * total
+            tag_slots = MEGA_TAG_SLOTS if is_mega else slots_per_tag
+            for cid, score, shared in candidates[:tag_slots]:
                 if cid in selected:
                     # Keep the higher score, merge shared tags
                     if score > selected[cid]["score"]:

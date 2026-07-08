@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -621,11 +622,154 @@ def consensus_tags(per_llm_tags: dict[str, list[str]], min_votes: int = 2) -> tu
     return canonical, bucket
 
 
+# ---- Sharpening (undo prompt-example anchoring) -----------------------------
+#
+# The tagging PROMPT_TEMPLATE lists example tags ("Hukam", "Naam Simran",
+# "Bhakti", "Divine Grace", ...). All four LLMs anchored on that list: 14 of the
+# 15 most common consensus tags are verbatim prompt examples, "Divine Grace"
+# landed on 85% of the corpus, and 40% of shabads ended up tagged ONLY with
+# these structural mega-tags. Such a tag carries almost no navigational
+# information — if nearly every shabad is "Divine Grace", the label cannot tell
+# two shabads apart.
+#
+# Sharpening rescues discriminative power WITHOUT re-running any LLM: it re-reads
+# the per-LLM proposals already stored in data/tag_reasoning/ and re-selects.
+
+MEGA_COVERAGE = 0.25  # a tag on >25% of the corpus is structural, not distinctive
+MEGA_CAP_RICH = 1  # shabad already has >=2 distinctive tags: one anchor is enough
+MEGA_CAP_THIN = 2  # shabad has <=1 distinctive tag: allow a second anchor
+MEGA_CAP_IF_NO_DISTINCTIVE = 3  # nothing distinctive survived: anchors are all we have
+MAX_TAGS_PER_SHABAD = 6
+MIN_RESCUE_PROPOSALS = 10  # a rescued singleton must be a recurring concept, not a hapax
+TAIL_MIN_COUNT = 10  # a tag on <10 shabads can never form a cluster — drop it
+MIN_TAGS_PER_SHABAD = 2
+
+
+def _bucket_entries(bucket: dict) -> list[tuple[str, str, int]]:
+    """Flatten a consensus_tags() bucket into (normalized_key, surface, votes)."""
+    entries = []
+    for key, b in bucket.items():
+        surface = b["canonical_surface"] or b["surface_forms"][0]
+        entries.append((key, surface, b["votes"]))
+    return entries
+
+
+def select_sharpened_tags(
+    bucket: dict,
+    min_votes: int,
+    coverage: dict[str, float],
+    idf: dict[str, float],
+    proposal_counts: dict[str, int],
+) -> tuple[list[str], list[str]]:
+    """Pick a shabad's tags, favoring distinctive ones over structural mega-tags.
+
+    Distinctive tags (coverage <= MEGA_COVERAGE) are kept first and lead the
+    output list, so downstream cluster-label pickers naturally prefer them.
+    Mega-tags are capped: a shabad keeps only its strongest few, which stops
+    "Divine Grace" from riding along on 85% of the corpus.
+
+    When a shabad has no distinctive consensus tag at all (40% of the corpus
+    before sharpening), we rescue the highest-IDF single-vote proposal that
+    recurs elsewhere — one LLM noticing "Haumai" is better signal than a
+    fourth mega-tag that every shabad shares.
+
+    Returns (chosen, reserve). `reserve` holds voted-but-unchosen tags (mostly
+    capped-out mega-tags) that the tail fold can backfill with, so dropping a
+    rare tag never leaves a shabad under-tagged.
+    """
+    entries = _bucket_entries(bucket)
+    if not entries:
+        return [], []
+
+    def strength(e: tuple[str, str, int]) -> tuple[int, float]:
+        # More votes wins; ties break toward the rarer (higher-IDF) tag.
+        return (e[2], idf.get(e[0], 0.0))
+
+    voted = [e for e in entries if e[2] >= min_votes]
+    mega = sorted((e for e in voted if coverage.get(e[0], 0.0) > MEGA_COVERAGE), key=strength, reverse=True)
+    distinctive = sorted((e for e in voted if coverage.get(e[0], 0.0) <= MEGA_COVERAGE), key=strength, reverse=True)
+
+    if not distinctive:
+        rescued = [
+            e
+            for e in entries
+            if e[2] == 1
+            and coverage.get(e[0], 0.0) <= MEGA_COVERAGE
+            and proposal_counts.get(e[0], 0) >= MIN_RESCUE_PROPOSALS
+        ]
+        rescued.sort(key=lambda e: idf.get(e[0], 0.0), reverse=True)
+        distinctive = rescued[:2]
+
+    # A shabad with real distinctive tags needs only one structural anchor for
+    # context; a thin one leans on anchors. This keeps any single mega-tag from
+    # re-accumulating across the corpus.
+    if not distinctive:
+        mega_cap = MEGA_CAP_IF_NO_DISTINCTIVE
+    elif len(distinctive) >= 2:
+        mega_cap = MEGA_CAP_RICH
+    else:
+        mega_cap = MEGA_CAP_THIN
+
+    kept_mega = mega[:mega_cap]
+    kept_distinctive = distinctive[: max(0, MAX_TAGS_PER_SHABAD - len(kept_mega))]
+
+    chosen = [e[1] for e in kept_distinctive] + [e[1] for e in kept_mega]
+    if not chosen:
+        # Never leave a shabad tagless — fall back to its strongest proposals.
+        chosen = [e[1] for e in sorted(entries, key=strength, reverse=True)[:2]]
+
+    # Everything voted-in but crowded out, strongest first. These are legitimate
+    # tags (they cleared min_votes), just not this shabad's most telling ones.
+    chosen_set = set(chosen)
+    reserve = [e[1] for e in (mega + distinctive) if e[1] not in chosen_set]
+    return chosen, reserve
+
+
+def _compute_sharpening_stats(
+    reasoning: dict, min_votes: int
+) -> tuple[dict[str, float], dict[str, float], dict[str, int]]:
+    """Pass 1 of sharpening: corpus-wide tag statistics from a provisional consensus.
+
+    Returns (coverage, idf, proposal_counts) keyed by normalized tag.
+    - coverage/idf come from the provisional (unsharpened) consensus, i.e. what
+      a tag's real corpus footprint is under the current rule.
+    - proposal_counts counts shabads where ANY LLM proposed the tag (including
+      single-vote proposals), which is what makes a rescue candidate credible.
+    """
+    provisional_counts: dict[str, int] = {}
+    proposal_counts: dict[str, int] = {}
+    n_shabads = 0
+
+    for _sid, llm_results in reasoning.items():
+        per_llm_tags = {
+            llm: r.get("tags", [])
+            for llm, r in llm_results.items()
+            if isinstance(r, dict) and "tags" in r
+        }
+        if len(per_llm_tags) < min_votes:
+            continue
+        n_shabads += 1
+        _, bucket = consensus_tags(per_llm_tags, min_votes=min_votes)
+        for key, b in bucket.items():
+            proposal_counts[key] = proposal_counts.get(key, 0) + 1
+            if b["votes"] >= min_votes:
+                provisional_counts[key] = provisional_counts.get(key, 0) + 1
+
+    n = max(1, n_shabads)
+    coverage = {k: c / n for k, c in provisional_counts.items()}
+    idf = {k: math.log(n / max(1, c)) for k, c in provisional_counts.items()}
+    # Tags that never reached consensus still need an IDF for rescue ranking.
+    for k, c in proposal_counts.items():
+        idf.setdefault(k, math.log(n / max(1, c)))
+    return coverage, idf, proposal_counts
+
+
 def run_consensus(
     min_votes: int,
     ak_only: bool = False,
     output_vocab_path: Path | None = None,
     write_shabads: bool = True,
+    sharpen: bool = False,
 ) -> None:
     """Apply multi-LLM consensus to per-LLM reasoning shards.
 
@@ -640,6 +784,8 @@ def run_consensus(
                  mid-pipeline.
         write_shabads: when False (Phase B.2 mode), the consensus only emits
                  the vocabulary file and skips writing back to sggs_all_shabads.json.
+        sharpen: when True, run the two-pass sharpening that caps prompt-anchored
+                 mega-tags and rescues distinctive ones. See select_sharpened_tags.
     """
     if not REASONING_DIR.exists() and not REASONING_MERGED_PATH.exists():
         raise SystemExit(
@@ -687,10 +833,27 @@ def run_consensus(
     print(f"  with all {len(CONSENSUS_LLMS)} LLMs: {full_coverage}")
     print()
 
-    print(f"Applying consensus rule (min_votes={min_votes})...")
+    sharp_coverage: dict[str, float] = {}
+    sharp_idf: dict[str, float] = {}
+    sharp_proposals: dict[str, int] = {}
+    if sharpen:
+        print("Sharpening pass 1: computing corpus tag statistics...")
+        sharp_coverage, sharp_idf, sharp_proposals = _compute_sharpening_stats(reasoning, min_votes)
+        mega = sorted(
+            ((k, c) for k, c in sharp_coverage.items() if c > MEGA_COVERAGE),
+            key=lambda kv: -kv[1],
+        )
+        print(f"  mega-tags (>{MEGA_COVERAGE:.0%} coverage): {len(mega)}")
+        for k, c in mega[:10]:
+            print(f"    {c:5.0%}  {k}")
+        print()
+
+    print(f"Applying consensus rule (min_votes={min_votes}, sharpen={sharpen})...")
     updated = 0
     skipped_partial = 0
     new_tag_counts: dict[str, int] = {}
+    sid_to_tags: dict[str, list[str]] = {}
+    sid_to_reserve: dict[str, list[str]] = {}
 
     for sid, llm_results in reasoning.items():
         per_llm_tags = {
@@ -701,7 +864,13 @@ def run_consensus(
             skipped_partial += 1
             continue
 
-        canonical, _ = consensus_tags(per_llm_tags, min_votes=min_votes)
+        canonical, bucket = consensus_tags(per_llm_tags, min_votes=min_votes)
+        if sharpen:
+            canonical, reserve = select_sharpened_tags(
+                bucket, min_votes, sharp_coverage, sharp_idf, sharp_proposals
+            )
+            sid_to_reserve[sid] = reserve
+        sid_to_tags[sid] = canonical
         if write_shabads and sid in by_sid:
             shabad = by_sid[sid]
             shabad["tags"] = canonical
@@ -725,6 +894,53 @@ def run_consensus(
         print(f"  updated {updated} shabads; skipped {skipped_partial} with <{min_votes} LLM responses")
     else:
         print(f"  consensus on {len(reasoning) - skipped_partial} shabads (vocabulary-only mode)")
+
+    if sharpen:
+        # Tail fold: a tag on fewer than TAIL_MIN_COUNT shabads can never form a
+        # cluster; it only bloats the Constellation Map. Drop it and backfill the
+        # shabad from its reserve (voted-in tags that were crowded out) so nothing
+        # falls below MIN_TAGS_PER_SHABAD. Removing tags changes counts, which can
+        # push more tags into the tail — so iterate to a fixed point.
+        for round_num in range(1, 6):
+            tail = {t for t, c in new_tag_counts.items() if c < TAIL_MIN_COUNT}
+            if not tail:
+                break
+            dropped = 0
+            for sid, tags in sid_to_tags.items():
+                if not any(t in tail for t in tags):
+                    continue
+                keep = [t for t in tags if t not in tail]
+                for cand in sid_to_reserve.get(sid, []):
+                    if len(keep) >= MIN_TAGS_PER_SHABAD:
+                        break
+                    if cand not in tail and cand not in keep:
+                        keep.append(cand)
+                if len(keep) < MIN_TAGS_PER_SHABAD:
+                    # Nothing clean left; keep the strongest originals.
+                    keep = tags[:MIN_TAGS_PER_SHABAD]
+                dropped += len(tags) - len(keep)
+                sid_to_tags[sid] = keep
+            new_tag_counts = {}
+            for tags in sid_to_tags.values():
+                for t in tags:
+                    new_tag_counts[t] = new_tag_counts.get(t, 0) + 1
+            print(f"  tail fold round {round_num}: dropped {len(tail)} tags ({dropped} assignments)")
+
+        if write_shabads:
+            for sid, tags in sid_to_tags.items():
+                if sid in by_sid:
+                    by_sid[sid]["tags"] = tags
+
+        n = max(1, len(sid_to_tags))
+        top = sorted(new_tag_counts.items(), key=lambda kv: -kv[1])
+        mega_left = [t for t, c in top if c / n > MEGA_COVERAGE]
+        tail_left = [t for t, c in top if c < 10]
+        band = [t for t, c in top if 20 <= c <= 500]
+        print("\n  --- sharpened distribution ---")
+        print(f"  tags: {len(new_tag_counts)}   top coverage: {top[0][1]/n:.0%} ({top[0][0]})")
+        print(f"  mega-tags remaining (>{MEGA_COVERAGE:.0%}): {len(mega_left)}")
+        print(f"  dead tail (<10): {len(tail_left)}   useful band (20-500): {len(band)}")
+        print(f"  avg tags/shabad: {sum(len(t) for t in sid_to_tags.values())/n:.1f}")
 
     # Build new tag vocabulary.
     vocab_path = output_vocab_path or NEW_VOCAB_PATH
@@ -797,6 +1013,14 @@ def main() -> None:
         "sggs_all_shabads.json. Used by Phase B.2 (the AK-only consensus is "
         "an intermediate step, not the final tagging).",
     )
+    p.add_argument(
+        "--sharpen",
+        action="store_true",
+        help="With --consensus, cap prompt-anchored mega-tags (>25%% corpus "
+        "coverage) at 2 per shabad, promote distinctive tags, rescue high-IDF "
+        "singletons for shabads that would otherwise be all-mega, and drop the "
+        "dead tail. Fixes the prompt-example anchoring collapse without re-running LLMs.",
+    )
     p.add_argument("--min-votes", type=int, default=2, help="Minimum LLM votes to keep a tag (default 2).")
     p.add_argument("--limit", type=int, default=None, help="Stop after N shabads (debug).")
     p.add_argument("--concurrency", type=int, default=8, help="Max concurrent in-flight calls.")
@@ -824,6 +1048,7 @@ def main() -> None:
             ak_only=args.ak_only,
             output_vocab_path=args.output_vocab,
             write_shabads=not args.vocab_only,
+            sharpen=args.sharpen,
         )
 
 
