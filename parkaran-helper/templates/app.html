@@ -54,6 +54,17 @@
         </div>
     </aside>
 
+    <!-- Small-viewport notice. The graph explorer needs room to breathe; saying
+         so plainly beats letting a phone user conclude the app is broken. -->
+    <div id="mobileNotice" class="mobile-notice hidden">
+        <div class="mobile-notice-body">
+            <span class="mobile-notice-mark">&#x0A74;</span>
+            <p><strong>ShabadVerse works best on a larger screen.</strong></p>
+            <p>The graph needs room to spread out. A laptop or tablet will show the connections properly. A phone-friendly view is on the way.</p>
+            <button type="button" id="mobileNoticeDismiss" class="mobile-notice-btn">Continue anyway</button>
+        </div>
+    </div>
+
     <!-- Full-screen loading overlay (shown on first load) -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="text-[48px] opacity-[0.06] font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>

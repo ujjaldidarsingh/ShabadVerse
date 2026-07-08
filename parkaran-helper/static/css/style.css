@@ -22,6 +22,7 @@
     --text-primary: #e8dcc8;
     --text-secondary: #a89b8a;
     --text-dim: #6b5f52;
+    --text-faint: #4a3f35;  /* tertiary: timestamps, counts, disabled hints */
     --grid-line: rgba(255, 255, 255, 0.03);
     --border-subtle: #3d3552;
     --border-hover: rgba(245, 158, 11, 0.2);
@@ -43,6 +44,7 @@
     --text-primary: #2a231a;   /* body text. 14.26:1 */
     --text-secondary: #5c5246; /* secondary. 7.02:1 */
     --text-dim: #7e7263;       /* labels, captions. 4.32:1 */
+    --text-faint: #948877;     /* tertiary. 3.4:1 — non-essential text only */
     --grid-line: rgba(0, 0, 0, 0.04);
     --border-subtle: #c2b9ab;
     --border-hover: rgba(163, 92, 0, 0.25);
@@ -72,6 +74,35 @@ body[data-theme="light"] {
 [data-theme="light"] .force-panel {
     background: rgba(239, 233, 224, 0.82);
     border-color: rgba(194, 185, 171, 0.6);
+}
+/* Graph controls (SPREAD / SELECTIVE / AK MODE / FIT).
+   The dark theme paints these translucent amber, which all but disappears on
+   parchment. Light needs the opaque sepia accent and a darker value readout. */
+[data-theme="light"] .graph-controls label {
+    color: var(--star-core);
+}
+[data-theme="light"] .graph-controls span {
+    color: var(--text-secondary);
+}
+[data-theme="light"] .graph-controls input[type="range"] {
+    accent-color: var(--star-core);
+}
+/* RESET chip: translucent red on linen reads as a smudge */
+[data-theme="light"] .breadcrumb-reset {
+    background: rgba(185, 28, 28, 0.06);
+    border-color: rgba(185, 28, 28, 0.3);
+    color: var(--signal-red);
+}
+[data-theme="light"] .breadcrumb-reset:hover {
+    background: rgba(185, 28, 28, 0.12);
+    color: #991b1b;
+}
+/* Search-mode glyphs (ABC / ੳ▸ / ▸ੳ▸ / ✨) */
+[data-theme="light"] .search-mode {
+    color: var(--text-secondary);
+}
+[data-theme="light"] .search-mode:hover {
+    color: var(--star-core);
 }
 /* HUD tooltip: solid parchment */
 [data-theme="light"] .hud-tooltip {
@@ -2100,6 +2131,68 @@ details[open] > .force-panel-header::before {
 .parkaran-toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================
+   Small-viewport notice
+   Shown once under 768px. The graph explorer is not yet usable on a phone;
+   this says so rather than letting the user think it is broken.
+   ============================================ */
+.mobile-notice {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(15, 13, 19, 0.94);
+    backdrop-filter: blur(6px);
+}
+[data-theme="light"] .mobile-notice {
+    background: rgba(248, 245, 240, 0.95);
+}
+.mobile-notice.hidden {
+    display: none;
+}
+.mobile-notice-body {
+    max-width: 22rem;
+    text-align: center;
+}
+.mobile-notice-mark {
+    display: block;
+    font-family: 'Noto Sans Gurmukhi', sans-serif;
+    font-size: 2.25rem;
+    color: var(--star-core);
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+.mobile-notice-body p {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin-bottom: 0.85rem;
+}
+.mobile-notice-body strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.mobile-notice-btn {
+    margin-top: 0.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    padding: 0.7rem 1.4rem;
+    border-radius: 0.35rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: var(--star-core);
+    cursor: pointer;
+    min-height: 44px;
+}
+.mobile-notice-btn:hover {
+    background: rgba(245, 158, 11, 0.18);
 }
 
 /* ============================================

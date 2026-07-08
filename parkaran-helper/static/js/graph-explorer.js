@@ -172,14 +172,19 @@ async function init() {
         // Re-fit the graph when the window resizes so nodes stay visible
         // across viewport changes (e.g. rotating tablet, resizing browser,
         // responsive layout swap from desktop to mobile).
-        window.addEventListener("resize", debounce(() => {
+        const refitGraph = debounce(() => {
             if (!State.cy) return;
             State.cy.resize();
             if (State.centerNode) {
                 const visible = State.cy.nodes().not(".faded").not("[type='tagLabel']");
                 if (visible.length > 0) State.cy.fit(visible, 50);
             }
-        }, 200));
+            // Density changes with the viewport, so labels should too.
+            applyAdaptiveLabels();
+        }, 200);
+        window.addEventListener("resize", refitGraph);
+        // Rotating a phone fires orientationchange but not always resize.
+        window.addEventListener("orientationchange", refitGraph);
 
         if (statsEl) {
             const n = Object.keys(State.metadata).length;
@@ -365,7 +370,12 @@ function getStyles() {
             style: {
                 width: "mapData(score, 0, 1, 0.3, 2.0)",
                 "line-color": "data(targetTheme)",
-                "line-opacity": "mapData(score, 0, 1, 0.06, 0.4)",
+                // Opacity tuned for the dark field washes out entirely on
+                // parchment; light theme needs a higher floor and ceiling.
+                "line-opacity": themeColor(
+                    "mapData(score, 0, 1, 0.06, 0.4)",
+                    "mapData(score, 0, 1, 0.18, 0.65)",
+                ),
                 "curve-style": "unbundled-bezier",
                 "control-point-distances": [12],
                 "control-point-weights": [0.5],
@@ -388,9 +398,17 @@ function getStyles() {
             },
         },
         // ── Faded (previous expansions) ──
+        // The dot stays as a memory of where you've been; the label goes. Text
+        // at 6% opacity is unreadable but still occupies the canvas, so after a
+        // few expansions the field became layers of ghost text under live
+        // labels. Hovering a faded node still reveals its tooltip.
         {
             selector: ".faded",
             style: { opacity: 0.06 },
+        },
+        {
+            selector: "node.faded",
+            style: { label: "" },
         },
         // ── In parkaran (emerald) ──
         {
@@ -495,7 +513,8 @@ async function expandShabad(shabadId) {
 
     // Add or update center node — use searched tuk if available
     const meta = State.metadata[sid] || {};
-    const centerLabel = tuk ? trunc(tuk.gurmukhi, 48) : trunc(meta.gurmukhi || meta.title || "?", 48);
+    const centerFull = tuk ? tuk.gurmukhi : (meta.gurmukhi || meta.title || "?");
+    const centerLabel = trunc(centerFull, CENTER_LABEL_CHARS);
     let centerEl = cy.getElementById(sid);
     if (centerEl.length === 0) {
         cy.add({
@@ -504,6 +523,7 @@ async function expandShabad(shabadId) {
                 id: sid,
                 shabadId: sid,
                 type: "shabad",
+                fullLabel: centerFull,
                 label: centerLabel,
                 isRepertoire: meta.is_repertoire || false,
                 themeColor: shabadThemeColor(meta.primary_theme || ""),
@@ -513,6 +533,7 @@ async function expandShabad(shabadId) {
         centerEl = cy.getElementById(sid);
     } else {
         // Update label to reflect searched tuk (may differ from default rahao)
+        centerEl.data("fullLabel", centerFull);
         centerEl.data("label", centerLabel);
     }
     centerEl.removeClass("faded").addClass("center");
@@ -588,13 +609,17 @@ async function expandShabad(shabadId) {
             const nmeta = State.metadata[nid] || {};
             const nTheme = nmeta.primary_theme || n.primary_theme || "";
             if (nodeEl.length === 0) {
+                const fullLabel = nmeta.gurmukhi || n.gurmukhi || n.title || "?";
                 cy.add({
                     group: "nodes",
                     data: {
                         id: nid,
                         shabadId: nid,
                         type: "shabad",
-                        label: trunc(nmeta.gurmukhi || n.gurmukhi || n.title || "?", 40),
+                        // fullLabel is the untruncated line; `label` is recomputed
+                        // by applyAdaptiveLabels() as the field gets denser.
+                        fullLabel,
+                        label: trunc(fullLabel, NEIGHBOR_LABEL_CHARS),
                         isRepertoire: n.is_repertoire || nmeta.is_repertoire || false,
                         themeColor: shabadThemeColor(nTheme),
                     },
@@ -643,6 +668,9 @@ async function expandShabad(shabadId) {
             easing: "ease-out-cubic",
         });
     }
+    // Now that the field's density is known, size the labels to it.
+    applyAdaptiveLabels();
+
     // Reset expanding guard immediately — the critical async work (API call)
     // is done. Don't depend on cy.animate callback which can silently skip
     // if the animation is a no-op (already at target position).
@@ -921,7 +949,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
     }
 
     container.classList.remove("hidden");
-    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#4a3f35;font-size:8px;">LOADING...</div>';
+    container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:var(--text-faint);font-size:8px;">LOADING...</div>';
 
     // Race condition guard: if tooltip changes during fetch, abort
     const gen = ++verseLoadGeneration;
@@ -939,7 +967,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
             State.verseCache[sid] = data.verses || [];
         } catch (err) {
             if (gen !== verseLoadGeneration) return;
-            container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#ef4444;font-size:8px;">FAILED</div>';
+            container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:var(--signal-red);font-size:8px;">FAILED</div>';
             return;
         }
     }
@@ -1303,12 +1331,12 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
     return `
         <div class="autocomplete-item" data-action="select-search" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
             ${scoreBadge}
-            ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
-            <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">
+            ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
+            <div style="font-family:'IBM Plex Mono';color:var(--text-faint);font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
                 ${m.is_repertoire ? " &#9733;" : ""}
             </div>
-            ${summary ? `<div style="font-family:'IBM Plex Mono';color:#8a7d6c;font-size:9px;margin-top:2px;">${escapeHtml(summary.substring(0, 80))}</div>` : ""}
+            ${summary ? `<div style="font-family:'IBM Plex Mono';color:var(--text-secondary);font-size:9px;margin-top:2px;">${escapeHtml(summary.substring(0, 80))}</div>` : ""}
         </div>
     `;
 }
@@ -1409,7 +1437,7 @@ async function selectTag(tag) {
 
     title.textContent = `${tag} — pick a shabad`;
     detail.classList.remove("hidden");
-    list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:#4a3f35;font-size:10px;">LOADING...</div>';
+    list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:var(--text-faint);font-size:10px;">LOADING...</div>';
 
     try {
         const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=20`);
@@ -1417,8 +1445,8 @@ async function selectTag(tag) {
         // for shabad IDs and any future title interpolation.
         list.innerHTML = data.shabads.map((s) => `
             <div class="autocomplete-item" data-action="open-shabad" data-sid="${escAttr(s.id)}">
-                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
-                <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
+                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
+                <div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
             </div>
         `).join("");
         if (!list.dataset.delegated) {
@@ -1434,7 +1462,7 @@ async function selectTag(tag) {
             list.dataset.delegated = "1";
         }
     } catch (err) {
-        list.innerHTML = `<div style="color:#ef4444;font-size:10px;">${escapeHtml(err.message)}</div>`;
+        list.innerHTML = `<div style="color:var(--signal-red);font-size:10px;">${escapeHtml(err.message)}</div>`;
     }
 }
 
@@ -1512,7 +1540,7 @@ async function openTagShabadsModal(tag) {
                 <span>${escapeHtml(tag.toUpperCase())} &mdash; ERROR</span>
                 <button class="preview-close" aria-label="Close tag list">&times;</button>
             </div>
-            <div class="preview-english" style="padding:16px 4px;color:#ef4444;">Could not load shabads: ${escapeHtml(err.message)}</div>
+            <div class="preview-english" style="padding:16px 4px;color:var(--signal-red);">Could not load shabads: ${escapeHtml(err.message)}</div>
         `;
         wireTagShabadsCloseButtons();
     }
@@ -1818,15 +1846,15 @@ function showSaveDialog() {
     const suggested = autoName(State.parkaran);
     container.innerHTML = `
         <div style="padding:12px;">
-            <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Save Set</div>
+            <div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Save Set</div>
             <input id="saveNameInput" type="text" value="${escAttr(suggested)}"
-                   style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.15);border-radius:4px;color:#fbbf24;font-family:'IBM Plex Mono';font-size:12px;padding:8px;outline:none;"
+                   style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.15);border-radius:4px;color:var(--star-glow);font-family:'IBM Plex Mono';font-size:12px;padding:8px;outline:none;"
                    onfocus="this.select()">
             <div style="display:flex;gap:6px;margin-top:8px;">
                 <button onclick="saveCurrentParkaran(document.getElementById('saveNameInput').value)"
-                        style="flex:1;background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">Save</button>
+                        style="flex:1;background:rgba(245,158,11,0.15);color:var(--star-glow);border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">Save</button>
                 <button onclick="renderParkaran()"
-                        style="flex:1;background:transparent;color:#6b5f52;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Cancel</button>
+                        style="flex:1;background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Cancel</button>
             </div>
         </div>
     `;
@@ -1846,20 +1874,20 @@ function showLibrary() {
     if (saved.length === 0) {
         container.innerHTML = `
             <div style="text-align:center;padding:24px 12px;">
-                <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;letter-spacing:0.05em;">No saved sets yet</div>
-                <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;margin-top:4px;">Build a set and click SAVE</div>
+                <div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:10px;letter-spacing:0.05em;">No saved sets yet</div>
+                <div style="font-family:'IBM Plex Mono';color:var(--text-faint);font-size:9px;margin-top:4px;">Build a set and click SAVE</div>
             </div>
         `;
     } else {
         container.innerHTML = saved.map((p) => `
             <div class="parkaran-sidebar-item" style="cursor:pointer;" onclick="loadParkaran('${escAttr(p.id)}')">
                 <div style="flex:1;min-width:0;">
-                    <div style="font-family:'IBM Plex Mono';color:#fbbf24;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</div>
-                    <div style="font-family:'IBM Plex Mono';color:#4a3f35;font-size:9px;">${p.count} shabads &middot; ${new Date(p.updated || p.created).toLocaleDateString()}</div>
+                    <div style="font-family:'IBM Plex Mono';color:var(--star-glow);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</div>
+                    <div style="font-family:'IBM Plex Mono';color:var(--text-faint);font-size:9px;">${p.count} shabads &middot; ${new Date(p.updated || p.created).toLocaleDateString()}</div>
                 </div>
                 <button onclick="event.stopPropagation(); deleteParkaran('${escAttr(p.id)}')"
-                        style="color:#4a3f35;cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;"
-                        onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
+                        style="color:var(--text-faint);cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;"
+                        onmouseover="this.style.color='var(--signal-red)'" onmouseout="this.style.color='var(--text-faint)'">&times;</button>
             </div>
         `).join("");
     }
@@ -1868,9 +1896,9 @@ function showLibrary() {
     container.insertAdjacentHTML("beforeend", `
         <div style="display:flex;gap:6px;padding:8px 4px;margin-top:4px;">
             <button onclick="resetExplore()"
-                    style="flex:1;background:rgba(245,158,11,0.1);color:#fbbf24;border:1px solid rgba(245,158,11,0.2);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">+ New</button>
+                    style="flex:1;background:rgba(245,158,11,0.1);color:var(--star-glow);border:1px solid rgba(245,158,11,0.2);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;">+ New</button>
             <button onclick="libraryView=false; renderParkaran();"
-                    style="flex:1;background:transparent;color:#6b5f52;border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Back</button>
+                    style="flex:1;background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:6px;font-family:'IBM Plex Mono';font-size:10px;cursor:pointer;text-transform:uppercase;">Back</button>
         </div>
     `);
 }
@@ -1980,10 +2008,10 @@ function renderParkaran() {
             <div class="parkaran-sidebar-item" draggable="true" data-idx="${i}" data-id="${escAttr(s.id)}">
                 <span style="font-family:'IBM Plex Mono';color:rgba(245,158,11,0.3);font-size:12px;width:16px;flex-shrink:0;">${i + 1}</span>
                 <div style="flex:1;min-width:0;user-select:none;">
-                    ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:#fbbf24;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
-                    <div style="font-family:'IBM Plex Mono';color:#6b5f52;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
+                    ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
+                    <div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
                 </div>
-                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:#4a3f35;cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#4a3f35'">&times;</button>
+                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:var(--text-faint);cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='var(--signal-red)'" onmouseout="this.style.color='var(--text-faint)'">&times;</button>
             </div>
         `;
     });
@@ -2240,6 +2268,30 @@ function renameCurrentLibrary() {
 function trunc(text, max) {
     if (!text) return "";
     return text.length > max ? text.substring(0, max) + "..." : text;
+}
+
+/* ===== ADAPTIVE LABELS ===== */
+// A generous label is a gift on a sparse graph and a wall of text on a dense
+// one. Labels shrink once the field crowds, so a first expansion reads as a full
+// opening phrase and a fourth still reads at all.
+const NEIGHBOR_LABEL_CHARS = 40;
+const NEIGHBOR_LABEL_CHARS_DENSE = 24;
+const CENTER_LABEL_CHARS = 48;
+const DENSE_NODE_THRESHOLD = 25;
+
+function applyAdaptiveLabels() {
+    if (!State.cy) return;
+    const live = State.cy.nodes("[type='shabad']").not(".faded");
+    const chars = live.length > DENSE_NODE_THRESHOLD
+        ? NEIGHBOR_LABEL_CHARS_DENSE
+        : NEIGHBOR_LABEL_CHARS;
+
+    live.forEach((node) => {
+        const full = node.data("fullLabel");
+        if (!full) return; // center node manages its own label
+        const next = trunc(full, node.hasClass("center") ? CENTER_LABEL_CHARS : chars);
+        if (node.data("label") !== next) node.data("label", next);
+    });
 }
 
 function simpleHash(str) {

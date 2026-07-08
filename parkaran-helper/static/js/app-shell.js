@@ -7,6 +7,32 @@
  * redirects.
  */
 
+/* ===== SMALL-VIEWPORT NOTICE ===== */
+
+// The graph explorer assumes room to spread out; on a phone it renders as an
+// unreadable knot. Until a phone-friendly view exists, say so once and let the
+// user through if they insist. Dismissal is remembered.
+const MOBILE_BREAKPOINT = 768;
+
+function initMobileNotice() {
+    const notice = document.getElementById("mobileNotice");
+    if (!notice) return;
+
+    const dismissed = localStorage.getItem("shabadverse_mobile_notice_dismissed") === "1";
+    if (window.innerWidth >= MOBILE_BREAKPOINT || dismissed) {
+        notice.classList.add("hidden");
+        return;
+    }
+    notice.classList.remove("hidden");
+
+    document.getElementById("mobileNoticeDismiss")?.addEventListener("click", () => {
+        localStorage.setItem("shabadverse_mobile_notice_dismissed", "1");
+        notice.classList.add("hidden");
+        // The graph was laid out behind an overlay; give it the real viewport.
+        window.dispatchEvent(new Event("resize"));
+    });
+}
+
 /* ===== THEME (light/dark, OS-aware with user override) ===== */
 
 function initTheme() {
@@ -62,6 +88,12 @@ window.toggleTheme = function () {
 };
 
 initTheme();
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initMobileNotice);
+} else {
+    initMobileNotice();
+}
 
 (function () {
     // Sidebar collapse/expand
