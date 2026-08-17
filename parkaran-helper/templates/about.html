@@ -78,29 +78,29 @@
     <section class="about-section">
         <h2>How the connections are built</h2>
         <p>
-            The threads are not hand-drawn and they are not guesses from a single model. Each shabad's
-            themes come from a consensus of four independent language models, and the graph is grounded
-            in the shabads the Panth already sings together.
+            The threads are not hand-drawn, and the themes are not machine-invented. The vocabulary
+            comes from Sikh tradition, curated by hand; the machine's job is finding which shabads
+            express each concept, in Gurbani's own words first and by meaning second.
         </p>
         <div class="about-grid">
             <div class="about-card">
+                <div class="about-card-num">44</div>
+                <div class="about-card-label">concepts, curated by hand</div>
+                <p>The theme vocabulary is drawn from Sikh tradition — the panj chor, the virtues, Naam, Hukam, Sahaj — each concept defined and approved by a human reader before any tagging ran. No model chose what counts as a theme.</p>
+            </div>
+            <div class="about-card">
+                <div class="about-card-num">&#x0A39;&#x0A09;&#x0A2E;&#x0A48;</div>
+                <div class="about-card-label">anchored in Gurbani's own words</div>
+                <p>A shabad that names a concept — &#x0A39;&#x0A09;&#x0A2E;&#x0A48;, &#x0A15;&#x0A3E;&#x0A2E;, &#x0A15;&#x0A4D;&#x0A30;&#x0A4B;&#x0A27;, &#x0A38;&#x0A70;&#x0A24;&#x0A4B;&#x0A16; — carries its tag as ground truth. Meaning similarity then extends each concept to shabads that teach it without naming it, within a bounded reach so no theme can swallow the corpus.</p>
+            </div>
+            <div class="about-card">
                 <div class="about-card-num">4</div>
-                <div class="about-card-label">models vote on every shabad</div>
-                <p>Qwen3, DeepSeek-R1, Llama 3.1, and Claude Sonnet each read every shabad and propose themes. A theme only survives if at least two of the four agree, which strips out one-model noise.</p>
-            </div>
-            <div class="about-card">
-                <div class="about-card-num">2,078</div>
-                <div class="about-card-label">Amrit Keertan shabads ground the vocabulary</div>
-                <p>The canonical tag set is derived first from the shabads in Amrit Keertan, the keertan the Panth holds in common, then extended to the rest of Gurbani; tradition sets the vocabulary, not the model.</p>
-            </div>
-            <div class="about-card">
-                <div class="about-card-num">116</div>
-                <div class="about-card-label">canonical themes</div>
-                <p>Synonyms collapse into one canonical term, so "Haumai," "ego," and "ego dissolution" count as one idea rather than three thin tags. Themes so broad they fit most of Gurbani are kept off the map: a label on four shabads in five cannot tell two apart.</p>
+                <div class="about-card-label">concepts flagged lower-confidence</div>
+                <p>Vismad, Birha, Chardi Kala, and Nimrata have no single anchor word in Gurbani, so they are inferred from meaning alone. They are the tags most likely to miss; treat them as suggestions, not verdicts.</p>
             </div>
             <div class="about-card">
                 <div class="about-card-num">5,542</div>
-                <div class="about-card-label">shabads, ~17 neighbors each</div>
+                <div class="about-card-label">shabads, ~20 neighbors each</div>
                 <p>Two shabads connect on a blend of shared themes and meaning (sentence-embedding similarity). Rare themes count for more than common ones, so a link says why these two belong together, not merely that both speak of the Divine.</p>
             </div>
         </div>
@@ -116,18 +116,21 @@
         <h2>Straight talk about the AI</h2>
         <ul class="about-honest">
             <li>
-                <strong>What the AI did.</strong> It read translations and proposed themes; four models
-                cross-checked each other. It also powers meaning search, which compares your phrase to
-                each shabad as a vector. The app itself was built with Claude Code.
+                <strong>What the AI did.</strong> It measures meaning. Every verse and shabad becomes a
+                vector, and the app compares those vectors for search, for neighbors, and for deciding
+                which shabads express each hand-picked concept. The short summaries in tooltips were
+                drafted by local language models. The app itself was built with Claude Code.
             </li>
             <li>
                 <strong>What it did not do.</strong> It did not write, edit, or reinterpret a single line of
                 Gurbani. The scripture is BaniDB's; the AI only labels and links.
             </li>
             <li>
-                <strong>Where it can be wrong.</strong> Themes are machine judgments and some will miss the
-                mark. Treat them as a way to navigate, not as a teaching. When a tag feels off, it probably is,
-                and your eye on the original shabad is the final word.
+                <strong>Where it can be wrong.</strong> A shabad that names a concept is tagged on solid
+                ground; one tagged by meaning alone is a machine judgment, and some will miss the mark —
+                the four concepts with no anchor word most of all. Treat tags as a way to navigate, not as
+                a teaching. When one feels off, it probably is, and your eye on the original shabad is the
+                final word.
             </li>
             <li>
                 <strong>Tell us.</strong> Found a bad connection or a missing theme? Open an issue on

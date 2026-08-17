@@ -111,13 +111,14 @@ def build_graph():
     # Load sentence-transformer embeddings
     embedding_lookup = load_embeddings()
 
-    # Build connector tag sets (exclude Repertoire)
+    # Build connector tag sets (exclude Repertoire). Every shabad gets an entry;
+    # under the concept taxonomy ~10% carry no tag and connect by embedding alone.
     shabad_tags = {}
     repertoire_ids = set()
 
-    for s in tagged:
+    for s in sggs_shabads:
         sid = str(s["banidb_shabad_id"])
-        all_tags = set(s["tags"])
+        all_tags = set(s.get("tags") or [])
         connector_tags = all_tags - NON_CONNECTOR_TAGS
         shabad_tags[sid] = connector_tags
         if "Repertoire" in all_tags:
@@ -275,10 +276,41 @@ def build_graph():
     print(f"  Embedding comparisons: {embed_hits:,} hits, {embed_misses:,} misses")
     print(f"  Empty tag clusters avoided: {empty_tag_clusters} (tags with 0 candidates)")
 
-    # Build metadata with brief_meaning included
+    # Untagged shabads still get neighbors — pure embedding cosine, since there
+    # are no tags to share. Score is the raw cosine (comparable in magnitude to
+    # tagged edge scores), shared_tags empty by construction.
+    EMBED_ONLY_K = 12
+    untagged_sids = [s for s in sids if not shabad_tags[s]]
+    if untagged_sids:
+        emb_sids = [s for s in sids if embedding_lookup.get(s) is not None]
+        matrix = np.asarray([embedding_lookup[s] for s in emb_sids], dtype=np.float32)
+        matrix /= np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-9
+        row_of = {s: i for i, s in enumerate(emb_sids)}
+        filled = 0
+        for sid in untagged_sids:
+            row = row_of.get(sid)
+            if row is None:
+                continue
+            scores = matrix @ matrix[row]
+            entries = []
+            for j in np.argsort(scores)[::-1][: EMBED_ONLY_K + 1]:
+                cid = emb_sids[j]
+                if cid == sid:
+                    continue
+                entries.append(
+                    {"id": cid, "score": round(float(scores[j]), 3), "shared_tags": []}
+                )
+                if len(entries) >= EMBED_ONLY_K:
+                    break
+            neighbors[sid] = entries
+            filled += 1
+        print(f"  Embedding-only neighbors for {filled}/{len(untagged_sids)} untagged shabads")
+
+    # Build metadata with brief_meaning included — over ALL shabads, so untagged
+    # ones still resolve for previews, search hits, and line-mode neighbors.
     print("\nBuilding metadata index...")
     metadata = {}
-    for s in tagged:
+    for s in sggs_shabads:
         sid = str(s["banidb_shabad_id"])
         metadata[sid] = {
             "title": s.get("display_name") or (s.get("transliteration") or "")[:80],
