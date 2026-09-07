@@ -64,7 +64,6 @@ const State = {
     verseCache: {},     // {shabadId: versesArray} — cached verse data
     evidenceCache: {},
     shabadInfoCache: {}, // {shabadId: {raag, writer, ang}} — from BaniDB, fills metadata gaps
-    sourceMode: "all",
     matchMode: "shabad", // "shabad" | "line" — which matching algorithm expansions use
     forces: {           // Obsidian-style force parameters
         center: 0.08,   // gravity: 0.01-0.5 (low = spread out)
@@ -159,7 +158,6 @@ async function init() {
         initSearch();
         initThresholdSlider();
         initForceControls();
-        initAkMode();
         initMatchMode();
         initDiscoveryView();
 
@@ -427,7 +425,6 @@ function getStyles() {
                 height: 10,
             },
         },
-        {selector: "node.ak-member", style: {"border-width": 2, "border-color": "#c59550", "border-style": "double"}},
         // ── Parkaran trail edges (green arrows connecting selected shabads) ──
         {
             selector: "edge.parkaran-trail",
@@ -463,7 +460,6 @@ async function expandShabad(shabadId) {
 
     // Fetch neighbors — pass tuk English if user searched a specific verse
     const threshold = getThreshold();
-    const sourceMode = State.sourceMode;
     const neighborLimit = innerWidth <= 768 ? 6 : innerWidth <= 1024 ? 12 : 24;
     const tuk = State.selectedTuk[sid];
     const tukEnglish = tuk?.english || "";
@@ -477,7 +473,7 @@ async function expandShabad(shabadId) {
     // Cache by shabad ID + threshold + match mode + anchor. Tuk-specific
     // suggestions are otherwise a display-layer concern; the neighbor set from
     // the API is the same.
-    const cacheKey = JSON.stringify([sid, threshold, matchMode, anchorLineIndex, tukEnglish, sourceMode, neighborLimit]);
+    const cacheKey = JSON.stringify([sid, threshold, matchMode, anchorLineIndex, tukEnglish, neighborLimit]);
     if (!State.neighborCache[cacheKey]) {
         // Show graph loading spinner during first fetch for this shabad
         const graphLoadingEl = document.getElementById("graphLoading");
@@ -494,7 +490,6 @@ async function expandShabad(shabadId) {
                 // Shabad mode only: blend in vector hits for the searched verse.
                 url += `&tuk_english=${encodeURIComponent(tukEnglish)}`;
             }
-            url += `&source=${sourceMode}`;
             State.neighborCache[cacheKey] = await API.get(url);
         } catch (err) {
             console.error("Neighbor fetch failed:", err);
@@ -507,7 +502,7 @@ async function expandShabad(shabadId) {
         document.getElementById("graphLoading")?.classList.add("hidden");
     }
 
-    if (sourceMode !== State.sourceMode || matchMode !== State.matchMode || threshold !== getThreshold()) {
+    if (matchMode !== State.matchMode || threshold !== getThreshold()) {
         State.expanding = false;
         const next = State.pendingExpansion || sid;
         State.pendingExpansion = null;
@@ -668,7 +663,6 @@ async function expandShabad(shabadId) {
             }
             cy.getElementById(edgeId).data("score", n.score || 0);
             cy.getElementById(edgeId).removeClass("faded");
-            cy.getElementById(nid).toggleClass("ak-member", Boolean(n.is_amrit_keertan));
 
             State.tagClusters[tag].push(nid);
         }
@@ -791,7 +785,7 @@ function showTooltip(shabadId, nodeEl) {
             ${tukHtml}
             <div class="tt-meta">${escapeHtml([meta.raag, meta.writer, meta.ang ? "ANG " + meta.ang : ""].filter(Boolean).join(" / "))}</div>
             ${summary ? `<div class="tt-summary"><small>Machine-assisted summary</small><br>${escapeHtml(truncSentence(summary, 160))}</div>` : ""}
-            ${sourceBadge(meta)}
+
             ${tagPills ? `<div class="tt-tags">${tagPills}</div>` : ""}
             <div class="tt-actions">
                 <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN SET" : "+ ADD"}</button>
@@ -900,7 +894,7 @@ async function loadPreview(shabadId) {
             State.verseCache[sid] = data.verses || [];
             State.evidenceCache[sid] = data.concepts || [];
             // BaniDB knows the writer even where our graph metadata doesn't.
-            State.shabadInfoCache[sid] = { raag: data.raag, writer: data.writer, ang: data.ang, is_amrit_keertan: data.is_amrit_keertan, ak_chapters: data.ak_chapters };
+            State.shabadInfoCache[sid] = { raag: data.raag, writer: data.writer, ang: data.ang };
         } catch (err) {
             // Only show the error if we're still the active preview
             if (modal.dataset.sid !== sid || modal.classList.contains("hidden")) return;
@@ -949,7 +943,7 @@ async function loadPreview(shabadId) {
             <span>${headerText}</span>
             <button class="preview-close" aria-label="Close preview">&times;</button>
         </div>
-        ${sourceBadge({...meta,...info})}
+
         ${conceptEvidenceHTML(State.evidenceCache[sid])}
         ${verses.map((v) => {
             const rahaoClass = v.is_rahao ? " preview-rahao" : "";
@@ -1075,26 +1069,6 @@ function initThresholdSlider() {
         expandShabad(sid);
     }, 200));
 }
-
-/**
- * AK MODE: when active, /api/graph/neighbors gets ak_boost=1, which lifts
- * Amrit Keertan-flagged shabads (~2,078 of 5,542) in the suggestion order.
- * State persists in localStorage so the toggle survives reloads. Re-clearing
- * the neighbor cache forces fresh server-side ranking on toggle.
- */
-function initAkMode() {
-    const stored = localStorage.getItem("shabadverse_source_mode");
-    State.sourceMode = ['all', 'prefer-ak', 'ak-only'].includes(stored) ? stored :
-        (localStorage.getItem("shabadverse_ak_mode") === '1' ? 'prefer-ak' : 'all');
-    document.getElementById('sourceModeSelect').value = State.sourceMode;
-}
-
-window.setSourceMode = function (mode) {
-    State.sourceMode = ['prefer-ak', 'ak-only'].includes(mode) ? mode : 'all';
-    localStorage.setItem('shabadverse_source_mode', State.sourceMode);
-    State.neighborCache = {};
-    if (State.centerNode) expandShabad(State.centerNode);
-};
 
 /**
  * Matching algorithm: "shabad" asks which shabads are about the same things;

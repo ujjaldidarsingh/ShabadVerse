@@ -121,7 +121,7 @@ function selectShabad(idx) {
         ` : ""}
 
         ${tagPills ? `<div class="rv-tags">${tagPills}</div>` : ""}
-        ${sourceBadge(s)}${conceptEvidenceHTML(s.concept_evidence)}
+        ${conceptEvidenceHTML(s.concept_evidence)}
 
         ${s.brief_meaning ? `
         <div class="rv-summary-box">

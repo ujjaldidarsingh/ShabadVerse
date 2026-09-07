@@ -691,16 +691,7 @@ body.about-page > main + .site-footer {
 }
 
 /* AK MODE button — active state shows that the boost is live */
-.btn-ghost.ak-mode-active {
-    color: var(--star-core);
-    border-color: rgba(245, 158, 11, 0.35);
-    background: rgba(245, 158, 11, 0.08);
-    font-weight: 600;
-}
-.btn-ghost.ak-mode-active::before {
-    content: "● ";
-    color: rgba(245, 158, 11, 0.9);
-}
+
 
 .btn-add {
     width: 1.75rem;
@@ -2623,10 +2614,7 @@ details[open] > .force-panel-header::before {
 #cy { position: absolute; inset: 275px 0 95px 240px; width: auto; height: auto; }
 .gurmukhi-preview { right: 10px; max-width: 42%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; opacity: 1; }
 .search-input.gurmukhi-mode { padding-right: 45%; color: var(--text-secondary); }
-.source-choice { display: flex; align-items: center; gap: 8px; font-size: 12px !important; }
-.source-choice select, .topic-filters select { min-height: 44px; background: var(--panel-solid); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 6px 10px; font: 13px Inter, sans-serif; }
-.source-badge { display: inline-block; font-size: 11px; line-height: 1.6; padding: 3px 8px; border: 1px solid var(--brand-gold); border-radius: 3px; color: var(--brand-gold); margin: 5px 0; }
-.source-badge small { font-size: 10px; }
+.topic-filters select { min-height: 44px; background: var(--panel-solid); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 6px 10px; font: 13px Inter, sans-serif; }
 .topic-modal { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; }
 .topic-modal.hidden { display: none; }
 .topic-backdrop { position: absolute; inset: 0; background: #000a; backdrop-filter: blur(8px); }

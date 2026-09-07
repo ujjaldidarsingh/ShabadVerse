@@ -23,7 +23,7 @@
             <div class="demo-scripture"><span class="eyebrow">An example from the preserved corpus</span><p lang="pa-Guru">{{ demo.verses[1].gurmukhi }}</p><small>{{ demo.writer }} · {{ demo.raag }} · Ang {{ demo.ang }}</small><a href="/?start=970">Explore this shabad ↗</a></div>
         </article>
         <article id="demo-explore" role="tabpanel" aria-labelledby="step-explore" class="demo-panel hidden">
-            <div><h3>Read what connects them.</h3><p>Tap a shabad in the graph to read it or explore from there. Topic labels describe the neighboring shabad’s assignments. Open the evidence to see the verse behind a lexical or inferred tag.</p><p>Choose whole-shabad matching or a particular line. Amrit Keertan controls let you prefer its indexed shabads or restrict suggestions to them.</p></div>
+            <div><h3>Read what connects them.</h3><p>Tap a shabad in the graph to read it or explore from there. Topic labels describe the neighboring shabad’s assignments. Open the evidence to see the verse behind a lexical or inferred tag.</p><p>Choose whole-shabad matching or a particular line.</p></div>
             <div class="demo-connections"><span class="eyebrow">Suggested neighbors in this dataset</span>{% for item in demo_neighbors %}<a href="/?start={{ item.id }}"><span lang="pa-Guru">{{ item.gurmukhi }}</span><small>Read in context ↗</small></a>{% endfor %}<p>These links are suggestions to examine, not an approved parkaran.</p></div>
         </article>
         <article id="demo-build" role="tabpanel" aria-labelledby="step-build" class="demo-panel hidden">

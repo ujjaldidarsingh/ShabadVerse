@@ -135,7 +135,6 @@
                         <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35">
                         <span id="thresholdScore">0.35</span>
                     </div>
-                    <label class="source-choice" title="Source for suggested connections">Source <select id="sourceModeSelect" onchange="setSourceMode(this.value)"><option value="all">All SGGS</option><option value="prefer-ak">Prefer Amrit Keertan</option><option value="ak-only">Amrit Keertan only</option></select></label>
                     <button onclick="State.cy && State.cy.fit(50)" class="btn-ghost">FIT</button>
                 </div>
 
@@ -188,7 +187,7 @@
 <div id="topicModal" class="topic-modal hidden" role="dialog" aria-modal="true" aria-label="Explore topics">
     <div class="topic-backdrop" onclick="closeTagBrowser()"></div>
     <section class="topic-panel"><header class="topic-panel-header"><h1>Topics in Gurbani</h1><button type="button" onclick="closeTagBrowser()" aria-label="Close topics">×</button></header>
-        <div class="topic-filters"><input id="topicSearch" type="search" aria-label="Find a topic" placeholder="Find a topic or Gurbani term" oninput="renderTopicIndex()"><label>Starting shabads<select id="topicSource" onchange="if (Topic.tag) selectTag(Topic.tag)"><option value="all">All SGGS</option><option value="ak-only">Amrit Keertan only</option></select></label></div>
+        <div class="topic-filters"><input id="topicSearch" type="search" aria-label="Find a topic" placeholder="Find a topic or Gurbani term" oninput="renderTopicIndex()"></div>
         <div id="topicIndex" class="topic-index"></div><div id="topicDetail"><p>Choose a topic to browse its shabads, start at random, or inspect the evidence behind its assignments.</p></div>
     </section>
 </div>

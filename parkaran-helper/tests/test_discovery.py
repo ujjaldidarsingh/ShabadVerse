@@ -8,8 +8,6 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from app import app
 from api import graph_api as api, topics
 from database import corpus
-from api.source_candidates import retrieve
-import numpy as np
 
 
 class InitialsTests(unittest.TestCase):
@@ -29,47 +27,17 @@ class SourceTests(unittest.TestCase):
         self.client=app.test_client()
         self.graph={'metadata':{'1':{'tags':['Naam']},'2':{'tags':['Naam']},'3':{'tags':['Naam']}},
                     'tag_index':{'Naam':['1','2','3']},'neighbors':{'1':[{'id':'2','score':.6,'shared_tags':['Naam']}]}}
-        for target,value in [('_graph_data',self.graph),('_sggs_lookup',{}),('_sggs_sources',{'3':{'amrit_keertan':True,'ak_chapters':[2]}})]:
+        for target,value in [('_graph_data',self.graph),('_sggs_lookup',{})]:
             p=patch.object(api,target,value);p.start();self.addCleanup(p.stop)
         p=patch.object(api,'_get_sggs_vector_store',return_value=Mock());p.start();self.addCleanup(p.stop)
-        p=patch('api.source_candidates.retrieve',return_value=[{'id':'3','score':.55,'shared_tags':['Naam']}]);self.retrieve=p.start();self.addCleanup(p.stop)
 
-    def test_all_preserves_existing_pool(self):
-        data=self.client.get('/api/graph/neighbors/1?source=all').get_json()
-        self.assertEqual([n['id'] for n in data['by_tag']['Naam']],['2'])
-        self.retrieve.assert_not_called()
-
-    def test_prefer_retrieves_and_keeps_similarity_separate(self):
-        data=self.client.get('/api/graph/neighbors/1?source=prefer-ak').get_json()
-        items=data['by_tag']['Naam']
-        self.assertEqual([n['id'] for n in items],['3','2'])
-        self.assertEqual(items[0]['score'],.55)
-        self.assertEqual(items[0]['rank_score'],.7)
-        self.assertEqual(items[0]['ak_chapters'],[2])
-
-    def test_only_cannot_leak_non_ak(self):
-        data=self.client.get('/api/graph/neighbors/1?source=ak-only').get_json()
-        self.assertEqual(data['source_counts'],{'ak':1,'shown':1})
-        self.assertTrue(all(n['is_amrit_keertan'] for group in data['by_tag'].values() for n in group))
-
-    def test_empty_source_selection_is_explained(self):
-        self.retrieve.return_value=[]
-        data=self.client.get('/api/graph/neighbors/1?source=ak-only').get_json()
-        self.assertEqual(data['total_shown'],0)
-        self.assertTrue(data['source_notice'])
-
-    def test_invalid_or_missing_source_fails_explicitly(self):
-        self.assertEqual(self.client.get('/api/graph/neighbors/1?source=unknown').status_code,400)
-        with patch.object(api,'_sggs_sources',{}):
-            self.assertEqual(self.client.get('/api/graph/neighbors/1?source=ak-only').status_code,503)
-
-    def test_source_retrieval_uses_eligible_vectors(self):
-        import api.source_candidates as source
-        ids=['1','2','3'];matrix=np.array([[1.,0.],[1.,0.],[.8,.6]])
-        with patch.object(source,'_index',(ids,matrix,{sid:i for i,sid in enumerate(ids)})):
-            result=retrieve(Mock(),'1',{'3'},self.graph['metadata'],lambda a,b:1)
-        self.assertEqual([n['id'] for n in result],['3'])
-        self.assertAlmostEqual(result[0]['score'],.9)
+    def test_legacy_source_parameters_cannot_filter_or_rerank(self):
+        expected=self.client.get('/api/graph/neighbors/1').get_json()
+        for query in ['source=ak-only','source=prefer-ak','ak_boost=1']:
+            self.assertEqual(self.client.get('/api/graph/neighbors/1?'+query).get_json(),expected)
+        self.assertEqual([n['id'] for n in expected['by_tag']['Naam']],['2'])
+        self.assertNotIn('source_mode',expected)
+        self.assertNotIn('is_amrit_keertan',expected['by_tag']['Naam'][0])
 
 
 class TopicTests(unittest.TestCase):
@@ -102,7 +70,7 @@ class TopicTests(unittest.TestCase):
 
     def test_unknown_topic_and_source(self):
         self.assertEqual(self.client.get('/api/topics/Unknown/random').status_code,404)
-        self.assertEqual(self.client.get('/api/topics/Naam/random?source=nope').status_code,400)
+        self.assertEqual(self.client.get('/api/topics/Naam/random?source=ak-only').status_code,200)
 
 
 if __name__=='__main__': unittest.main()
