@@ -1,151 +1,45 @@
 {% extends "base.html" %}
-{% block title %}About ShabadVerse{% endblock %}
+{% block title %}How ShabadVerse works{% endblock %}
 {% block body_class %}about-page{% endblock %}
-
 {% block content %}
 <div class="about-wrap">
-
-    <!-- Header -->
-    <header class="about-header">
-        <a href="/" class="about-back" title="Back to the explorer">&#x276E; EXPLORER</a>
-        <div class="about-logo">
-            <span class="about-mark">&#x0A74;</span>
-            <span class="about-wordmark">SHABADVERSE</span>
-        </div>
-        <a href="https://github.com/ujjaldidarsingh/ShabadVerse" target="_blank" rel="noopener" class="about-back">GITHUB &#x276F;</a>
-    </header>
-
-    <!-- Hero -->
+    <header class="about-header">{% include "brand.html" %}<a href="/" class="about-back">Open explorer ↗</a></header>
     <section class="about-hero">
-        <h1>A map of the Guru's connections.</h1>
-        <p class="about-lede">
-            ShabadVerse turns Sri Guru Granth Sahib Ji into an interactive graph. Every one of the
-            5,542 shabads is a star; the threads between them trace shared themes, so you can wander
-            from one shabad to its kin and discover where a thought travels across Gurbani.
-        </p>
+        <span class="eyebrow">Gurbani · connections · parkaran</span>
+        <h1>Begin with a shabad.<br>See where it leads.</h1>
+        <p class="about-lede">Explore thematic relationships across Sri Guru Granth Sahib Ji. Read shabads in context, follow a connection that interests you, and bring your choices together in a parkaran.</p>
+        <div class="about-actions"><a href="/?topic=Naam" class="about-cta">Choose a starting topic</a><a href="#walkthrough">See how it works ↓</a></div>
     </section>
 
-    {# Walkthrough video. Hidden until one exists — an empty "coming soon" box
-       is a promise the page cannot keep. Flip show_video in app.py once the
-       recording is embedded. #}
-    {% if show_video %}
-    <section class="about-section">
-        <h2>See it in motion</h2>
-        <div class="about-video-slot" id="aboutVideoSlot">
-            {% block video_embed %}{% endblock %}
+    <section id="walkthrough" class="walkthrough">
+        <div class="walkthrough-heading"><span class="eyebrow">A short walkthrough</span><h2>Search. Explore. Bring it together.</h2></div>
+        <div class="walkthrough-tabs" role="tablist" aria-label="Walkthrough steps">
+            <button role="tab" aria-selected="true" aria-controls="demo-search" id="step-search" data-step="search">01 · Find a shabad</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-explore" id="step-explore" data-step="explore">02 · Follow a connection</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-build" id="step-build" data-step="build">03 · Build your parkaran</button>
         </div>
-    </section>
-    {% endif %}
-
-    <!-- How to use -->
-    <section class="about-section">
-        <h2>How to use it</h2>
-        <ol class="about-steps">
-            <li>
-                <strong>Search four ways.</strong> Type English transliteration (<span class="kbd">ABC</span>),
-                first letters from the start of a line (<span class="kbd">&#x0A73;&#x25B8;</span>) or from anywhere
-                in it (<span class="kbd">&#x25B8;&#x0A73;&#x25B8;</span>), or just describe what you are thinking of
-                in plain words (<span class="kbd">&#x2728;</span>) and let meaning search find the closest shabads.
-            </li>
-            <li>
-                <strong>Browse the Constellation Map.</strong> Open <span class="kbd">TAGS</span> to see the full
-                theme vocabulary; filter it, pick a theme, and jump to any shabad that carries it.
-            </li>
-            <li>
-                <strong>Expand to explore.</strong> Tap a shabad to make it the center; its neighbors fan out by
-                shared theme. Follow the trail and your path stays in the breadcrumbs above.
-            </li>
-            <li>
-                <strong>Build a library.</strong> Add shabads as you go, then switch to <span class="kbd">REVIEW</span>
-                to read them in full. Save and share your collection with a link.
-            </li>
-        </ol>
+        <article id="demo-search" role="tabpanel" aria-labelledby="step-search" class="demo-panel">
+            <div><h3>Start with what you remember.</h3><p>Enter a line’s first letters using Gurmukhi or the supported Roman-key layout. Search from the start of a line or anywhere within it. You can also search transliteration or describe a theme in English.</p><p class="demo-input"><code>h k s j k</code><span lang="pa-Guru">ਹ ਕ ਸ ਜ ਕ</span></p><p>Prefer a topic? Choose one and let ShabadVerse select a random starting shabad from its full list.</p></div>
+            <div class="demo-scripture"><span class="eyebrow">An example from the preserved corpus</span><p lang="pa-Guru">{{ demo.verses[1].gurmukhi }}</p><small>{{ demo.writer }} · {{ demo.raag }} · Ang {{ demo.ang }}</small><a href="/?start=970">Explore this shabad ↗</a></div>
+        </article>
+        <article id="demo-explore" role="tabpanel" aria-labelledby="step-explore" class="demo-panel hidden">
+            <div><h3>Read what connects them.</h3><p>Tap a shabad in the graph to read it or explore from there. Topic labels describe the neighboring shabad’s assignments. Open the evidence to see the verse behind a lexical or inferred tag.</p><p>Choose whole-shabad matching or a particular line. Amrit Keertan controls let you prefer its indexed shabads or restrict suggestions to them.</p></div>
+            <div class="demo-connections"><span class="eyebrow">Suggested neighbors in this dataset</span>{% for item in demo_neighbors %}<a href="/?start={{ item.id }}"><span lang="pa-Guru">{{ item.gurmukhi }}</span><small>Read in context ↗</small></a>{% endfor %}<p>These links are suggestions to examine, not an approved parkaran.</p></div>
+        </article>
+        <article id="demo-build" role="tabpanel" aria-labelledby="step-build" class="demo-panel hidden">
+            <div><h3>Choose the sequence yourself.</h3><p>Add shabads to your set, move them earlier or later, then open Review to read the sequence in full. Your library stays in this browser. A share link carries the ordered shabad IDs so someone else can open the set.</p><p>Cards offer another way to browse the same connections. You can switch views at any time.</p></div>
+            <div class="demo-sequence"><span>1 · Read the complete shabad</span><span>2 · Choose and order your set</span><span>3 · Review, save and share</span><a href="/" class="about-cta">Build a parkaran</a></div>
+        </article>
     </section>
 
-    <!-- Legend -->
-    <section class="about-section">
-        <h2>Reading the graph</h2>
-        <ul class="about-legend">
-            <li><span class="legend-dot" style="background:rgba(245,158,11,0.9);box-shadow:0 0 8px rgba(245,158,11,0.5);"></span> The bright center is the shabad you are exploring now.</li>
-            <li><span class="legend-dot" style="background:#10b981;"></span> Green dots are shabads already in your library.</li>
-            <li><span class="legend-dot" style="background:rgba(200,195,185,0.6);"></span> Pale dots are neighbors, colored by their primary mood when one stands out.</li>
-            <li><span class="legend-label">Theme</span> Amber words floating in the field are theme labels; click one to see every shabad under it.</li>
-            <li><span class="legend-edge"></span> A thicker thread means a stronger thematic match.</li>
-        </ul>
+    <section class="about-section methodology"><span class="eyebrow">Sources and judgment</span><h2>What the system knows, and what it suggests.</h2>
+        <div class="method-grid"><article><h3>Preserved Gurbani</h3><p>The local BaniDB snapshot supplies Gurbani, translations, transliteration, writer, raag and ang. Search normalization changes only search keys. Displayed scripture stays intact.</p></article>
+        <article><h3>{{ concept_count }} curated concepts</h3><p>Concept definitions were curated and confirmed by Ujjal. Assignments are a separate layer: lexical tags record configured word matches; inferred tags use English-translation similarity. Read the cited verse in context.</p></article>
+        <article><h3>Evidence before counts</h3><p>Lexical matches are preserved. Inferred connections use a threshold for each concept, without a quota on how often it may occur. These suggestions remain open to review in their full shabad.</p></article>
+        <article><h3>Your interpretation</h3><p>Connections, summaries and inferred assignments can be wrong. Description-only topics have no configured lexical anchors. Ranking indicates where to look; your reading determines whether a connection belongs in the parkaran.</p></article></div>
     </section>
-
-    <!-- Methodology -->
-    <section class="about-section">
-        <h2>How the connections are built</h2>
-        <p>
-            The threads are not hand-drawn, and the themes are not machine-invented. The vocabulary
-            comes from Sikh tradition, curated by hand; the machine's job is finding which shabads
-            express each concept, in Gurbani's own words first and by meaning second.
-        </p>
-        <div class="about-grid">
-            <div class="about-card">
-                <div class="about-card-num">44</div>
-                <div class="about-card-label">concepts, curated by hand</div>
-                <p>The theme vocabulary is drawn from Sikh tradition — the panj chor, the virtues, Naam, Hukam, Sahaj — each concept defined and approved by a human reader before any tagging ran. No model chose what counts as a theme.</p>
-            </div>
-            <div class="about-card">
-                <div class="about-card-num">&#x0A39;&#x0A09;&#x0A2E;&#x0A48;</div>
-                <div class="about-card-label">anchored in Gurbani's own words</div>
-                <p>A shabad that names a concept — &#x0A39;&#x0A09;&#x0A2E;&#x0A48;, &#x0A15;&#x0A3E;&#x0A2E;, &#x0A15;&#x0A4D;&#x0A30;&#x0A4B;&#x0A27;, &#x0A38;&#x0A70;&#x0A24;&#x0A4B;&#x0A16; — carries its tag as ground truth. Meaning similarity then extends each concept to shabads that teach it without naming it, within a bounded reach so no theme can swallow the corpus.</p>
-            </div>
-            <div class="about-card">
-                <div class="about-card-num">4</div>
-                <div class="about-card-label">concepts flagged lower-confidence</div>
-                <p>Vismad, Birha, Chardi Kala, and Nimrata have no single anchor word in Gurbani, so they are inferred from meaning alone. They are the tags most likely to miss; treat them as suggestions, not verdicts.</p>
-            </div>
-            <div class="about-card">
-                <div class="about-card-num">5,542</div>
-                <div class="about-card-label">shabads, ~20 neighbors each</div>
-                <p>Two shabads connect on a blend of shared themes and meaning (sentence-embedding similarity). Rare themes count for more than common ones, so a link says why these two belong together, not merely that both speak of the Divine.</p>
-            </div>
-        </div>
-        <p class="about-source">
-            Gurbani text, transliteration, and translations come from
-            <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a>, an initiative of the
-            <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a> project.
-        </p>
-    </section>
-
-    <!-- AI transparency -->
-    <section class="about-section about-transparency">
-        <h2>Straight talk about the AI</h2>
-        <ul class="about-honest">
-            <li>
-                <strong>What the AI did.</strong> It measures meaning. Every verse and shabad becomes a
-                vector, and the app compares those vectors for search, for neighbors, and for deciding
-                which shabads express each hand-picked concept. The short summaries in tooltips were
-                drafted by local language models. The app itself was built with Claude Code.
-            </li>
-            <li>
-                <strong>What it did not do.</strong> It did not write, edit, or reinterpret a single line of
-                Gurbani. The scripture is BaniDB's; the AI only labels and links.
-            </li>
-            <li>
-                <strong>Where it can be wrong.</strong> A shabad that names a concept is tagged on solid
-                ground; one tagged by meaning alone is a machine judgment, and some will miss the mark —
-                the four concepts with no anchor word most of all. Treat tags as a way to navigate, not as
-                a teaching. When one feels off, it probably is, and your eye on the original shabad is the
-                final word.
-            </li>
-            <li>
-                <strong>Tell us.</strong> Found a bad connection or a missing theme? Open an issue on
-                <a href="https://github.com/ujjaldidarsingh/ShabadVerse" target="_blank" rel="noopener">GitHub</a>.
-                The taxonomy gets better every time someone does.
-            </li>
-        </ul>
-    </section>
-
-    <!-- Credits -->
-    <footer class="about-credits">
-        <p>Built by Ujjal Didar Singh Sekhon. Gurbani from BaniDB / SikhiToTheMax. Code on
-            <a href="https://github.com/ujjaldidarsingh/ShabadVerse" target="_blank" rel="noopener">GitHub</a>.</p>
-        <a href="/" class="about-cta">Start exploring &#x276F;</a>
-    </footer>
-
+    <section class="about-section"><h2>Local by design.</h2><p>The core explorer uses local data, fonts, scripts and search models. Your saved sets live in browser storage and do not sync between devices automatically. This is a responsive web app; native installation is separate work.</p></section>
+    <footer class="about-credits"><p>Built by Ujjal Didar Singh Sekhon. Gurbani from <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a> / <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a>.</p><p><a href="https://github.com/ujjaldidarsingh/ShabadVerse/issues" target="_blank" rel="noopener">Report a connection or a problem</a>. Include the shabad IDs, topic and match mode so the example can be checked.</p><a href="/" class="about-cta">Open ShabadVerse ↗</a></footer>
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/walkthrough.js') }}"></script>{% endblock %}

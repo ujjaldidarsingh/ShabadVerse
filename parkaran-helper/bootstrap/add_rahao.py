@@ -278,5 +278,7 @@ def fix_display_names():
 
 
 if __name__ == "__main__":
+    from bootstrap.build_guard import require_build_target
+    require_build_target(legacy=True)
     add_rahao_pada()
     fix_display_names()

@@ -7,32 +7,6 @@
  * redirects.
  */
 
-/* ===== SMALL-VIEWPORT NOTICE ===== */
-
-// The graph explorer assumes room to spread out; on a phone it renders as an
-// unreadable knot. Until a phone-friendly view exists, say so once and let the
-// user through if they insist. Dismissal is remembered.
-const MOBILE_BREAKPOINT = 768;
-
-function initMobileNotice() {
-    const notice = document.getElementById("mobileNotice");
-    if (!notice) return;
-
-    const dismissed = localStorage.getItem("shabadverse_mobile_notice_dismissed") === "1";
-    if (window.innerWidth >= MOBILE_BREAKPOINT || dismissed) {
-        notice.classList.add("hidden");
-        return;
-    }
-    notice.classList.remove("hidden");
-
-    document.getElementById("mobileNoticeDismiss")?.addEventListener("click", () => {
-        localStorage.setItem("shabadverse_mobile_notice_dismissed", "1");
-        notice.classList.add("hidden");
-        // The graph was laid out behind an overlay; give it the real viewport.
-        window.dispatchEvent(new Event("resize"));
-    });
-}
-
 /* ===== THEME (light/dark, OS-aware with user override) ===== */
 
 function initTheme() {
@@ -88,12 +62,6 @@ window.toggleTheme = function () {
 };
 
 initTheme();
-
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initMobileNotice);
-} else {
-    initMobileNotice();
-}
 
 (function () {
     // Sidebar collapse/expand
@@ -159,15 +127,20 @@ if (document.readyState === "loading") {
         });
     }
 
-    function readTabFromURL() {
+    async function readTabFromURL() {
+        await window.shabadverseReady;
         const params = new URLSearchParams(window.location.search);
+        const start = params.get("start");
+        const topic = params.get("topic");
+        if (start && State.metadata[start]) await expandShabad(start);
+        if (topic && State.tagIndex[topic]) await openTagBrowser(topic);
         const tab = params.get("tab");
 
         // Check for shared library in URL: ?items=id1,id2,id3&name=LibraryName
         const sharedItems = params.get("items");
         const sharedName = params.get("name");
         if (sharedItems && typeof State !== "undefined") {
-            const ids = sharedItems.split(",").map((s) => s.trim()).filter(Boolean);
+            const ids = [...new Set(sharedItems.split(",").map((s) => s.trim()).filter((id) => State.metadata[id]))].slice(0, 200);
             if (ids.length > 0) {
                 // Load shared items into a new temp library (don't overwrite user's own)
                 const lib = typeof getLibrary === "function" ? getLibrary() : { parkarans: {}, currentId: null };

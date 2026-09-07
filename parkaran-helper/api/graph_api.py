@@ -7,7 +7,7 @@ from collections import defaultdict
 from flask import Blueprint, jsonify, request
 
 import config
-from database.vector_store import ShabadVectorStore
+from database import corpus
 
 graph_bp = Blueprint("graph", __name__)
 
@@ -18,12 +18,6 @@ _sggs_lookup = None
 _sggs_vector_store = None
 _lines_vector_store = None
 _sggs_sources = None
-
-# AK boost factor — applied multiplicatively to AK-flagged neighbors when
-# ?ak_boost=true. 1.30 lifts an AK shabad with a base similarity of 0.40 to
-# 0.52, which moves it up roughly one rank in a typical 8-neighbor cluster
-# without overpowering high-quality non-AK matches.
-AK_BOOST_FACTOR = 1.30
 
 # A tag carried by more than this share of the corpus is structural, not
 # distinctive: labelling a cluster "Naam Simran" when a third of Gurbani carries
@@ -41,7 +35,7 @@ def _pick_cluster_tag(candidates, tag_index, n_shabads):
     """
     if not candidates:
         return None
-    ranked = sorted(candidates, key=lambda t: len(tag_index.get(t, [])))
+    ranked = sorted(candidates, key=lambda t: (len(tag_index.get(t, [])), t))
     cap = CLUSTER_LABEL_MAX_COVERAGE * max(1, n_shabads)
     for tag in ranked:
         if len(tag_index.get(tag, [])) <= cap:
@@ -51,6 +45,7 @@ def _pick_cluster_tag(candidates, tag_index, n_shabads):
 
 def _get_sggs_vector_store():
     """Lazy-load SGGS ChromaDB vector store for tuk-aware search."""
+    from database.vector_store import ShabadVectorStore
     global _sggs_vector_store
     if _sggs_vector_store is None:
         _sggs_vector_store = ShabadVectorStore(collection_name=config.SGGS_COLLECTION_NAME)
@@ -59,6 +54,7 @@ def _get_sggs_vector_store():
 
 def _get_lines_vector_store():
     """Lazy-load the per-verse (tuk) ChromaDB collection used by line matching."""
+    from database.vector_store import ShabadVectorStore
     global _lines_vector_store
     if _lines_vector_store is None:
         _lines_vector_store = ShabadVectorStore(collection_name=config.SGGS_LINES_COLLECTION_NAME)
@@ -130,7 +126,9 @@ def _resolve_anchor_line(shabad_id, line_index):
 
     by_index = {m["line_index"]: m for m in metas}
 
-    if line_index is not None and line_index in by_index:
+    if line_index is not None:
+        if line_index not in by_index:
+            return None
         chosen = by_index[line_index]
     else:
         rahao = [m for m in metas if m.get("is_rahao")]
@@ -139,7 +137,7 @@ def _resolve_anchor_line(shabad_id, line_index):
     return chosen["line_index"], chosen["english"], chosen.get("gurmukhi", "")
 
 
-def _line_neighbors(shabad_id, line_index, limit, threshold, metadata, tag_index):
+def _line_neighbors(shabad_id, line_index, limit, threshold, metadata, tag_index, eligible_ids=None):
     """Find shabads containing a line semantically closest to the anchor line.
 
     Returns (results, anchor) where results is a list of dicts carrying the
@@ -157,7 +155,10 @@ def _line_neighbors(shabad_id, line_index, limit, threshold, metadata, tag_index
     my_tags = metadata.get(str(shabad_id), {}).get("tags", [])
     n_shabads = len(metadata) or 1
 
-    raw = store.search_similar(anchor_english, n_results=limit * LINE_FETCH_MULTIPLIER)
+    if eligible_ids is not None and not eligible_ids:
+        return [], {"line_index": anchor_idx, "english": anchor_english, "gurmukhi": anchor_gurmukhi}
+    where = {"shabad_id": {"$in": sorted(eligible_ids)}} if eligible_ids is not None else None
+    raw = store.search_similar(anchor_english, n_results=limit * LINE_FETCH_MULTIPLIER, where_filter=where)
 
     # Collapse to the single best line per shabad. Without this a long shabad
     # that echoes the anchor across eight verses would occupy eight slots.
@@ -216,7 +217,7 @@ def _get_graph():
             with open(path, encoding="utf-8") as f:
                 _graph_data = json.load(f)
         else:
-            _graph_data = {"neighbors": {}, "tag_index": {}, "metadata": {}, "stats": {}}
+            raise RuntimeError("Missing graph dataset")
     return _graph_data
 
 
@@ -228,7 +229,7 @@ def _get_tag_vocab():
             with open(path, encoding="utf-8") as f:
                 _tag_vocab = json.load(f)
         else:
-            _tag_vocab = {"theme_tags": {}, "mood_tags": {}}
+            raise RuntimeError("Missing concept vocabulary")
     return _tag_vocab
 
 
@@ -241,7 +242,7 @@ def _get_sggs_lookup():
                 sggs_list = json.load(f)
             _sggs_lookup = {str(s["banidb_shabad_id"]): s for s in sggs_list}
         else:
-            _sggs_lookup = {}
+            raise RuntimeError("Missing scripture dataset")
     return _sggs_lookup
 
 
@@ -276,15 +277,18 @@ def graph_init():
         tag_vocab[tag_name] = {
             "description": tag_data.get("description", ""),
             "gurbani_term": tag_data.get("gurbani_term", ""),
+            "confidence": tag_data.get("confidence", ""),
         }
     for tag_name, tag_data in vocab.get("mood_tags", {}).items():
         tag_vocab[tag_name] = {
             "description": tag_data.get("description", ""),
             "gurbani_term": tag_data.get("gurbani_term", ""),
+            "confidence": tag_data.get("confidence", ""),
         }
 
     return jsonify({
-        "metadata": graph.get("metadata", {}),
+        "metadata": {sid: {k: m.get(k) for k in ("title", "gurmukhi", "raag", "ang", "tags")}
+                     for sid, m in graph.get("metadata", {}).items()},
         "tag_index": graph.get("tag_index", {}),
         "tag_vocab": tag_vocab,
         "stats": graph.get("stats", {}),
@@ -310,8 +314,12 @@ def graph_neighbors(shabad_id):
     metadata = graph.get("metadata", {})
 
     threshold = request.args.get("threshold", 0.3, type=float)
-    per_tag_cap = request.args.get("per_tag", 8, type=int)
-    tuk_english = request.args.get("tuk_english", "", type=str).strip()
+    if not math.isfinite(threshold):
+        return jsonify({"error": "Invalid threshold"}), 400
+    threshold = max(0.0, min(threshold, 1.0))
+    per_tag_cap = max(1, min(request.args.get("per_tag", 8, type=int), 30))
+    max_neighbors = max(1, min(request.args.get("max_neighbors", 30, type=int), 60))
+    tuk_english = request.args.get("tuk_english", "", type=str).strip()[:2000]
     match_mode = request.args.get("match", "shabad", type=str).lower()
     if match_mode not in ("shabad", "line"):
         match_mode = "shabad"
@@ -321,13 +329,20 @@ def graph_neighbors(shabad_id):
     # shabads in the recommendation order without excluding non-AK matches.
     ak_boost = request.args.get("ak_boost", "", type=str).lower() in ("1", "true", "yes")
 
+    source_mode = request.args.get('source', 'prefer-ak' if ak_boost else 'all')
+    if source_mode not in ('all', 'prefer-ak', 'ak-only'):
+        return jsonify({'error': 'Unknown source mode'}), 400
+    if source_mode != 'all' and not sources:
+        return jsonify({'error': 'Amrit Keertan source index is unavailable'}), 503
+    ak_ids = {sid for sid, value in sources.items() if value.get('amrit_keertan') and sid in metadata}
+
+    if str(shabad_id) not in metadata:
+        return jsonify({"error": "Shabad not found"}), 404
+    requested_match = match_mode
+    fallback_reason = None
+
     def is_ak(nid: str) -> bool:
         return bool(sources.get(str(nid), {}).get("amrit_keertan"))
-
-    def boosted(score: float, nid: str) -> float:
-        if ak_boost and is_ak(nid):
-            return min(1.0, score * AK_BOOST_FACTOR)
-        return score
 
     # Get this shabad's tags from graph metadata
     my_meta = metadata.get(str(shabad_id), {})
@@ -338,7 +353,7 @@ def graph_neighbors(shabad_id):
     # to the specific verse. Graph neighbors fill in tag-based diversity.
     # When no tuk, pure graph path (pre-computed, instant).
     tuk_results = {}  # nid -> enriched dict (from vector search)
-    if tuk_english:
+    if tuk_english and match_mode == "shabad":
         store = _get_sggs_vector_store()
         if store.get_count() > 0:
             results = store.search_similar(
@@ -348,9 +363,10 @@ def graph_neighbors(shabad_id):
                 nid = str(r["id"])
                 n_meta = metadata.get(nid, {})
                 n_sggs = sggs_lookup.get(nid, {})
-                base_score = max(0, min(1, 1 - (r.get("distance") or 0.5)))
-                score = boosted(base_score, nid)
-                if score < threshold:
+                distance = r.get("distance")
+                base_score = max(0, min(1, 1 - distance)) if distance is not None else 0.0
+                score = base_score
+                if score < threshold or (source_mode == "ak-only" and not is_ak(nid)):
                     continue
                 tuk_results[nid] = {
                     "id": nid,
@@ -379,8 +395,12 @@ def graph_neighbors(shabad_id):
         # weak prior. Shaped like precomputed neighbors so the clustering,
         # AK-boost and enrichment below need no special-casing.
         hits, line_anchor = _line_neighbors(
-            shabad_id, line_index, 30, threshold, metadata, tag_index
+            shabad_id, line_index, 30, threshold, metadata, tag_index,
+            eligible_ids=ak_ids if source_mode == "ak-only" else None
         )
+        if source_mode == 'prefer-ak':
+            source_hits, _ = _line_neighbors(shabad_id, line_index, 30, threshold, metadata, tag_index, eligible_ids=ak_ids)
+            hits = list({hit['id']: hit for hit in hits + source_hits}.values())
         raw_neighbors = []
         for hit in hits:
             nid = hit["id"]
@@ -393,6 +413,7 @@ def graph_neighbors(shabad_id):
             # a strict threshold can filter everything out. Never hand back an
             # empty expansion — fall back to the shabad-level graph.
             match_mode = "shabad"
+            fallback_reason = "No matching indexed lines at this threshold; showing whole-shabad connections."
             line_anchor = None
             line_info = {}
             raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
@@ -400,15 +421,17 @@ def graph_neighbors(shabad_id):
         # ── GRAPH PATH: pre-computed shabad-level neighbors ──
         raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
 
-    if ak_boost:
-        # Apply AK boost to a copy so the cached graph isn't mutated.
-        neighbors = []
-        for n in raw_neighbors:
-            new_score = boosted(n["score"], n["id"])
-            if new_score >= threshold:
-                neighbors.append({**n, "score": new_score})
-    else:
-        neighbors = [n for n in raw_neighbors if n["score"] >= threshold]
+    if source_mode != 'all' and match_mode == 'shabad':
+        from api.source_candidates import retrieve
+        extra = retrieve(_get_sggs_vector_store(), str(shabad_id), ak_ids, metadata,
+                         lambda x, y: _weighted_jaccard(x, y, tag_index, len(metadata)),
+                         query=tuk_english)
+        # Preserve the graph's score for existing edges; add newly retrieved AK edges.
+        merged = {n['id']: n for n in extra}
+        merged.update({n['id']: n for n in raw_neighbors})
+        raw_neighbors = list(merged.values())
+    neighbors = [n for n in raw_neighbors if n['score'] >= threshold and
+                 (source_mode != 'ak-only' or is_ak(n['id']))]
 
     # Group neighbors by thematic direction
     my_tags_set = set(my_tags)
@@ -421,7 +444,8 @@ def graph_neighbors(shabad_id):
         seen_globally.add(nid)
         tags = enriched.get("tags", [])
         if not tags:
-            tags = [enriched.get("primary_theme") or "Similar"]
+            by_tag["Translation similarity"].append(enriched)
+            continue
         # Place under the most distinctive tag this neighbor shares with us
         matching_tags = [t for t in tags if t in my_tags_set]
         if matching_tags:
@@ -490,46 +514,28 @@ def graph_neighbors(shabad_id):
         if not label:
             label = (
                 _pick_cluster_tag(list(n_all_tags), tag_index, n_shabads)
-                or enriched.get("primary_theme")
-                or "Related"
+                or "Translation similarity"
             )
         by_tag[label].append(enriched)
 
+    # Bound the source-expanded view globally, preserving unmodified similarity.
+    def ranking(n):
+        return n['score'] + (.15 if source_mode == 'prefer-ak' and n['is_amrit_keertan'] else 0)
+    if source_mode != 'all' or sum(map(len, by_tag.values())) > max_neighbors:
+        chosen = sorted((n for group in by_tag.values() for n in group), key=lambda n: (-ranking(n), n['id']))[:max_neighbors]
+        keep = {n['id'] for n in chosen}
+        by_tag = {tag: [n for n in group if n['id'] in keep] for tag, group in by_tag.items()}
+    for group in by_tag.values():
+        for n in group:
+            n['rank_score'] = round(ranking(n), 3)
+            n['source_preferred'] = source_mode == 'prefer-ak' and n['is_amrit_keertan']
+            n['ak_chapters'] = sources.get(n['id'], {}).get('ak_chapters', [])
     # Cap each cluster, sorted by score
     for tag in by_tag:
-        by_tag[tag].sort(key=lambda x: x["score"], reverse=True)
+        by_tag[tag].sort(key=lambda x: (-x["rank_score"], x["id"]))
         by_tag[tag] = by_tag[tag][:per_tag_cap]
 
-    # Merge thin clusters (1 shabad) into the closest core cluster
-    # This reduces visual noise from too many tiny branching labels
-    MIN_CLUSTER_SIZE = 2
-    core_tags = [t for t in by_tag if t in my_tags_set]
-    thin_tags = [t for t in by_tag if t not in my_tags_set and len(by_tag[t]) < MIN_CLUSTER_SIZE]
-
-    for thin_tag in thin_tags:
-        items = by_tag.pop(thin_tag)
-        # Find best core tag to absorb this item
-        # Pick the core tag with the highest avg score (most relevant direction)
-        best_core = None
-        best_avg = -1
-        for ct in core_tags:
-            if ct in by_tag:
-                avg = sum(i["score"] for i in by_tag[ct]) / len(by_tag[ct])
-                if avg > best_avg:
-                    best_avg = avg
-                    best_core = ct
-        if best_core:
-            by_tag[best_core].extend(items)
-        elif by_tag:
-            # No core tags — merge into largest cluster
-            largest = max(by_tag.keys(), key=lambda t: len(by_tag[t]))
-            by_tag[largest].extend(items)
-
-    # Re-sort and re-cap after merge
-    for tag in by_tag:
-        by_tag[tag].sort(key=lambda x: x["score"], reverse=True)
-        by_tag[tag] = by_tag[tag][:per_tag_cap]
-
+    # Keep small clusters truthful. A visual grouping must not invent a concept.
     by_tag = {tag: items for tag, items in by_tag.items() if items}
 
     all_scores = [n["score"] for n in raw_neighbors] if raw_neighbors else [0]
@@ -547,9 +553,17 @@ def graph_neighbors(shabad_id):
             "max": round(max(all_scores), 3) if all_scores else 0,
             "median": round(sorted(all_scores)[len(all_scores) // 2], 3) if all_scores else 0,
         },
+        "source_mode": source_mode,
+        "source_counts": {"ak": sum(n['is_amrit_keertan'] for group in by_tag.values() for n in group),
+                          "shown": sum(len(group) for group in by_tag.values())},
+        "source_notice": ('No Amrit Keertan connections at this setting. Lower selectivity or choose All SGGS.'
+                          if source_mode == 'ak-only' and not by_tag else ''),
         "threshold_used": threshold,
         "tuk_search": bool(tuk_results),
         "match": match_mode,
+        "requested_match": requested_match,
+        "fallback_reason": fallback_reason,
+        "score_kind": "ranking heuristic, not interpretive confidence",
         # In line mode, the verse the expansion was anchored on. The frontend can
         # show "matching on this line" and offer to re-anchor elsewhere.
         "anchor_line": line_anchor,
@@ -563,8 +577,12 @@ def get_shabads_by_ids():
     Used by the reviewer to load complete shabad details (Gurmukhi text,
     translation, tags, themes) without depending on the personal library.
     """
-    data = request.get_json()
-    ids = [str(i) for i in data.get("ids", [])]
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("ids"), list) or len(data["ids"]) > 200:
+        return jsonify({"error": "Supply an ids array of at most 200 shabads"}), 400
+    ids = [str(i) for i in data["ids"]]
+    if any(sid not in _get_graph().get("metadata", {}) for sid in ids):
+        return jsonify({"error": "Unknown shabad ID"}), 404
 
     graph = _get_graph()
     sggs_lookup = _get_sggs_lookup()
@@ -572,12 +590,12 @@ def get_shabads_by_ids():
     neighbors_map = graph.get("neighbors", {})
 
     results = []
-    for sid in ids:
+    for idx, sid in enumerate(ids):
         meta = metadata.get(sid, {})
         sggs = sggs_lookup.get(sid, {})
+        source = corpus.shabad(sid) or {}
 
         # Compute shared tags with next shabad in the list (for transition display)
-        idx = ids.index(sid)
         shared_with_next = []
         if idx < len(ids) - 1:
             next_sid = ids[idx + 1]
@@ -591,13 +609,18 @@ def get_shabads_by_ids():
             "title": meta.get("title") or sggs.get("display_name") or (sggs.get("transliteration") or "")[:80],
             "gurmukhi": meta.get("gurmukhi") or sggs.get("display_gurmukhi") or "",
             "gurmukhi_text": sggs.get("gurmukhi_text") or "",
+            "verses": source.get("verses", []),
+            "concept_evidence": _concept_evidence(sid),
+            "is_amrit_keertan": bool(_get_sggs_sources().get(sid, {}).get('amrit_keertan')),
+            "ak_chapters": _get_sggs_sources().get(sid, {}).get('ak_chapters', []),
+            "interpretation_notice": "Themes and summaries are machine-assisted interpretation; read the full shabad.",
             "english_translation": sggs.get("english_translation") or "",
             "transliteration": sggs.get("transliteration") or "",
             "brief_meaning": sggs.get("brief_meaning") or "",
             "rahao_gurmukhi": sggs.get("rahao_gurmukhi") or "",
             "rahao_english": sggs.get("rahao_english") or "",
             "raag": meta.get("raag") or sggs.get("sggs_raag") or "",
-            "writer": meta.get("writer") or sggs.get("writer") or "",
+            "writer": source.get("writer") or meta.get("writer") or sggs.get("writer") or "",
             "ang": meta.get("ang") or sggs.get("ang_number") or 0,
             "tags": meta.get("tags", []),
             "primary_theme": meta.get("primary_theme") or sggs.get("primary_theme") or "",
@@ -612,126 +635,24 @@ def get_shabads_by_ids():
 @graph_bp.route("/graph/shabad/<shabad_id>/verses")
 def get_shabad_verses_graph(shabad_id):
     """Return verse-level data for a shabad (via BaniDB cache)."""
-    from enrichment.banidb_matcher import BaniDBMatcher
-
-    sid = int(shabad_id) if shabad_id.isdigit() else 0
-    if not sid:
-        return jsonify({"verses": [], "rahao_index": -1})
-
-    matcher = BaniDBMatcher()
-    shabad_data = matcher.get_shabad(sid)
-    matcher.close()
-
-    if not shabad_data:
-        return jsonify({"verses": [], "rahao_index": -1})
-
-    verses = []
-    rahao_index = -1
-    for i, v in enumerate(shabad_data.get("verses", [])):
-        translit = v.get("transliteration", {})
-        eng_translit = translit.get("en", "") if isinstance(translit, dict) else ""
-
-        translation = v.get("translation", {})
-        en_trans = translation.get("en", {}) if isinstance(translation, dict) else {}
-        if isinstance(en_trans, dict):
-            eng = en_trans.get("bdb") or en_trans.get("ms") or en_trans.get("ssk") or ""
-        else:
-            eng = ""
-
-        gurmukhi = v.get("verse", {})
-        gur_text = gurmukhi.get("unicode", "") if isinstance(gurmukhi, dict) else ""
-
-        is_rahao = "rahaau" in eng_translit.lower()
-        if is_rahao and rahao_index == -1:
-            rahao_index = i
-
-        verses.append({
-            "index": i,
-            "transliteration": eng_translit,
-            "english": eng,
-            "gurmukhi": gur_text,
-            "is_rahao": is_rahao,
-        })
-
-    # The graph metadata is missing a writer for 4,585 of 5,542 shabads, but the
-    # cached BaniDB response carries it. Surface raag/writer/ang from there so
-    # the preview header can place the shabad ("Raag Gauree / Guru Arjan Dev Ji
-    # / Ang 317") rather than half-naming it.
-    info = shabad_data.get("shabadInfo") or {}
-    def _english(node):
-        return node.get("english", "") if isinstance(node, dict) else ""
-
-    return jsonify({
-        "banidb_shabad_id": sid,
-        "verses": verses,
-        "rahao_index": rahao_index,
-        "raag": _english(info.get("raag")),
-        "writer": _english(info.get("writer")),
-        "ang": info.get("pageNo") or 0,
-    })
+    data = corpus.shabad(shabad_id)
+    if data is None:
+        return jsonify({"error": "Shabad not found"}), 404
+    data["concepts"] = _concept_evidence(str(shabad_id))
+    source = _get_sggs_sources().get(str(shabad_id), {})
+    data['is_amrit_keertan'] = bool(source.get('amrit_keertan'))
+    data['ak_chapters'] = source.get('ak_chapters', [])
+    return jsonify(data)
 
 
 @graph_bp.route("/graph/search")
 def graph_search():
-    """Search BaniDB for shabads by first letters or keywords."""
-    from enrichment.banidb_matcher import BaniDBMatcher
-
-    q = request.args.get("q", "").strip()
-    searchtype = request.args.get("searchtype", 4, type=int)
-
-    # BaniDB first-letter search modes (0 = from start, 1 = anywhere, 2 = full word).
-    # Strip spaces for first-letter modes (0 and 1); keep them for word-based searches.
-    if searchtype in (0, 1):
-        q = q.replace(" ", "")
-
-    if not q or len(q) < 2:
-        return jsonify([])
-
-    matcher = BaniDBMatcher()
-    verses = matcher.search(q, searchtype=searchtype)
-    matcher.close()
-
-    seen = {}
-    for v in verses:
-        sid = v.get("shabadId")
-        if sid and sid not in seen:
-            seen[sid] = v
-
-    results = []
-    for sid, verse in seen.items():
-        translit = verse.get("transliteration", {})
-        translation = verse.get("translation", {})
-        en_trans = translation.get("en", {}) if isinstance(translation, dict) else {}
-
-        results.append({
-            "banidb_shabad_id": sid,
-            "title_gurmukhi": (
-                verse.get("verse", {}).get("unicode", "")
-                if isinstance(verse.get("verse"), dict)
-                else ""
-            ),
-            "title_transliteration": (
-                translit.get("en", "") if isinstance(translit, dict) else ""
-            ),
-            "first_line_translation": (
-                (en_trans.get("bdb") or en_trans.get("ms") or "")
-                if isinstance(en_trans, dict)
-                else ""
-            ),
-            "ang_number": verse.get("pageNo"),
-            "raag": (
-                verse.get("raag", {}).get("english", "")
-                if isinstance(verse.get("raag"), dict)
-                else ""
-            ),
-            "writer": (
-                verse.get("writer", {}).get("english", "")
-                if isinstance(verse.get("writer"), dict)
-                else ""
-            ),
-        })
-
-    return jsonify(results[:30])
+    """Search first letters entirely within the local scripture snapshot."""
+    q = request.args.get("q", "").strip()[:200]
+    searchtype = request.args.get("searchtype", 0, type=int)
+    if searchtype not in (0, 1):
+        return jsonify({"error": "Use searchtype 0 (start) or 1 (anywhere)"}), 400
+    return jsonify(corpus.search(q, searchtype))
 
 
 @graph_bp.route("/graph/semantic-search")
@@ -748,7 +669,7 @@ def graph_semantic_search():
         q (str): the natural-language phrase (min 3 chars)
         limit (int): max results (default 10, capped 25)
     """
-    q = request.args.get("q", "").strip()
+    q = request.args.get("q", "").strip()[:2000]
     limit = max(1, min(request.args.get("limit", 10, type=int), 25))
 
     if not q or len(q) < 3:
@@ -777,7 +698,7 @@ def graph_semantic_search():
             "first_line_translation": s.get("brief_meaning") or s.get("rahao_english") or "",
             "ang_number": s.get("ang_number") or meta.get("ang") or 0,
             "raag": s.get("sggs_raag") or meta.get("raag", ""),
-            "writer": s.get("writer") or meta.get("writer", ""),
+            "writer": (corpus.shabad(sid) or {}).get("writer", ""),
             "primary_theme": s.get("primary_theme") or meta.get("primary_theme", ""),
             "score": score,
         })
@@ -800,6 +721,7 @@ def list_tags():
             "count": len(shabad_ids),
             "description": tag_data.get("description", ""),
             "gurbani_term": tag_data.get("gurbani_term", ""),
+            "confidence": tag_data.get("confidence", ""),
         })
 
     tags.sort(key=lambda t: t["count"], reverse=True)
@@ -817,8 +739,8 @@ def tag_shabads(tag):
     if not shabad_ids:
         return jsonify({"tag": tag, "shabads": [], "total": 0})
 
-    limit = request.args.get("limit", 50, type=int)
-    offset = request.args.get("offset", 0, type=int)
+    limit = max(1, min(request.args.get("limit", 50, type=int), 100))
+    offset = max(0, request.args.get("offset", 0, type=int))
 
     page = shabad_ids[offset : offset + limit]
     shabads = []
@@ -842,3 +764,36 @@ def tag_shabads(tag):
         "offset": offset,
         "limit": limit,
     })
+
+
+_concepts = None
+
+
+def _get_concepts():
+    global _concepts
+    if _concepts is None:
+        path = os.path.join(config.DATA_DIR, "concept_tags.json")
+        with open(path, encoding="utf-8") as handle:
+            _concepts = json.load(handle)
+    return _concepts
+
+
+@graph_bp.route("/graph/shabad/<shabad_id>/evidence")
+def shabad_evidence(shabad_id):
+    if shabad_id not in _get_sggs_lookup():
+        return jsonify({"error": "Shabad not found"}), 404
+    record = _get_sggs_lookup()[shabad_id]
+    source = corpus.shabad(shabad_id) or {}
+    vocab = _get_tag_vocab().get("theme_tags", {})
+    assignments = [{**item, "confidence": vocab.get(item["concept"], {}).get("confidence", "")}
+                   for item in _get_concepts().get(shabad_id, [])]
+    return jsonify({"id": shabad_id, "concepts": assignments,
+                    "brief_meaning": record.get("brief_meaning", ""),
+                    "writer": source.get("writer", ""),
+                    "notice": "Lexical means a word was found; inferred means translation similarity. Neither is a ruling on the shabad."})
+
+
+def _concept_evidence(shabad_id):
+    vocab = _get_tag_vocab().get("theme_tags", {})
+    return [{**item, "confidence": vocab.get(item["concept"], {}).get("confidence", "")}
+            for item in _get_concepts().get(shabad_id, [])]

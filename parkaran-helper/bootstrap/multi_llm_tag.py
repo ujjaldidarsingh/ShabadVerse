@@ -1053,4 +1053,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from bootstrap.build_guard import require_build_target
+    require_build_target(legacy=True)
     main()

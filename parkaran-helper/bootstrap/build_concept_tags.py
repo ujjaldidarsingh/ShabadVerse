@@ -42,6 +42,7 @@ Outputs (non-dry-run):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -66,15 +67,6 @@ REPORT_OUT = Path(config.DATA_DIR) / "concept_tag_report.md"
 # distribution is where generalization lives — verses that teach the concept
 # without naming it.
 TARGET_ANCHOR_RECALL = 0.75
-# A concept on more than this share of the corpus is structural. It stays a tag
-# (searchable, filterable) but api/graph_api.py bars it from titling a cluster.
-MAX_PREVALENCE = 0.35
-# How far past the literal word a concept may reach. Calibrating on anchor recall
-# alone gives a diffuse concept a loose threshold and lets it swallow the corpus
-# (Vichar reached 1,814 shabads from 294 that name it). A concept may INFER at most
-# this multiple of the shabads that say its word outright — the evidence the corpus
-# supplies bounds the inference it licenses.
-GENERALIZATION_BUDGET = 2.0
 # A literal mention beats an inferred one when a shabad's tags are trimmed. Exceeds
 # any normalized margin (which lives in [0,1]), so lexical assignments sort first.
 ANCHOR_MARGIN_BONUS = 1.0
@@ -82,7 +74,7 @@ ANCHOR_MARGIN_BONUS = 1.0
 MIN_ANCHOR_LINES = 20
 DESC_WEIGHT, SEED_WEIGHT = 0.4, 0.6
 # Keep tag sets tight: a shabad's strongest concepts, not everything it brushes.
-MAX_TAGS_PER_SHABAD = 6
+MAX_PRESENTATION_TAGS = 6
 
 
 def nfc(s: str) -> str:
@@ -92,7 +84,10 @@ def nfc(s: str) -> str:
 def load_vocabulary(path: Path) -> dict:
     doc = json.loads(path.read_text(encoding="utf-8"))
     concepts = doc.get("concepts", doc)
-    return {k: v for k, v in concepts.items() if v.get("include", True)}
+    included = {k: v for k, v in concepts.items() if v.get("include", True)}
+    if any(not v.get("confirmed_by_ujjal") for v in included.values()):
+        raise ValueError("Every included concept needs human confirmation before building")
+    return included
 
 
 def lexical_line_positives(concepts: dict) -> dict[str, set[str]]:
@@ -102,7 +97,7 @@ def lexical_line_positives(concepts: dict) -> dict[str, set[str]]:
     ਮੋਹ as a substring also matches ਮੋਹਨ (a name of God), and ਕਾਮ matches
     ਕਾਮਣਿ (the soul-bride). Those false positives would poison the prototypes.
     """
-    db = sqlite3.connect(config.CACHE_DB_PATH)
+    db = sqlite3.connect(Path(config.CACHE_DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)
     hits: dict[str, set[str]] = {c: set() for c in concepts}
     for shabad_id, response in db.execute("SELECT shabad_id, response FROM shabad_cache"):
         try:
@@ -175,6 +170,10 @@ def main() -> None:
 
     assignments: dict[str, list[dict]] = {}
     report_rows = []
+    comparison = {}
+    baseline_path = os.environ.get('SHABADVERSE_COMPARISON_SOURCE')
+    baseline = json.loads((Path(baseline_path) / 'concept_tags.json').read_text()) if baseline_path else {}
+    baseline_hash = hashlib.sha256(json.dumps(baseline, sort_keys=True).encode()).hexdigest() if baseline else None
 
     for name, c in concepts.items():
         desc_vec = np.array(fn([c["description"]])[0], dtype=np.float32)
@@ -201,27 +200,33 @@ def main() -> None:
                     out[s] = (float(sim[row]), metas[row]["line_index"], metas[row]["gurmukhi"])
             return out
 
-        # A shabad that literally names the concept IS about the concept. The word
-        # is ground truth, not a candidate — the prototype may only ADD shabads
-        # that never say it. (Anchors serve double duty: here they are production
-        # truth; in the calibration above they are the held-out yardstick that
-        # tells us whether the prototype generalizes at all.)
+        # Preserve literal occurrences as lexical evidence. Their thematic meaning
+        # still depends on context. The prototype adds inferred associations.
         anchor_best = best_line_over(seed_rows)
         thresholded = best_line_over(np.where(sim >= thr)[0])
         generalized = {s: v for s, v in thresholded.items() if s not in anchor_best}
 
-        # Two ceilings on how far past the literal word a concept may reach: it may
-        # never swallow the corpus, and its inferred additions are budgeted against
-        # the evidence that the word itself supplies.
-        ceiling = max(0, int(MAX_PREVALENCE * n_shabads) - len(anchor_best))
-        if anchor_best:
-            ceiling = min(ceiling, int(GENERALIZATION_BUDGET * len(anchor_best)))
-        if len(generalized) > ceiling:
-            generalized = dict(sorted(generalized.items(), key=lambda kv: -kv[1][0])[:ceiling])
+        # Membership follows evidence thresholds, never a corpus-size quota.
+        # These automatically calibrated thresholds remain provisional until reviewed.
+        previous = {sid for sid, group in baseline.items() if any(a['concept'] == name for a in group)}
+        retained = sorted(((sid, row) for sid, row in generalized.items() if sid in previous), key=lambda item: (item[1][0], item[0]))
+        restored = sorted(((sid, row) for sid, row in generalized.items() if sid not in previous), key=lambda item: (-item[1][0], item[0]))
+        lexical_sample = sorted(anchor_best.items())[:3]
+        samples = []
+        seen = set()
+        for category, rows in [('lexical', lexical_sample), ('previously_retained', retained[:3]), ('newly_admitted', restored[:3])]:
+            for sid, (score, li, gur) in rows:
+                if sid in seen: continue
+                seen.add(sid)
+                samples.append({'id': str(sid), 'line_index': int(li), 'line_gurmukhi': gur,
+                                'strength': float(score), 'category': category})
+        samples.sort(key=lambda row: hashlib.sha256(f"{name}:{row['id']}".encode()).hexdigest())
+        comparison[name] = {'threshold': thr, 'calibration': calib, 'previous_count': len(previous),
+                            'new_inferred': len(restored), 'samples': samples}
 
         # Scores are NOT comparable across concepts — each has its own threshold and
         # its own score scale. Rank by margin above threshold, normalized, so that
-        # trimming a shabad to MAX_TAGS_PER_SHABAD cannot truncate away a pointed
+        # trimming a shabad to MAX_PRESENTATION_TAGS cannot truncate away a pointed
         # concept (Krodh) in favor of one whose raw cosine simply runs higher.
         # Without this, the frequency bias we set out to kill comes straight back.
         # Literal mentions outrank every inferred one.
@@ -251,10 +256,26 @@ def main() -> None:
             "samples": sorted(generalized.items(), key=lambda kv: -kv[1][0])[: args.sample],
         })
 
+    # A short/untranslated line can still carry an explicit lexical anchor.
+    # Preserve it even if it was intentionally excluded from the embedding index.
+    from database.corpus import shabad as source_shabad
+    for name, line_ids in anchors.items():
+        assigned = {sid for sid, items in assignments.items() if any(a["concept"] == name and a["lexical"] for a in items)}
+        for line_id in sorted(line_ids):
+            sid, idx = line_id.split(":")
+            if sid in assigned:
+                continue
+            verse = source_shabad(sid)["verses"][int(idx)]
+            items = assignments.setdefault(sid, [])
+            items[:] = [a for a in items if a["concept"] != name]
+            items.append({"concept": name, "strength": None, "margin": ANCHOR_MARGIN_BONUS,
+                          "lexical": True, "line_index": int(idx), "line_gurmukhi": verse["gurmukhi"]})
+            assigned.add(sid)
+
     # Keep each shabad's strongest concepts, ranked by normalized margin.
     for sid, lst in assignments.items():
         lst.sort(key=lambda a: -a["margin"])
-        del lst[MAX_TAGS_PER_SHABAD:]
+        # Full evidence survives. Only the graph proposal budget uses a smaller projection.
 
     counts: dict[str, int] = {}
     for lst in assignments.values():
@@ -280,6 +301,7 @@ def main() -> None:
         print("\n--dry-run: nothing written.")
         return
 
+    (Path(config.DATA_DIR) / 'concept_review.json').write_text(json.dumps({'baseline_sha256': baseline_hash, 'concepts': comparison}, ensure_ascii=False, indent=2), encoding='utf-8')
     TAGS_OUT.write_text(json.dumps(assignments, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # Point the corpus file at the new taxonomy — build_graph.py and the app read
@@ -291,6 +313,8 @@ def main() -> None:
     for rec in corpus:
         sid = str(rec.get("banidb_shabad_id"))
         rec["tags"] = [a["concept"] for a in assignments.get(sid, [])]
+        rec["presentation_tags"] = rec["tags"][:MAX_PRESENTATION_TAGS]
+        rec["tags_source"] = "curated_concepts_v2"
     corpus_path.write_text(json.dumps(corpus, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"updated tags in {corpus_path.name}")
     theme_tags = {
@@ -300,11 +324,16 @@ def main() -> None:
             "group": c.get("group", ""),
             "confidence": c.get("confidence", ""),
             "gurbani_term": " ".join(c.get("anchors_accept", [])),
+            "inference_threshold": comparison[name]['threshold'],
+            "calibration": comparison[name]['calibration'],
+            "review_status": "provisional",
+            "previous_count": comparison[name]['previous_count'],
+            "new_inferred": comparison[name]['new_inferred'],
         }
         for name, c in concepts.items()
         if counts.get(name, 0) > 0
     }
-    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}}, ensure_ascii=False, indent=2), encoding="utf-8")
+    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     lines = ["# Concept tagging report", "", f"{tagged_shabads} shabads tagged, avg {avg:.1f} tags each.", ""]
     lines += ["| concept | group | calibration | says it | inferred | tagged | gen. recall |",
@@ -317,4 +346,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from bootstrap.build_guard import require_build_target
+    require_build_target(legacy=False)
     main()

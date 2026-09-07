@@ -105,7 +105,7 @@ def build_graph():
     print(f"Tagged SGGS shabads: {len(tagged)}")
 
     if len(tagged) < 100:
-        print("Not enough tagged shabads. Run tag_shabads.py first.")
+        print("Not enough tagged shabads. Run build_concept_tags.py first.")
         return
 
     # Load sentence-transformer embeddings
@@ -115,12 +115,14 @@ def build_graph():
     # under the concept taxonomy ~10% carry no tag and connect by embedding alone.
     shabad_tags = {}
     repertoire_ids = set()
+    presentation_tags = {}
 
     for s in sggs_shabads:
         sid = str(s["banidb_shabad_id"])
         all_tags = set(s.get("tags") or [])
         connector_tags = all_tags - NON_CONNECTOR_TAGS
         shabad_tags[sid] = connector_tags
+        presentation_tags[sid] = [t for t in s.get("presentation_tags", sorted(connector_tags)) if t in connector_tags]
         if "Repertoire" in all_tags:
             repertoire_ids.add(sid)
 
@@ -130,7 +132,7 @@ def build_graph():
     print("\nBuilding tag index...")
     tag_index = defaultdict(list)
     for sid, tags in shabad_tags.items():
-        for tag in tags:
+        for tag in sorted(tags):
             tag_index[tag].append(sid)
 
     tag_index = dict(tag_index)
@@ -179,7 +181,7 @@ def build_graph():
         #   2. "branching" — shares this tag but brings DIFFERENT other tags (the surprises)
         per_tag_candidates = {}  # {tag: [(cid, score, shared_tags), ...]}
 
-        for tag in my_tags:
+        for tag in presentation_tags[sid]:
             tag_candidates = tag_index.get(tag, [])
             core_pool = []     # High overlap candidates
             branch_pool = []   # Different-direction candidates
@@ -211,9 +213,9 @@ def build_graph():
                 # Branching score: embedding similarity + bonus for bringing new tags
                 # A candidate that shares 1 tag but has 2 different tags gets a diversity boost
                 diversity_bonus = min(len(different) * 0.1, 0.3)  # Up to +0.3 for new tags
-                branch_score = embed_sim * 0.7 + diversity_bonus + 0.1  # base relevance
+                branch_score = max(0.0, min(1.0, (embed_sim * 0.7 + diversity_bonus + 0.1) / 1.1))  # base relevance
 
-                shared_list = list(shared)
+                shared_list = sorted(shared)
 
                 if len(shared) == len(my_tags):
                     # Shares ALL our tags — core candidate (same direction)
@@ -224,8 +226,8 @@ def build_graph():
                     if branch_score > 0.15:
                         branch_pool.append((cid, round(branch_score, 3), shared_list))
 
-            core_pool.sort(key=lambda x: x[1], reverse=True)
-            branch_pool.sort(key=lambda x: x[1], reverse=True)
+            core_pool.sort(key=lambda x: (-x[1], x[0]))
+            branch_pool.sort(key=lambda x: (-x[1], x[0]))
 
             # Merge: take top core + top branching
             # Guarantees branching neighbors per tag for genuine variety
@@ -234,7 +236,7 @@ def build_graph():
             n_branch = max(4, 8 - n_core)     # Rest is branching — aim for 8 per tag total
             merged.extend(core_pool[:n_core])
             merged.extend(branch_pool[:n_branch])
-            merged.sort(key=lambda x: x[1], reverse=True)
+            merged.sort(key=lambda x: (-x[1], x[0]))
 
             per_tag_candidates[tag] = merged
 
@@ -267,8 +269,7 @@ def build_graph():
         # Sort by score, cap at K_MAX
         final = sorted(
             [{"id": cid, **data} for cid, data in selected.items()],
-            key=lambda x: x["score"],
-            reverse=True,
+            key=lambda x: (-x["score"], x["id"]),
         )[:K_MAX]
 
         neighbors[sid] = final
@@ -327,8 +328,8 @@ def build_graph():
 
     # Save graph
     graph = {
-        "version": "4.0",
-        "scoring": "50% Jaccard + 50% embedding cosine, tag-balanced allocation",
+        "version": "5.0",
+        "scoring": "Core: 0.5 IDF Jaccard + 0.5 cosine; branch: (0.7 cosine + diversity + 0.1) / 1.1; untagged: cosine. Ranking heuristics, not confidence.",
         "k_max": K_MAX,
         "per_tag_min": PER_TAG_MIN,
         "stats": {
@@ -362,4 +363,6 @@ def build_graph():
 
 
 if __name__ == "__main__":
+    from bootstrap.build_guard import require_build_target
+    require_build_target(legacy=False)
     build_graph()

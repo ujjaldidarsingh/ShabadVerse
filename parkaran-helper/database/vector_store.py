@@ -9,8 +9,37 @@ vectors and live query embedding for semantic search.
 """
 
 import chromadb
+import os
+import shutil
+import tempfile
+import threading
+from pathlib import Path
 from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 import config
+
+
+_runtime_directory = None
+_runtime_lock = threading.Lock()
+_client_lock = threading.Lock()
+
+
+def _vector_path():
+    """Chroma maintains SQLite state even for queries; isolate those writes."""
+    global _runtime_directory
+    if os.getenv("SHABADVERSE_BUILD") == "1":
+        return config.CHROMA_DB_PATH
+    with _runtime_lock:
+        if _runtime_directory is None:
+            if not (Path(config.CHROMA_DB_PATH) / "chroma.sqlite3").is_file():
+                raise RuntimeError("Local vector snapshot is missing")
+            directory = tempfile.TemporaryDirectory(prefix="shabadverse-vectors-")
+            try:
+                shutil.copytree(config.CHROMA_DB_PATH, Path(directory.name) / "index")
+            except Exception:
+                directory.cleanup()
+                raise
+            _runtime_directory = directory
+        return str(Path(_runtime_directory.name) / "index")
 
 
 class ShabadVectorStore:
@@ -19,22 +48,20 @@ class ShabadVectorStore:
         # The ~90MB ONNX model is downloaded on first use and cached; the
         # Dockerfile pre-warms this cache at build time so runtime needs no network.
         self.embedding_fn = ONNXMiniLM_L6_V2()
-        self.client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH)
-        self.collection_name = collection_name or config.PERSONAL_COLLECTION_NAME
-        try:
-            self.collection = self.client.get_or_create_collection(
-                name=self.collection_name,
-                embedding_function=self.embedding_fn,
-                metadata={"hnsw:space": "cosine"},
-            )
-        except ValueError as err:
-            # A legacy collection persisted with a different embedding function
-            # (pre-ONNX migration) raises an embedding-function conflict. Open it
-            # as-is rather than crashing the app; collections that need ONNX
-            # should be rebuilt via reset_collection() (the bootstrap re-embed).
-            if "embedding function" not in str(err).lower():
-                raise
-            self.collection = self.client.get_collection(name=self.collection_name)
+        # Chroma shares process-wide initialization state across collections.
+        # Serialize cold starts when simultaneous browser requests arrive.
+        with _client_lock:
+            self.client = chromadb.PersistentClient(path=_vector_path(), settings=chromadb.Settings(anonymized_telemetry=False))
+            self.collection_name = collection_name or config.PERSONAL_COLLECTION_NAME
+            if os.getenv("SHABADVERSE_BUILD") == "1":
+                self.collection = self.client.get_or_create_collection(
+                    name=self.collection_name, embedding_function=self.embedding_fn,
+                    metadata={"hnsw:space": "cosine"})
+            else:
+                # Missing or incompatible collections are a release error, not an
+                # invitation to create an empty index or silently change embedders.
+                self.collection = self.client.get_collection(
+                    name=self.collection_name, embedding_function=self.embedding_fn)
 
     def reset_collection(self):
         """Drop and recreate this collection with the ONNX embedding function.
@@ -199,6 +226,10 @@ class ShabadVectorStore:
         Search for semantically similar shabads.
         Returns list of dicts with id, title, score, metadata.
         """
+        model = Path(ONNXMiniLM_L6_V2.DOWNLOAD_PATH) / ONNXMiniLM_L6_V2.EXTRACTED_FOLDER_NAME
+        required = ("config.json", "model.onnx", "special_tokens_map.json", "tokenizer_config.json", "tokenizer.json", "vocab.txt")
+        if any(not (model / name).is_file() for name in required):
+            raise RuntimeError("Local embedding model is missing. Restore the model cache before searching.")
         count = self.collection.count()
         if count == 0:
             return []

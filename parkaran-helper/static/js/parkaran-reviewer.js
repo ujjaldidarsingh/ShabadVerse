@@ -115,23 +115,24 @@ function selectShabad(idx) {
 
         ${s.primary_theme || s.mood ? `
         <div class="rv-theme-mood">
-            ${s.primary_theme ? `<div><div class="rv-label">THEME</div><div class="rv-value">${escapeHtml(s.primary_theme)}</div></div>` : ""}
+            ${s.primary_theme ? `<div><div class="rv-label">SUGGESTED THEME</div><div class="rv-value">${escapeHtml(s.primary_theme)}</div></div>` : ""}
             ${s.mood ? `<div><div class="rv-label">MOOD</div><div class="rv-value">${escapeHtml(s.mood)}</div></div>` : ""}
         </div>
         ` : ""}
 
         ${tagPills ? `<div class="rv-tags">${tagPills}</div>` : ""}
+        ${sourceBadge(s)}${conceptEvidenceHTML(s.concept_evidence)}
 
         ${s.brief_meaning ? `
         <div class="rv-summary-box">
-            <div class="rv-label">SUMMARY</div>
+            <div class="rv-label">MACHINE-ASSISTED SUMMARY</div>
             <div class="rv-summary-text">${escapeHtml(s.brief_meaning)}</div>
         </div>
         ` : ""}
 
         <div class="rv-section">
             <div class="rv-label">GURBANI</div>
-            <div class="rv-gurbani">${gurmukhiHtml}</div>
+            <div lang="pa-Guru" class="rv-gurbani">${gurmukhiHtml}</div>
         </div>
 
         ${translationText ? `
@@ -152,7 +153,7 @@ function selectShabad(idx) {
 
 function renderConnectionDetail(current, next, idx) {
     const shared = current.shared_tags_with_next || [];
-    const strength = shared.length >= 3 ? "STRONG" : shared.length >= 1 ? "MODERATE" : "WEAK";
+    const strength = "CONCEPT OVERLAP";
     const color = shared.length >= 3 ? "rgba(16,185,129,0.8)" : shared.length >= 1 ? "rgba(245,158,11,0.7)" : "rgba(107,95,82,0.7)";
     const bgColor = shared.length >= 3 ? "rgba(16,185,129,0.06)" : shared.length >= 1 ? "rgba(245,158,11,0.06)" : "rgba(107,95,82,0.06)";
     const borderColor = shared.length >= 3 ? "rgba(16,185,129,0.25)" : shared.length >= 1 ? "rgba(245,158,11,0.2)" : "rgba(107,95,82,0.2)";
@@ -172,7 +173,7 @@ function renderConnectionDetail(current, next, idx) {
             </div>
             ${shared.length > 0
                 ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${shared.map((t) => `<span style="font-family:'IBM Plex Mono';font-size:8px;color:${color};background:rgba(255,255,255,0.02);padding:2px 6px;border-radius:2px;border:1px solid ${borderColor};">${escapeHtml(t)}</span>`).join("")}</div>`
-                : `<div style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(107,95,82,0.5);">No shared thematic tags. Consider rearranging or adding a bridging shabad.</div>`
+                : `<div style="font-family:'IBM Plex Mono';font-size:9px;color:rgba(107,95,82,0.5);">No shared concepts in this dataset. Read both shabads to judge the transition.</div>`
             }
         </div>
     `;

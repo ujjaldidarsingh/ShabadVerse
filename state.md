@@ -1,113 +1,54 @@
-# Parkaran Tool Current State
+# ShabadVerse state, September 7, 2026
 
-## Status: Active Development — Design Polish Pass
+Latest implementation: `parkaran-helper/releases/2026-09-07-evidence`. Both membership quotas are removed. The candidate contains 88,850 assignments, preserving all 41,462 previous assignments. Newly admitted inferences remain provisional. Topic review hides previous inclusion status until reveal and supports local judgments and export. The earlier September 7 snapshot below remains preserved.
 
-## Recent Work
-- 2026-08-17: **Concept taxonomy rebuild** on `batch-8-9-staging` → STAGING. Root cause of tag skew: LLM string-voting consensus selected for agreeability (2% survival for pointed concepts; 4 of 5 panj chor had no tag). Replaced with 44 hand-curated concepts (`data/draft_vocabulary.json`, Ujjal-approved): lexical anchors are ground truth (a shabad naming ਹਉਮੈ carries Haumai), embedding prototypes extend each concept within a 2× inference budget, per-concept thresholds at 75% anchor recall, cross-concept ranking by margin-above-threshold (not raw cosine). Panj chor now: Kaam 820 / Moh 1,182 / Ahankar 472 / Haumai 448 / Lobh 313 / Krodh 166. Top concept Naam @ 32%, mega-only edges 1.0%, avg 19.6 neighbors; 533 untagged shabads get embedding-only neighbors (build_graph fallback). 4 description-only concepts (Vismad, Birha, Chardi Kala, Nimrata) flagged lower-confidence in /about; /about methodology rewritten (no more model-voting story). Verified over HTTPS on test.shabadverse.com; prod untouched (still serves 248-tag taxonomy).
-- 2026-07-08: Ship-readiness pass on `batch-8-9-staging` (Fable review → Opus execution). (1) **Taxonomy sharpened**: the tagging prompt's example tags had anchored all four LLMs — 14 of the top 15 tags were prompt examples, "Divine Grace" covered 85% of the corpus, 40% of shabads were tagged only with mega-tags. Re-mined the existing per-LLM shards (no LLM re-run): top-tag coverage 85%→37%, vocab 248→116, all-mega shabads 2,197→0, mega-only edges 19%→1.6%. IDF-weighted Jaccard + coverage-capped cluster labels. (2) **Two matching algorithms**: match=shabad (tags+summary embedding) and match=line (per-verse embedding, 56,649 lines, 85/15 line-vs-tag weighting). (3) Viz: faded nodes drop labels (dense-graph palimpsest), light-mode contrast, mobile gate. (4) P1 robustness/microcopy. Awaiting Ujjal review on test.shabadverse.com.
-- 2026-06-05: Batch 8/9 on `batch-8-9-staging` → deployed to STAGING (test.shabadverse.com / :5051), prod untouched. (1) generous graph labels (40/300px neighbors, 48/360px center); (2) /about page (methodology + AI transparency); (3) dropped torch — ChromaDB ONNX MiniLM, image 9.84GB→1.71GB, RAM 682MB→376MB; (4) natural-language meaning search (✨ mode + /api/graph/semantic-search).
-- 2026-05-15: Batch 7 database rebuild SHIPPED — 4-LLM consensus tagging (qwen3+deepseek-r1+llama3.1+claude), AK indexing (2,078 shabads), 248 canonical tags, synonym-merge, AK boost endpoint + UI toggle, similarity graph rebuilt (15.9 avg neighbors)
-- 2026-05-05: Batch 6 beta-feedback fixes (B1-B8 + F1) — first-letter-anywhere search, apostrophe escape (data attributes + delegated handlers), light-mode contrast, breadcrumb wrap, preview race condition, Cytoscape tag label hit area, booting indicator, Constellation Map filter
-- 2026-04-17: Beta opened (uddamsingh, Tester A, Tarun, Harsimran feedback collected)
-- 2026-03-30: Design review (7.8/10), began fix pass — reviewer inline styles, touch targets, Gurmukhi-first
-- 2026-03-29: SAVE/LIBRARY on reviewer page, parkaran library (localStorage), GitHub repo + ngrok demo
-- 2026-03-25: Graph explorer, SGGS taxonomy (372 tags, 5,542 shabads), suggestion engine diversity
-- 2026-03-24: Local stack migration (Ollama + sentence-transformers), Celestial Observatory design
+Live behavior rechecked September 7: production still exposes 248 tags and staging 44; neither currently exposes `/api/release`. The host is confirmed at 18.220.187.85. Production ran commit de5e13f with image 82ef1d1d0287; its image and runtime data were retained for rollback. Release verification is in progress.
 
-## Active Pages
-- **Explore** (primary): Interactive graph explorer with tag-clustered suggestions, threshold slider, force controls
-- **Reviewer**: Parkaran flow review with full Gurmukhi text, shared tags between shabads
-- **Database**: Browse/search personal shabad collection (1,035 enriched)
+32 Python checks pass against the evidence candidate, including full-corpus provenance, lexical retention, uncapped membership and hidden review status and serialized vector initialization. Both browser suites pass on phone, tablet and desktop, including simultaneous cold-start requests with external browser requests blocked. The rebuilt graph averages 3.5 stored neighbors per shabad; this is a presentation outcome, not a measure of thematic accuracy.
 
-## Environment
-- **Run**: `cd parkaran-helper && python app.py` (port 5050)
-- **Python**: miniforge 3.13 (`/opt/homebrew/Caskroom/miniforge/base/bin/python3`)
-- **LLM**: Ollama with qwen3:14b (primary) + deepseek-r1:14b (validation)
-- **Embeddings**: sentence-transformers all-MiniLM-L6-v2 (384-dim, local)
-- **No API keys needed** — fully offline after bootstrap
+## Earlier September 7 candidate
 
-## Data Assets
-- `sggs_all_shabads.json` — 5,542 SGGS shabads with themes, tags, rahao, summaries
-- `similarity_graph.json` — precomputed graph (10.6 MB, avg 19.6 neighbors per shabad)
-- `tag_vocabulary.json` — 44 hand-curated concepts (Gurmukhi-anchored, generated by build_concept_tags.py)
-- `draft_vocabulary.json` — curated concept source (tracked in git; edit → rerun build_concept_tags.py)
-- `concept_tags.json` — per-shabad assignments with line provenance (which verse matched, lexical vs inferred)
-- `enriched_shabads.json` — 1,035 personal library shabads
-- `chroma_db/` — ChromaDB: personal (1,035) + SGGS (5,542) + sggs_lines (56,649 per-verse vectors)
-- `shabad_cache.db` — SQLite cache for BaniDB API responses
+Current review candidate: `parkaran-helper/releases/2026-09-07-explore`. The seven requested discovery changes are implemented: visible voice-reviewed walkthrough, repaired Roman/Gurmukhi initial search, Graph default, new visual identity, effective AK source choices, explained topic ceilings with review examples, and random starts within a complete topic. Topic pagination removes the old first-page-only browsing limit.
 
-## Known Issues
-- Center cluster can get dense when shabad has many tag directions (8+ clusters overlap)
-- ~34 shabads still have short/structural display names (edge cases: ਡਖਣਾ, ਪਵੜੀ markers)
-- Enrichment pipeline comments still reference Claude/Voyage (cosmetic, code uses Ollama)
-- Frontend uses CDN for Tailwind + Cytoscape (requires internet for first load)
-- DESIGN.md color tokens drift from actual CSS values (documentation, not code bug)
+Twenty-nine Python tests pass, including full-corpus checks. Both browser suites pass on phone, tablet and desktop with external browser requests blocked. The browser checks cover initial-search equivalence, source modes, pagination, review examples, topic random starts, deliberate view persistence, and the existing complete parkaran workflow. Physical-device and cultural judgments remain with Ujjal. No remote deployment occurred.
 
-## Milestones
+The corpus, graph, assignments and source membership match the September 6 candidate. Added vocabulary metadata records the existing generation policy. See the current manifest for exact runtime and dataset hashes. Historical September 6 digests below identify that earlier candidate, not the current runtime.
 
-### Alpha (internal testing ready)
-- [x] feat: graph explorer with radial tag-clustered layout (Cytoscape.js)
-- [x] feat: SGGS taxonomy — 372 tags across 5,542 shabads
-- [x] feat: suggestion engine with core/branch diversity (8.6 avg clusters)
-- [x] feat: threshold slider for suggestion selectivity
-- [x] feat: force controls (center, repel, link, distance)
-- [x] feat: verse preview overlay with rahao highlighting
-- [x] feat: parkaran trail (green directed edges between selected shabads)
-- [x] feat: reviewer page with shared tag transitions
-- [x] feat: first-letter search (BaniDB) + local tag/theme fallback
-- [x] feat: parkaran library save/load/delete (localStorage)
-- [x] feat: SAVE/LIBRARY on reviewer page
-- [x] bug: fix cose-bilkent crash — built-in cose layout
-- [x] bug: fix XSS via single-quote injection in onclick attributes
-- [x] bug: fix race condition in expandShabad (concurrent guard)
-- [x] bug: searched tuk drives suggestions via blended vector+graph path
-- [x] bug: 8 structural display names fixed (12 remaining are genuine section markers)
-- [x] feat: shabad preview popup visible in tooltip (PREVIEW button prominent)
-- [x] chore: GitHub repo + ngrok demo deployment
-- [x] design: Gurmukhi-first display on database page
-- [x] design: Reviewer header uses CSS classes (not inline styles)
-- [x] design: Touch targets meet 44px minimum (buttons, breadcrumbs, slider)
-- [x] design: NO SHARED TAGS uses dim color (not red)
-- [x] design: Consistent button styling across all pages
+Current dataset ID: `d1dfb424ae38f840a621097baeef8a246b6f5dc7d83e09910a8741be64fc511d`. Runtime SHA-256: `17b8b7561ab487d763d09e30d8353f7ce77e769f503a6a759a587456175046a5`. Local preview: `http://127.0.0.1:5052`.
 
-### Beta (external testing ready)
-- [x] design: Celestial Observatory design system (DESIGN.md)
-- [x] design: warm purple-black palette, Noto Serif Gurmukhi, theme-colored nodes
-- [ ] design: font size overhaul — explore/review pages readable at arm's length
-- [ ] design: tooltip dialog box sizing (verses/preview too small currently)
-- [ ] design: tag labels fully visible (max-width reactive, wrap not truncate)
-- [ ] design: reviewer detail panel max-width for readability
-- [ ] design: tag label collision avoidance on graph
-- [x] feat: shabad labels show 4-5 Gurmukhi words (not 2) — 40 chars, adaptive to graph density
-- [ ] feat: add-to-parkaran solidifies nodes with visual trail breadcrumbs
-- [x] feat: tag taxonomy refinement (merge overlapping tags) — 372 → 248 → 116 → 44 hand-curated concepts, lexically anchored
-- [ ] test: automated smoke test for all API endpoints
-- [ ] test: graph neighbor diversity regression test (experiments.tsv baseline)
-- [ ] perf: bundle Tailwind + Cytoscape locally (no CDN dependency)
-- [ ] docs: user guide — how to search, explore, build parkaran, review
+## September 6 baseline
 
-### Ship (production deploy)
-- [ ] perf: lazy-load similarity_graph.json (7.4 MB blocks initial page load)
-- [ ] perf: graph node eviction strategy (cap visible nodes after 20+ expansions)
-- [x] perf: cache SentenceTransformer model load at app startup — obsolete: torch dropped for ChromaDB ONNX MiniLM (Batch 9)
-- [ ] feat: line/shabad match-mode UI (backend shipped; tooltip chips + trail glyphs pending)
-- [ ] feat: export parkaran as PDF/image/share link
-- [ ] feat: occasion-aware suggestions integrated into explore view
-- [ ] design: mobile responsive graph explorer (touch gestures, pinch zoom)
-- [ ] design: accessibility pass (focus-visible, screen reader labels, contrast ratios)
-- [ ] docs: deploy guide (Docker, systemd, or similar)
-- [ ] docs: bootstrap pipeline runbook (recovery from partial failures)
-- [ ] test: E2E browser tests (Playwright or similar)
+Implementation candidate: `parkaran-helper/releases/2026-09-06-trust-mobile`. This directory is ignored by git and has not replaced `data/`. The working code is uncommitted on `batch-8-9-staging`, based on `f14d66310298aa45c4b8ae5aaaa801c127c6fe7e`. Use the manifest's code digest to identify the actual candidate.
 
-## Deployment topology (Lightsail 18.220.187.85)
-- **Prod**: `/opt/shabadverse/parkaran-helper`, branch `main`, compose project `parkaran-helper`, container :5050. Caddy `shabadverse.com → :5050`. Still torch image until next prod rebuild.
-- **Staging**: `/opt/shabadverse-staging/parkaran-helper`, branch `batch-8-9-staging`, compose project `shabadverse-staging` (`docker-compose.staging.yml`), container :5051. Caddy `test.shabadverse.com → :5051` (needs DNS A record `test → 18.220.187.85`).
-- TLS via Caddy (`/etc/caddy/Caddyfile`, backup `.bak`). Data baked into image at build (no volumes); regenerated `data/` must be copied in before `--build`.
+## Implemented
 
-## Promote staging → prod (after Ujjal approves test.shabadverse.com)
-1. `git checkout main && git merge --ff-only batch-8-9-staging && git push origin main`
-2. Server: `cd /opt/shabadverse/parkaran-helper && sudo git pull`
-3. Overlay regenerated data into prod `data/` — tar from local: the ONNX `chroma_db` (prod still holds old sentence-transformer vectors, no `sggs_lines`) PLUS the taxonomy JSONs (`sggs_all_shabads.json`, `similarity_graph.json`, `tag_vocabulary.json`, `concept_tags.json`)
-4. `sudo cp -a data data.bak.$(date +%F)` then `sudo docker compose up -d --build` (prod image drops 9.84GB→~1.7GB, frees ~300MB RAM)
-5. Smoke test shabadverse.com: `/`, `/about`, `/api/graph/semantic-search?q=...`, AK boost
-6. Tear down staging once satisfied: `sudo docker compose -p shabadverse-staging down` + remove the `test.` Caddy block (or keep staging as a permanent pre-prod)
+- Full concept assignments and lexical anchors are retained, with a separate six-direction presentation budget. The rebuilt graph uses bounded scores and truthful cluster labels, including a neutral untagged path.
+- Local first-letter search preserves start/anywhere semantics and selected-verse context. Visible line/whole-shabad matching, explicit fallback, request bounds and context-aware caches protect the exploration path.
+- Phone cards, a set drawer, tap reorder controls, full reading and review provide the core touch workflow. Graph exploration remains available.
+- Evidence panels distinguish lexical and inferred assignments; lower-confidence description-only concepts remain visible. Writer and verse records come from the preserved cache. Machine summaries are labelled.
+- Frontend assets are local. Initial metadata is smaller, gzip is supported, neighbor caching and faded graph history are bounded.
+- Candidate builds preserve the source directory, guard legacy writers and validate a hashed runtime bundle. Docker uses enumerated assets, pinned dependency constraints, loopback bindings and readiness checks.
+- Unrouted legacy templates and their unused page scripts were removed. Curated data, historical taxonomies, backups and personal-library sources remain preserved.
+
+## Deployment evidence
+
+Public `/api/graph/init` responses observed on September 6 still differ: production exposes 248 tags and 15.9 average neighbors; staging exposes 44 tags and 19.6 average neighbors. Both expose metadata for 5,542 shabads. These responses identify data behavior, not remote commit or image digests. The remote code, image and full dataset hashes have not been reconciled. Neither environment was edited or deployed during this pass.
+
+The old topology documentation names Lightsail with Caddy proxying production port 5050 and staging 5051. Treat server paths and image claims as historical until checked on the host. The supported promotion sequence is in `architecture.md`; it supersedes the former overlay-then-backup instructions.
+
+## Remaining release gates
+
+The expanded assignments and changed neighbor distribution require review of the exact candidate. Existing confirmation of concept definitions does not approve these outputs. Record review separately from mechanical validation. See `REVIEW.md`.
+
+Docker is unavailable on this workstation, so the image build and isolated container runtime remain unverified. Browser emulation does not establish native-app readiness or physical-device accessibility. Native packaging, installable offline use and cross-device sync have not been implemented.
+
+Do not add taxonomies, generated commentary, occasion workflows, graph animation features or cloud synchronization before validating the current discovery-to-review journey and resolving data/deployment identity. Keep the preserved snapshots until their authority and recovery value have been traced.
+
+## Verification evidence
+
+Seventeen Python tests pass, including full-corpus identity/provenance, lexical retention, all-seed cluster truth, build guards and writable-vector isolation. Chromium checks pass at 390×844, 820×1180 and 1440×1000 with external browser requests blocked: first-letter search, matching modes, read, add, reorder, review, reload, shared order and bounded graph history. Release assets stayed byte-identical after semantic searches and browser use. Python dependency resolution passed without installation. The existing global Python environment emits a RequestsDependencyWarning; a clean Docker runtime is still untested.
+
+The candidate contains 41,462 assignments across 44 concepts and averages 8.23 stored neighbors per shabad. This changed distribution is a review subject, not a quality score. Original corpus and graph hashes match the pre-implementation snapshot.
+
+Dataset ID: `cbecdf8a3b27e4d6760b61e4a9215823ac4706e557cbf3e6d4810d2848417a23`.
+Runtime-code SHA-256: `57f9e01679b128ef30bdb8a70f53aae033246e12866b23b112a082866d4033b5`.

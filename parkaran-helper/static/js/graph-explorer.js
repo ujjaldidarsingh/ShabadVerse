@@ -30,8 +30,8 @@ function setLoadingProgress(percent, label) {
 function dismissLoadingOverlay() {
     const overlay = document.getElementById("loadingOverlay");
     if (!overlay || _loadingDismissed) return;
-    _loadingDismissed = true;
     setLoadingProgress(100, "Ready");
+    _loadingDismissed = true;
     setTimeout(() => {
         overlay.classList.add("fade-out");
         setTimeout(() => overlay.classList.add("hidden"), 400);
@@ -62,8 +62,9 @@ const State = {
     expanding: false,   // guard against concurrent expandShabad calls
     selectedTuk: {},    // {shabadId: {gurmukhi, english, index}} — per-shabad tuk selection
     verseCache: {},     // {shabadId: versesArray} — cached verse data
+    evidenceCache: {},
     shabadInfoCache: {}, // {shabadId: {raag, writer, ang}} — from BaniDB, fills metadata gaps
-    akMode: false,      // when true, /api/graph/neighbors gets ak_boost=1 to lift AK shabads
+    sourceMode: "all",
     matchMode: "shabad", // "shabad" | "line" — which matching algorithm expansions use
     forces: {           // Obsidian-style force parameters
         center: 0.08,   // gravity: 0.01-0.5 (low = spread out)
@@ -76,7 +77,7 @@ const State = {
 
 /** Escape for safe insertion into onclick attribute string literals. */
 function escAttr(s) {
-    return escapeHtml(String(s)).replace(/'/g, "&#39;").replace(/\\/g, "&#92;").replace(/\n/g, "&#10;");
+    return escapeHtml(String(s)).replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/\\/g, "&#92;").replace(/\n/g, "&#10;");
 }
 
 /** Map a shabad's primary theme to a node color. */
@@ -147,7 +148,7 @@ async function init() {
         State.tagVocab = data.tag_vocab || {};
 
         setLoadingProgress(50, "Loading tag taxonomy");
-        State.allTags = await API.get("/api/tags");
+        State.allTags = Object.entries(State.tagVocab).map(([tag, value]) => ({tag, ...value, count: (State.tagIndex[tag] || []).length})).sort((a, b) => b.count - a.count);
 
         setLoadingProgress(70, "Restoring library");
         restoreParkaran();
@@ -160,6 +161,7 @@ async function init() {
         initForceControls();
         initAkMode();
         initMatchMode();
+        initDiscoveryView();
 
         // Escape key closes modals and tooltip
         document.addEventListener("keydown", (e) => {
@@ -230,7 +232,8 @@ function initCytoscape() {
     State.cy.on("tap", "node[type='tagLabel']", (evt) => {
         evt.stopPropagation();
         const tag = evt.target.data("tag") || evt.target.data("label");
-        if (tag) openTagShabadsModal(tag);
+        if (State.tagIndex[tag]) openTagShabadsModal(tag);
+        else showToast("These connections use translation similarity.");
     });
 
     // Hover tag label → show pointer cursor
@@ -424,6 +427,7 @@ function getStyles() {
                 height: 10,
             },
         },
+        {selector: "node.ak-member", style: {"border-width": 2, "border-color": "#c59550", "border-style": "double"}},
         // ── Parkaran trail edges (green arrows connecting selected shabads) ──
         {
             selector: "edge.parkaran-trail",
@@ -448,7 +452,7 @@ function getStyles() {
 
 async function expandShabad(shabadId) {
     const sid = String(shabadId);
-    if (State.expanding) return; // guard against concurrent calls
+    if (State.expanding) { State.pendingExpansion = sid; return; }
     State.expanding = true;
 
     document.getElementById("graphEmpty").classList.add("hidden");
@@ -459,6 +463,8 @@ async function expandShabad(shabadId) {
 
     // Fetch neighbors — pass tuk English if user searched a specific verse
     const threshold = getThreshold();
+    const sourceMode = State.sourceMode;
+    const neighborLimit = innerWidth <= 768 ? 6 : innerWidth <= 1024 ? 12 : 24;
     const tuk = State.selectedTuk[sid];
     const tukEnglish = tuk?.english || "";
     // Matching algorithm: "shabad" (which shabads are about the same things) or
@@ -471,7 +477,7 @@ async function expandShabad(shabadId) {
     // Cache by shabad ID + threshold + match mode + anchor. Tuk-specific
     // suggestions are otherwise a display-layer concern; the neighbor set from
     // the API is the same.
-    const cacheKey = `${sid}_${threshold}_${matchMode}_${anchorLineIndex ?? "auto"}`;
+    const cacheKey = JSON.stringify([sid, threshold, matchMode, anchorLineIndex, tukEnglish, sourceMode, neighborLimit]);
     if (!State.neighborCache[cacheKey]) {
         // Show graph loading spinner during first fetch for this shabad
         const graphLoadingEl = document.getElementById("graphLoading");
@@ -480,7 +486,7 @@ async function expandShabad(shabadId) {
             graphLoadingEl.innerHTML = '<div class="orbital-spinner"></div><div class="font-[\'IBM_Plex_Mono\'] text-gray-600 text-xs tracking-wider mt-3">LOADING CONNECTIONS</div>';
         }
         try {
-            let url = `/api/graph/neighbors/${sid}?threshold=${threshold}`;
+            let url = `/api/graph/neighbors/${sid}?threshold=${threshold}&max_neighbors=${neighborLimit}`;
             if (matchMode === "line") {
                 url += `&match=line`;
                 if (anchorLineIndex !== null) url += `&line_index=${anchorLineIndex}`;
@@ -488,21 +494,34 @@ async function expandShabad(shabadId) {
                 // Shabad mode only: blend in vector hits for the searched verse.
                 url += `&tuk_english=${encodeURIComponent(tukEnglish)}`;
             }
-            if (State.akMode) {
-                url += `&ak_boost=1`;
-            }
+            url += `&source=${sourceMode}`;
             State.neighborCache[cacheKey] = await API.get(url);
         } catch (err) {
             console.error("Neighbor fetch failed:", err);
             State.expanding = false;
             document.getElementById("graphLoading")?.classList.add("hidden");
+            document.getElementById("connectionStatus").textContent = "Connections unavailable. Try another shabad or source setting.";
+            if (State.pendingExpansion) { const next = State.pendingExpansion; State.pendingExpansion = null; await expandShabad(next); }
             return;
         }
         document.getElementById("graphLoading")?.classList.add("hidden");
     }
 
+    if (sourceMode !== State.sourceMode || matchMode !== State.matchMode || threshold !== getThreshold()) {
+        State.expanding = false;
+        const next = State.pendingExpansion || sid;
+        State.pendingExpansion = null;
+        return expandShabad(next);
+    }
     const neighborData = State.neighborCache[cacheKey];
     const byTag = neighborData.by_tag || {};
+    for (const items of Object.values(byTag)) {
+        for (const item of items) State.metadata[String(item.id)] = {...State.metadata[String(item.id)], ...item};
+    }
+    State.lastNeighbors = {sid, data: neighborData};
+    renderConnectionStatus(neighborData);
+    renderNeighborCards(sid, neighborData);
+    trimNeighborCache();
     const cy = State.cy;
 
     // Fade all existing elements
@@ -558,15 +577,12 @@ async function expandShabad(shabadId) {
     // Nodes within a cluster are packed close; clusters are separated visually.
     const centerPos = centerEl.position();
     const tagEntries = Object.entries(byTag).filter(([_, n]) => n.length > 0);
-    const radius = State.forces.distance;
+    const radius = innerWidth <= 768 ? 130 : State.forces.distance;
     State.tagClusters = {};
 
-    const numTags = tagEntries.length;
     // Gap between clusters: 15% of each slice is padding (7.5% on each side)
     const gapFraction = 0.15;
-    const fullSlice = (2 * Math.PI) / Math.max(numTags, 1);
-    const gapAngle = fullSlice * gapFraction;
-    const usableSlice = fullSlice - gapAngle;
+    const neighborCount = tagEntries.reduce((count, [, rows]) => count + rows.length, 0);
 
     let globalAngleOffset = 0;
 
@@ -574,6 +590,9 @@ async function expandShabad(shabadId) {
         const [tag, neighbors] = tagEntries[ti];
         State.tagClusters[tag] = [];
 
+        const fullSlice = 2 * Math.PI * neighbors.length / Math.max(neighborCount, 1);
+        const gapAngle = fullSlice * gapFraction;
+        const usableSlice = fullSlice - gapAngle;
         const baseAngle = globalAngleOffset + gapAngle / 2; // start after gap
         globalAngleOffset += fullSlice;
         const tagAngle = baseAngle + usableSlice / 2;
@@ -603,8 +622,8 @@ async function expandShabad(shabadId) {
 
             // Pack nodes tightly within the usable slice
             const neighborAngle = baseAngle + ((j + 0.5) / Math.max(neighbors.length, 1)) * usableSlice;
-            // Slight radial jitter to avoid perfect arc (but stay within cluster band)
-            const jitter = 0.92 + Math.random() * 0.16;
+            // Deterministic spacing keeps a source-mode change spatially stable.
+            const jitter = 1;
             const nx = centerPos.x + Math.cos(neighborAngle) * clusterRadius * jitter;
             const ny = centerPos.y + Math.sin(neighborAngle) * clusterRadius * jitter;
 
@@ -630,7 +649,7 @@ async function expandShabad(shabadId) {
                 });
             } else {
                 nodeEl.removeClass("faded");
-                nodeEl.animate({ position: { x: nx, y: ny } }, { duration: 400, easing: "ease-out-cubic" });
+                nodeEl.position({ x: nx, y: ny });
             }
 
             // Edge: center → shabad (curved bezier, strength-encoded)
@@ -647,11 +666,15 @@ async function expandShabad(shabadId) {
                     },
                 });
             }
+            cy.getElementById(edgeId).data("score", n.score || 0);
             cy.getElementById(edgeId).removeClass("faded");
+            cy.getElementById(nid).toggleClass("ak-member", Boolean(n.is_amrit_keertan));
 
             State.tagClusters[tag].push(nid);
         }
     }
+
+    evictOldGraphNodes();
 
     // Re-apply parkaran styling and draw trail
     State.parkaran.forEach((p) => {
@@ -660,24 +683,15 @@ async function expandShabad(shabadId) {
     });
     redrawParkaranTrail();
 
-    // Fit to visible nodes — immediate fit first, then smooth refine
-    const visibleNodes = cy.nodes().not(".faded").not("[type='tagLabel']");
-    if (visibleNodes.length > 0) {
-        cy.fit(visibleNodes, 50);
-        cy.animate({
-            fit: { eles: visibleNodes, padding: 60 },
-        }, {
-            duration: 400,
-            easing: "ease-out-cubic",
-        });
-    }
-    // Now that the field's density is known, size the labels to it.
     applyAdaptiveLabels();
+    const visibleNodes = cy.nodes("[type='shabad']").not('.faded');
+    if (visibleNodes.length) cy.fit(visibleNodes, innerWidth <= 768 ? 18 : 40);
 
     // Reset expanding guard immediately — the critical async work (API call)
     // is done. Don't depend on cy.animate callback which can silently skip
     // if the animation is a no-op (already at target position).
     State.expanding = false;
+    if (State.pendingExpansion) { const next = State.pendingExpansion; State.pendingExpansion = null; await expandShabad(next); }
 }
 
 /** Position tag label nodes at the centroid of their cluster after force layout. */
@@ -776,7 +790,8 @@ function showTooltip(shabadId, nodeEl) {
             ${meta.gurmukhi ? `<div class="tt-gurmukhi">${isRep ? "&#9733; " : ""}${escapeHtml(meta.gurmukhi.substring(0, 45))}</div>` : ""}
             ${tukHtml}
             <div class="tt-meta">${escapeHtml([meta.raag, meta.writer, meta.ang ? "ANG " + meta.ang : ""].filter(Boolean).join(" / "))}</div>
-            ${summary ? `<div class="tt-summary">${escapeHtml(truncSentence(summary, 160))}</div>` : ""}
+            ${summary ? `<div class="tt-summary"><small>Machine-assisted summary</small><br>${escapeHtml(truncSentence(summary, 160))}</div>` : ""}
+            ${sourceBadge(meta)}
             ${tagPills ? `<div class="tt-tags">${tagPills}</div>` : ""}
             <div class="tt-actions">
                 <button class="tt-btn tt-btn-add" data-action="add" data-id="${sid}">${inParkaran ? "&#10003; IN SET" : "+ ADD"}</button>
@@ -801,14 +816,6 @@ function showTooltip(shabadId, nodeEl) {
                 showTooltip(id, nodeEl); // refresh to show "IN PARKARAN"
             } else if (action === "explore") {
                 hideTooltip();
-                // If no tuk was selected for this shabad, use brief_meaning as semantic proxy
-                if (!State.selectedTuk[id]) {
-                    const nmeta = State.metadata[id] || {};
-                    const meaning = nmeta.brief_meaning || nmeta.primary_theme || "";
-                    if (meaning) {
-                        State.selectedTuk[id] = { gurmukhi: "", english: meaning, index: -1 };
-                    }
-                }
                 expandShabad(id);
             } else if (action === "preview") {
                 loadPreview(id);
@@ -891,8 +898,9 @@ async function loadPreview(shabadId) {
             const keys = Object.keys(State.verseCache);
             if (keys.length >= 50) delete State.verseCache[keys[0]];
             State.verseCache[sid] = data.verses || [];
+            State.evidenceCache[sid] = data.concepts || [];
             // BaniDB knows the writer even where our graph metadata doesn't.
-            State.shabadInfoCache[sid] = { raag: data.raag, writer: data.writer, ang: data.ang };
+            State.shabadInfoCache[sid] = { raag: data.raag, writer: data.writer, ang: data.ang, is_amrit_keertan: data.is_amrit_keertan, ak_chapters: data.ak_chapters };
         } catch (err) {
             // Only show the error if we're still the active preview
             if (modal.dataset.sid !== sid || modal.classList.contains("hidden")) return;
@@ -908,6 +916,7 @@ async function loadPreview(shabadId) {
             wirePreviewCloseButtons();
             preview.querySelector('[data-action="retry-preview"]')?.addEventListener("click", () => {
                 delete State.verseCache[sid];
+                modal.removeAttribute("data-sid");
                 loadPreview(sid);
             });
             return;
@@ -940,6 +949,8 @@ async function loadPreview(shabadId) {
             <span>${headerText}</span>
             <button class="preview-close" aria-label="Close preview">&times;</button>
         </div>
+        ${sourceBadge({...meta,...info})}
+        ${conceptEvidenceHTML(State.evidenceCache[sid])}
         ${verses.map((v) => {
             const rahaoClass = v.is_rahao ? " preview-rahao" : "";
             return `<div class="preview-verse${rahaoClass}">
@@ -997,6 +1008,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
                 delete State.verseCache[keys[0]];
             }
             State.verseCache[sid] = data.verses || [];
+            State.evidenceCache[sid] = data.concepts || [];
         } catch (err) {
             if (gen !== verseLoadGeneration) return;
             container.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:var(--signal-red);font-size:8px;">FAILED</div>';
@@ -1059,9 +1071,7 @@ function initThresholdSlider() {
     slider.addEventListener("change", debounce(() => {
         if (!State.centerNode) return;
         const sid = State.centerNode;
-        for (const key of Object.keys(State.neighborCache)) {
-            if (key.startsWith(sid + "_")) delete State.neighborCache[key];
-        }
+        State.neighborCache = {};
         expandShabad(sid);
     }, 200));
 }
@@ -1073,12 +1083,18 @@ function initThresholdSlider() {
  * the neighbor cache forces fresh server-side ranking on toggle.
  */
 function initAkMode() {
-    const btn = document.getElementById("akModeToggle");
-    if (!btn) return;
-    State.akMode = localStorage.getItem("shabadverse_ak_mode") === "1";
-    btn.classList.toggle("ak-mode-active", State.akMode);
-    btn.setAttribute("aria-pressed", String(State.akMode));
+    const stored = localStorage.getItem("shabadverse_source_mode");
+    State.sourceMode = ['all', 'prefer-ak', 'ak-only'].includes(stored) ? stored :
+        (localStorage.getItem("shabadverse_ak_mode") === '1' ? 'prefer-ak' : 'all');
+    document.getElementById('sourceModeSelect').value = State.sourceMode;
 }
+
+window.setSourceMode = function (mode) {
+    State.sourceMode = ['prefer-ak', 'ak-only'].includes(mode) ? mode : 'all';
+    localStorage.setItem('shabadverse_source_mode', State.sourceMode);
+    State.neighborCache = {};
+    if (State.centerNode) expandShabad(State.centerNode);
+};
 
 /**
  * Matching algorithm: "shabad" asks which shabads are about the same things;
@@ -1091,6 +1107,7 @@ function initAkMode() {
 function initMatchMode() {
     const stored = localStorage.getItem("shabadverse_match_mode");
     State.matchMode = stored === "line" ? "line" : "shabad";
+    document.getElementById("matchModeSelect").value = State.matchMode;
 }
 
 window.setMatchMode = function (mode) {
@@ -1101,21 +1118,6 @@ window.setMatchMode = function (mode) {
     // Cache keys include the mode, so switching re-queries rather than
     // re-rendering a stale neighbor set.
     if (State.centerNode) expandShabad(State.centerNode);
-};
-
-window.toggleAkMode = function () {
-    State.akMode = !State.akMode;
-    localStorage.setItem("shabadverse_ak_mode", State.akMode ? "1" : "0");
-    const btn = document.getElementById("akModeToggle");
-    if (btn) {
-        btn.classList.toggle("ak-mode-active", State.akMode);
-        btn.setAttribute("aria-pressed", String(State.akMode));
-    }
-    // Invalidate the neighbor cache so the next expand re-queries with the new mode.
-    State.neighborCache = {};
-    if (State.centerNode) {
-        expandShabad(State.centerNode);
-    }
 };
 
 function getThreshold() {
@@ -1198,6 +1200,7 @@ function setSearchMode(mode) {
 
     // Clear and refocus
     input.value = "";
+    input.dispatchEvent(new Event("input"));
     preview.textContent = "";
     document.getElementById("searchDropdown").classList.add("hidden");
     input.focus();
@@ -1230,7 +1233,15 @@ function initSearch() {
     // Update Gurmukhi preview on each keystroke in first-letter modes
     input.addEventListener("input", () => updateGurmukhiPreview());
 
+    input.addEventListener("compositionstart", () => { input.dataset.composing = "1"; });
+    input.addEventListener("compositionend", () => { input.dataset.composing = "0"; });
+    let searchGeneration = 0;
+    input.addEventListener("input", () => { searchGeneration++; });
+    input.addEventListener("compositionend", () => input.dispatchEvent(new Event("input")));
     input.addEventListener("input", debounce(async () => {
+        if (input.dataset.composing === "1") return;
+        const generation = searchGeneration;
+        const modeAtRequest = searchMode;
         const q = input.value.trim();
         // Semantic search needs a fuller phrase to be meaningful; other modes
         // are useful from 2 chars.
@@ -1248,6 +1259,7 @@ function initSearch() {
                 dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">FINDING BY MEANING</span></div>';
                 dropdown.classList.remove("hidden");
                 const semResults = await API.get(`/api/graph/semantic-search?q=${encodeURIComponent(q)}&limit=10`);
+                if (generation !== searchGeneration || modeAtRequest !== searchMode) return;
                 if (semResults && semResults.length > 0) {
                     dropdown.innerHTML = semResults.map((r) => {
                         const sid = String(r.banidb_shabad_id);
@@ -1259,7 +1271,7 @@ function initSearch() {
                             writer: r.writer || m.writer || "",
                             ang: r.ang_number || m.ang || 0,
                             is_repertoire: false,
-                            brief_meaning: r.first_line_translation || m.brief_meaning || "",
+                            brief_meaning: "Machine-assisted summary: " + (r.first_line_translation || m.brief_meaning || ""),
                             score: r.score,
                         }, "", r.first_line_translation);
                     }).join("");
@@ -1301,11 +1313,12 @@ function initSearch() {
                 // Gurmukhi first-letter search via BaniDB (may be slow on first call)
                 dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">SEARCHING</span></div>';
                 dropdown.classList.remove("hidden");
-                const flQuery = q.replace(/\s+/g, "");
+                const flQuery = asciiToGurmukhi(q).replace(/\s+/g, "");
                 // BaniDB searchtypes: 0 = first-letter from start, 1 = first-letter anywhere, 2 = full word.
                 // Our two modes map to BaniDB's 0 and 1, NOT 1 and 2.
                 const stype = searchMode === "first-letter-start" ? 0 : 1;
                 const baniResults = await API.get(`/api/graph/search?q=${encodeURIComponent(flQuery)}&searchtype=${stype}`);
+                if (generation !== searchGeneration || modeAtRequest !== searchMode) return;
                 if (baniResults && baniResults.length > 0) {
                     dropdown.innerHTML = baniResults.slice(0, 10).map((r) => {
                         const sid = String(r.banidb_shabad_id);
@@ -1318,7 +1331,7 @@ function initSearch() {
                             ang: r.ang_number || m.ang || 0,
                             is_repertoire: false,
                             brief_meaning: m.brief_meaning || "",
-                        }, r.title_gurmukhi, r.first_line_translation);
+                        }, r.title_gurmukhi, r.first_line_translation, r.line_index);
                     }).join("");
                 } else {
                     dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO RESULTS</div>';
@@ -1327,6 +1340,9 @@ function initSearch() {
 
             dropdown.classList.remove("hidden");
         } catch (err) {
+            if (generation !== searchGeneration || modeAtRequest !== searchMode) return;
+            dropdown.innerHTML = '<div class="autocomplete-item">Search unavailable. Try again.</div>';
+            dropdown.classList.remove("hidden");
             console.error("Search error:", err);
             hideLoadingBar();
         }
@@ -1346,16 +1362,16 @@ function initSearch() {
         const sid = item.dataset.sid || "";
         const verse = item.dataset.verse || "";
         const english = item.dataset.english || "";
-        if (sid) selectSearch(sid, verse, english);
+        if (sid) selectSearch(sid, verse, english, Number(item.dataset.lineIndex ?? -1));
     });
 }
 
-function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
+function searchResultHTML(sid, m, matchedVerse, matchedEnglish, lineIndex = -1) {
     const summary = m.brief_meaning || m.primary_theme || "";
     // Use data attributes (read via dataset) so apostrophes in verse/translation text
     // never break the inline JS string. The dropdown click handler in initSearch reads these.
-    const verseAttr = matchedVerse ? escAttr(matchedVerse.substring(0, 80)) : "";
-    const engAttr = matchedEnglish ? escAttr(matchedEnglish.substring(0, 150)) : "";
+    const verseAttr = matchedVerse ? escAttr(matchedVerse) : "";
+    const engAttr = matchedEnglish ? escAttr(matchedEnglish) : "";
     // Semantic results carry a 0–1 cosine score. Showing it raw misleads: 0.53
     // is an excellent match for an abstract phrase, but "53% match" reads as a
     // coin flip. Bands describe the result instead of scoring it.
@@ -1363,7 +1379,7 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
         ? `<span style="float:right;font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.55);letter-spacing:0.05em;">${matchStrengthLabel(m.score)}</span>`
         : "";
     return `
-        <div class="autocomplete-item" data-action="select-search" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
+        <button type="button" class="autocomplete-item" data-action="select-search" data-line-index="${lineIndex}" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
             ${scoreBadge}
             ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
             <div style="font-family:'IBM Plex Mono';color:var(--text-faint);font-size:9px;">
@@ -1371,7 +1387,7 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
                 ${m.is_repertoire ? " &#9733;" : ""}
             </div>
             ${summary ? `<div style="font-family:'IBM Plex Mono';color:var(--text-secondary);font-size:9px;margin-top:2px;">${escapeHtml(truncWords(summary, 90))}</div>` : ""}
-        </div>
+        </button>
     `;
 }
 
@@ -1379,232 +1395,24 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish) {
  *  observed distribution: abstract phrases top out near 0.7, and anything under
  *  0.45 is thematically adjacent rather than a real match. */
 function matchStrengthLabel(score) {
-    if (score >= 0.55) return "STRONG MATCH";
-    if (score >= 0.45) return "GOOD MATCH";
-    return "RELATED";
+    return "SUGGESTED BY MEANING";
 }
 
-function selectSearch(sid, matchedVerse, englishTranslation) {
+function selectSearch(sid, matchedVerse, englishTranslation, lineIndex = -1) {
     document.getElementById("searchDropdown").classList.add("hidden");
     document.getElementById("graphSearch").value = "";
+    document.getElementById("gurmukhiPreview").textContent = "";
     // Store the searched tuk with its English translation for tuk-aware suggestions
     if (matchedVerse) {
         State.selectedTuk[sid] = {
             gurmukhi: matchedVerse,
             english: englishTranslation || "",
-            index: -1,
+            index: lineIndex,
         };
+    } else {
+        delete State.selectedTuk[sid];
     }
     expandShabad(sid);
-}
-
-/* ===== TAG BROWSER ===== */
-
-function openTagBrowser() {
-    const modal = document.getElementById("tagModal");
-    const grid = document.getElementById("tagGrid");
-    const filterInput = document.getElementById("tagFilterInput");
-    const filterCount = document.getElementById("tagFilterCount");
-    const filterEmpty = document.getElementById("tagFilterEmpty");
-
-    // Use data-tag (read via dataset) instead of inline onclick string-interpolation:
-    // 8 tags have apostrophes ("Guru's Grace" etc) and HTML attribute decoding of
-    // &#39; back to ' was breaking the inline JS string literal (Batch 6 B2).
-    grid.innerHTML = State.allTags
-        .filter((t) => t.tag !== "Repertoire")
-        .map((t) => `<div class="tag-chip" data-tag="${escAttr(t.tag)}" data-tag-lc="${escAttr(t.tag.toLowerCase())}">${escapeHtml(t.tag)} <span class="count">${t.count}</span></div>`)
-        .join("");
-
-    if (!grid.dataset.delegated) {
-        grid.addEventListener("click", (e) => {
-            const chip = e.target.closest("[data-tag]");
-            if (!chip || !grid.contains(chip)) return;
-            const tag = chip.dataset.tag;
-            if (tag) selectTag(tag);
-        });
-        grid.dataset.delegated = "1";
-    }
-
-    // F1: live filter for the constellation map. Search/match is local (~372 chips)
-    // so debounce isn't needed — we just toggle .hidden on each keystroke.
-    if (filterInput && !filterInput.dataset.wired) {
-        filterInput.addEventListener("input", () => {
-            const q = filterInput.value.trim().toLowerCase();
-            let visible = 0;
-            const chips = grid.querySelectorAll(".tag-chip");
-            chips.forEach((chip) => {
-                const match = !q || (chip.dataset.tagLc || "").includes(q);
-                chip.classList.toggle("hidden", !match);
-                if (match) visible++;
-            });
-            if (filterCount) {
-                filterCount.classList.toggle("hidden", !q);
-                filterCount.textContent = q ? `${visible} of ${chips.length} tags` : "";
-            }
-            if (filterEmpty) {
-                filterEmpty.classList.toggle("hidden", !q || visible > 0);
-            }
-        });
-        filterInput.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") {
-                if (filterInput.value) {
-                    filterInput.value = "";
-                    filterInput.dispatchEvent(new Event("input"));
-                } else {
-                    closeTagBrowser();
-                }
-            }
-        });
-        filterInput.dataset.wired = "1";
-    }
-    if (filterInput) {
-        filterInput.value = "";
-        if (filterCount) filterCount.classList.add("hidden");
-        if (filterEmpty) filterEmpty.classList.add("hidden");
-    }
-
-    document.getElementById("tagDetail").classList.add("hidden");
-    modal.classList.remove("hidden");
-    // Auto-focus the filter so users can type immediately.
-    setTimeout(() => filterInput?.focus(), 50);
-}
-
-function closeTagBrowser() {
-    document.getElementById("tagModal").classList.add("hidden");
-}
-
-async function selectTag(tag) {
-    const detail = document.getElementById("tagDetail");
-    const title = document.getElementById("tagDetailTitle");
-    const list = document.getElementById("tagDetailList");
-
-    title.textContent = `${tag} — pick a shabad`;
-    detail.classList.remove("hidden");
-    list.innerHTML = '<div style="font-family:\'IBM Plex Mono\';color:var(--text-faint);font-size:10px;">LOADING...</div>';
-
-    try {
-        const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=20`);
-        // data-sid (read via dataset) avoids the inline-onclick apostrophe pitfall
-        // for shabad IDs and any future title interpolation.
-        list.innerHTML = data.shabads.map((s) => `
-            <div class="autocomplete-item" data-action="open-shabad" data-sid="${escAttr(s.id)}">
-                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:12px;">${escapeHtml((State.metadata[s.id]?.gurmukhi || s.title || "").substring(0, 40))}</div>
-                <div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:9px;">${escapeHtml([s.raag, s.writer, s.ang ? "ANG " + s.ang : ""].filter(Boolean).join(" / "))}</div>
-            </div>
-        `).join("");
-        if (!list.dataset.delegated) {
-            list.addEventListener("click", (e) => {
-                const item = e.target.closest('[data-action="open-shabad"]');
-                if (!item || !list.contains(item)) return;
-                const sid = item.dataset.sid;
-                if (sid) {
-                    closeTagBrowser();
-                    expandShabad(sid);
-                }
-            });
-            list.dataset.delegated = "1";
-        }
-    } catch (err) {
-        // Backend error strings ("NetworkError when attempting to fetch...") mean
-        // nothing to a reader; say what happened and what to do.
-        console.error("Tag shabads failed:", err);
-        list.innerHTML = `<div style="color:var(--signal-red);font-size:10px;">Couldn't load these shabads. Try again.</div>`;
-    }
-}
-
-function surpriseMe() {
-    const ids = Object.keys(State.metadata);
-    if (!ids.length) return;
-    expandShabad(ids[Math.floor(Math.random() * ids.length)]);
-}
-
-/* ===== TAG SHABADS MODAL (opened by clicking a tag label or tag pill) ===== */
-
-async function openTagShabadsModal(tag) {
-    if (!tag) return;
-    hideTooltip();
-    hidePreview();
-
-    const modal = document.getElementById("tagShabadsModal");
-    const content = document.getElementById("tagShabadsContent");
-
-    modal.dataset.tag = tag;
-    content.innerHTML = `
-        <div class="preview-header">
-            <span>${escapeHtml(tag.toUpperCase())} &mdash; LOADING...</span>
-            <button class="preview-close" aria-label="Close tag list">&times;</button>
-        </div>
-    `;
-    modal.classList.remove("hidden");
-    wireTagShabadsCloseButtons();
-
-    try {
-        const data = await API.get(`/api/tags/${encodeURIComponent(tag)}/shabads?limit=50`);
-        const shabads = data.shabads || [];
-        const count = shabads.length;
-
-        if (count === 0) {
-            content.innerHTML = `
-                <div class="preview-header">
-                    <span>${escapeHtml(tag.toUpperCase())} &mdash; NO SHABADS</span>
-                    <button class="preview-close" aria-label="Close tag list">&times;</button>
-                </div>
-                <div class="preview-english" style="padding:16px 4px;">No shabads found in this tag.</div>
-            `;
-        } else {
-            content.innerHTML = `
-                <div class="preview-header">
-                    <span>${escapeHtml(tag.toUpperCase())} &mdash; ${count} SHABAD${count === 1 ? "" : "S"}</span>
-                    <button class="preview-close" aria-label="Close tag list">&times;</button>
-                </div>
-                <div class="tag-shabads-list">
-                    ${shabads.map((s) => {
-                        const gurmukhi = State.metadata[s.id]?.gurmukhi || s.title || "";
-                        const meta = [s.raag, s.writer, s.ang ? `ANG ${s.ang}` : ""].filter(Boolean).join(" / ");
-                        return `
-                            <div class="tag-shabad-row" data-sid="${escAttr(s.id)}">
-                                <div lang="pa-Guru" class="tag-shabad-gurmukhi">${escapeHtml(gurmukhi.substring(0, 60))}</div>
-                                <div class="tag-shabad-meta">${escapeHtml(meta)}</div>
-                            </div>
-                        `;
-                    }).join("")}
-                </div>
-            `;
-        }
-
-        wireTagShabadsCloseButtons();
-        content.querySelectorAll(".tag-shabad-row").forEach((row) => {
-            row.addEventListener("click", () => {
-                const sid = row.dataset.sid;
-                closeTagShabadsModal();
-                expandShabad(sid);
-            });
-        });
-    } catch (err) {
-        content.innerHTML = `
-            <div class="preview-header">
-                <span>${escapeHtml(tag.toUpperCase())} &mdash; ERROR</span>
-                <button class="preview-close" aria-label="Close tag list">&times;</button>
-            </div>
-            <div class="preview-english" style="padding:16px 4px;color:var(--signal-red);">Couldn't load these shabads. Check your connection and try again.</div>
-        `;
-        wireTagShabadsCloseButtons();
-    }
-}
-
-function wireTagShabadsCloseButtons() {
-    document.querySelectorAll("#tagShabadsContent .preview-close").forEach((btn) => {
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            closeTagShabadsModal();
-        };
-    });
-}
-
-function closeTagShabadsModal() {
-    const modal = document.getElementById("tagShabadsModal");
-    modal.classList.add("hidden");
-    modal.removeAttribute("data-tag");
 }
 
 /* ===== BREADCRUMBS ===== */
@@ -1942,6 +1750,7 @@ function showLibrary() {
                 <button onclick="event.stopPropagation(); deleteParkaran('${escAttr(p.id)}')"
                         style="color:var(--text-faint);cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;"
                         onmouseover="this.style.color='var(--signal-red)'" onmouseout="this.style.color='var(--text-faint)'">&times;</button>
+                </div>
             </div>
         `).join("");
     }
@@ -2047,6 +1856,7 @@ function renderParkaran() {
     }
 
     if (State.parkaran.length === 0) {
+        document.getElementById("mobileSetCount").textContent = "0";
         empty.classList.remove("hidden");
         container.innerHTML = "";
         return;
@@ -2065,11 +1875,16 @@ function renderParkaran() {
                     ${s.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.gurmukhi, 22))}${rep}</div>` : ""}
                     <div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(trunc(s.title, 25))}</div>
                 </div>
-                <button onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:var(--text-faint);cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='var(--signal-red)'" onmouseout="this.style.color='var(--text-faint)'">&times;</button>
+                <div class="library-item-actions">
+                <button type="button" aria-label="Move shabad earlier" onclick="event.stopPropagation(); moveInParkaran(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+                <button type="button" aria-label="Move shabad later" onclick="event.stopPropagation(); moveInParkaran(${i}, 1)" ${i === State.parkaran.length - 1 ? 'disabled' : ''}>↓</button>
+                <button aria-label="Remove shabad" onclick="event.stopPropagation(); removeFromParkaran('${escAttr(s.id)}')" style="color:var(--text-faint);cursor:pointer;font-size:14px;flex-shrink:0;background:none;border:none;" onmouseover="this.style.color='var(--signal-red)'" onmouseout="this.style.color='var(--text-faint)'">&times;</button>
+                </div>
             </div>
         `;
     });
     container.innerHTML = html;
+    document.getElementById("mobileSetCount").textContent = State.parkaran.length;
 }
 
 /* Event delegation for library list — single set of listeners on the container,
@@ -2136,12 +1951,9 @@ let activeTab = "explore";
 function switchToTab(tabName) {
     if (tabName !== "explore" && tabName !== "review") return;
 
-    // Block switch to review if library is empty
-    if (tabName === "review" && State.parkaran.length === 0) {
-        return;
-    }
 
     activeTab = tabName;
+    document.getElementById("sidebarPanel")?.classList.remove("mobile-open");
 
     // Toggle pane visibility
     document.getElementById("exploreTab")?.classList.toggle("hidden", tabName !== "explore");
@@ -2372,7 +2184,8 @@ function applyAdaptiveLabels() {
     live.forEach((node) => {
         const full = node.data("fullLabel");
         if (!full) return; // center node manages its own label
-        const next = trunc(full, node.hasClass("center") ? CENTER_LABEL_CHARS : chars);
+        const next = trunc(full, innerWidth <= 768 ? 18 : innerWidth <= 1100 ? 26 : node.hasClass("center") ? CENTER_LABEL_CHARS : chars);
+        node.style({"font-size": innerWidth <= 768 ? 14 : innerWidth <= 1100 ? 18 : 13, "text-max-width": innerWidth <= 768 ? 95 : innerWidth <= 1100 ? 170 : 300, "text-wrap": "wrap"});
         if (node.data("label") !== next) node.data("label", next);
     });
 }
@@ -2387,4 +2200,4 @@ function simpleHash(str) {
 }
 
 /* ===== START ===== */
-init();
+window.shabadverseReady = init();

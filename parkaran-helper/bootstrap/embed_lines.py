@@ -132,4 +132,6 @@ def embed_lines() -> None:
 
 
 if __name__ == "__main__":
+    from bootstrap.build_guard import require_build_target
+    require_build_target(legacy=False)
     embed_lines()
