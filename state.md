@@ -2,9 +2,11 @@
 
 Latest implementation: `parkaran-helper/releases/2026-09-07-evidence`. Both membership quotas are removed. The candidate contains 88,850 assignments, preserving all 41,462 previous assignments. Newly admitted inferences remain provisional. Topic review hides previous inclusion status until reveal and supports local judgments and export. The earlier September 7 snapshot below remains preserved.
 
-Live behavior rechecked September 7: production still exposes 248 tags and staging 44; neither currently exposes `/api/release`. The host is confirmed at 18.220.187.85. Production ran commit de5e13f with image 82ef1d1d0287; its image and runtime data were retained for rollback. Release verification is in progress.
+Before this deployment, production exposed 248 tags and staging 44; neither exposed `/api/release`. The host is confirmed at 18.220.187.85. Production ran commit de5e13f with image 82ef1d1d0287; its image and runtime data were retained for rollback. PR #21 is merged and production now serves the evidence candidate. Both browser suites pass against the public site. Staging was restarted on its previous image and remains an earlier baseline.
 
 32 Python checks pass against the evidence candidate, including full-corpus provenance, lexical retention, uncapped membership and hidden review status and serialized vector initialization. Both browser suites pass on phone, tablet and desktop, including simultaneous cold-start requests with external browser requests blocked. The rebuilt graph averages 3.5 stored neighbors per shabad; this is a presentation outcome, not a measure of thematic accuracy.
+
+Production dataset ID: `297917b9d8409227b1e7252b30f7e3952d085052b04a612ababdb4da18ed1ac5`. Runtime SHA-256: `24ef9bb83888c9d8878834f2c7bcb3b95598e7c647f0bed046a5c11938501b79`. The exact image, checks and rollback location are recorded in `deployments/2026-09-07-evidence.json`. Local preview `http://127.0.0.1:5052` serves the same dataset.
 
 ## Earlier September 7 candidate
 

@@ -1,0 +1,50 @@
+{
+  "verified_utc": "2026-09-07T18:21:19.916498+00:00",
+  "production_url": "https://shabadverse.com",
+  "merge_pr": "https://github.com/ujjaldidarsingh/ShabadVerse/pull/21",
+  "merge_commit": "da19360a72872f7f2327a69075d5bc995cf1838a",
+  "runtime_commit": "7be4688df8742b5ac3e2a35b6862a73c64118d22",
+  "runtime_sha256": "24ef9bb83888c9d8878834f2c7bcb3b95598e7c647f0bed046a5c11938501b79",
+  "dataset_id": "297917b9d8409227b1e7252b30f7e3952d085052b04a612ababdb4da18ed1ac5",
+  "image_id": "sha256:5da13c72d7df03e6bf06c4fba81dc36d32cf8c6e8e4f28425c45062bb5d01c0a",
+  "image_tag": "shabadverse:2026-09-07-evidence",
+  "host_release_directory": "/opt/shabadverse-releases/2026-09-07-evidence",
+  "compose_file": "/opt/shabadverse-releases/2026-09-07-evidence/compose.production.yml",
+  "compose_project": "parkaran-helper",
+  "rollback_image": "shabadverse-rollback:2026-09-07",
+  "backup_directory": "/opt/shabadverse-backups/2026-09-07-pre-evidence",
+  "counts": {
+    "shabads": 5542,
+    "concepts": 44,
+    "vectors": {
+      "sggs_lines": 56649,
+      "sggs_shabads": 5542,
+      "shabads": 1035
+    },
+    "ak_shabads": 2078,
+    "assignments": 88850
+  },
+  "validation": {
+    "python_tests": 32,
+    "browser_suites": [
+      "browser.cjs",
+      "discovery-browser.cjs"
+    ],
+    "viewports": [
+      "390x844",
+      "820x1180",
+      "1440x1000"
+    ],
+    "browser_targets": [
+      "local candidate",
+      "public production"
+    ],
+    "external_browser_requests": 0,
+    "isolated_container": "Passed with network none and 650 MiB limit; post-query hashes unchanged",
+    "production_health": "healthy",
+    "production_restarts": 0
+  },
+  "cultural_review": "pending",
+  "inference_thresholds": "Automatically calibrated, provisional; no corpus-percentage or lexical-frequency quotas",
+  "staging": "Previous staging image restored and intentionally retained as the earlier baseline"
+}
