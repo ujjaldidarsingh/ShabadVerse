@@ -72,10 +72,12 @@ The September 7 review candidate is `releases/2026-09-07-explore`, copied from t
 
 ## Current production operation
 
-The September 7 evidence release is live at `shabadverse.com`, from merged PR #21. Production uses the immutable image `shabadverse:2026-09-07-evidence` and the compose file `/opt/shabadverse-releases/2026-09-07-evidence/compose.production.yml`, project `parkaran-helper`. Caddy still routes to loopback port 5050. Use this release compose file for restarts; the checkout's historical `data/` is not the deployed candidate and is not a rebuild source.
+The September 7 SGGS-only release is live at `shabadverse.com`, from merged PR #22. Production uses the immutable image `shabadverse:2026-09-07-sggs` and the compose file `/opt/shabadverse-releases/2026-09-07-sggs/compose.production.yml`, project `parkaran-helper`. Caddy still routes to loopback port 5050. Use this release compose file for restarts; the checkout's historical `data/` is not the deployed candidate and is not a rebuild source.
 
-The image passed full manifest verification at build time. With networking disabled, core APIs, semantic search and both AK matching modes passed, followed by unchanged asset/code hashes. The post-query check avoids loading a second full corpus beside the active indexes. The production container has a 900 MiB limit; observed use after browser checks was about 719 MiB with no restart.
+The image passed full manifest verification at build time. With networking disabled, core APIs, semantic search and both matching modes passed, followed by unchanged asset/code hashes. The post-query check avoids loading a second full corpus beside the active indexes. The production container has a 900 MiB limit; observed use after browser checks was about 719 MiB with no restart.
 
 Rollback assets are retained at `/opt/shabadverse-backups/2026-09-07-pre-evidence`, including the prior runtime data, container configuration and Caddy configuration. The prior image is tagged `shabadverse-rollback:2026-09-07`. To roll back, use the current release compose file with an override selecting that image and `mem_limit: 1200m`, then recreate the service with the same `parkaran-helper` project. Check `/` and a known search; the old image does not expose the new readiness endpoint. The saved runtime-data snapshot is available if recovery of changes made inside the previous container is needed.
 
 Staging is running its earlier image again. Its data intentionally differs from the new production candidate; it is retained as a comparison baseline. The deployment receipt is `deployments/2026-09-07-evidence.json`.
+
+For the immediately preceding release, use `/opt/shabadverse-backups/2026-09-07-pre-sggs/compose.production.yml` with project `parkaran-helper`; its image is retained as `shabadverse:2026-09-07-evidence` and `shabadverse-rollback:2026-09-07-evidence`. Current release identity is recorded in `deployments/2026-09-07-sggs.json`.

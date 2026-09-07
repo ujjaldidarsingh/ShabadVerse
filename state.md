@@ -1,5 +1,11 @@
 # ShabadVerse state, September 7, 2026
 
+Current production release: `parkaran-helper/releases/2026-09-07-sggs`, merged through PR #22. AK preference, AK-only filtering, badges, chapter labels and topic membership counts are removed. Old source preferences and query parameters no longer affect results. The dataset is byte-identical to the evidence candidate; archived source membership remains preserved. The new runtime SHA-256 is `3f2480975ddd3681ebb1b85d77e2d03a898b8a2166dd337b7124332ba2c80269`. The deployment and rollback record is `deployments/2026-09-07-sggs.json`.
+
+27 Python checks and both browser suites pass on local and public production across phone, tablet and desktop. The complete image passed network-isolated API checks and unchanged post-query hashes.
+
+## Earlier evidence release
+
 Latest implementation: `parkaran-helper/releases/2026-09-07-evidence`. Both membership quotas are removed. The candidate contains 88,850 assignments, preserving all 41,462 previous assignments. Newly admitted inferences remain provisional. Topic review hides previous inclusion status until reveal and supports local judgments and export. The earlier September 7 snapshot below remains preserved.
 
 Before this deployment, production exposed 248 tags and staging 44; neither exposed `/api/release`. The host is confirmed at 18.220.187.85. Production ran commit de5e13f with image 82ef1d1d0287; its image and runtime data were retained for rollback. PR #21 is merged and production now serves the evidence candidate. Both browser suites pass against the public site. Staging was restarted on its previous image and remains an earlier baseline.

@@ -1,0 +1,21 @@
+{
+  "verified_utc": "2026-09-07T19:05:24.664402+00:00",
+  "production_url": "https://shabadverse.com",
+  "merge_pr": "https://github.com/ujjaldidarsingh/ShabadVerse/pull/22",
+  "merge_commit": "92da30dd2a1382d873cca4998fdfd27e003b4a30",
+  "runtime_commit": "455ec87628996cbd0e8fc816ae71d33e62ecf182",
+  "runtime_sha256": "3f2480975ddd3681ebb1b85d77e2d03a898b8a2166dd337b7124332ba2c80269",
+  "dataset_id": "297917b9d8409227b1e7252b30f7e3952d085052b04a612ababdb4da18ed1ac5",
+  "data_changed": false,
+  "image_id": "sha256:0543c82baa3e84e2b1f224c7d0d0195aad64f252b23ec2e4c2b2fd2e3fb19bb7",
+  "image_tag": "shabadverse:2026-09-07-sggs",
+  "compose_file": "/opt/shabadverse-releases/2026-09-07-sggs/compose.production.yml",
+  "compose_project": "parkaran-helper",
+  "rollback_image": "shabadverse-rollback:2026-09-07-evidence",
+  "rollback_compose": "/opt/shabadverse-backups/2026-09-07-pre-sggs/compose.production.yml",
+  "python_tests": 27,
+  "isolated_container": "Passed, including unchanged hashes after semantic and line queries",
+  "cultural_review": "Unchanged; inferred assignments remain provisional",
+  "browser_tests": "Both suites passed on local and public production at phone, tablet and desktop sizes, with external requests blocked",
+  "production_health": "healthy, zero restarts; runtime and data hashes verified unchanged"
+}
