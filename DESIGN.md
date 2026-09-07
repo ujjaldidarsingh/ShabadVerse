@@ -20,4 +20,4 @@ The header keeps “How it works” visible on every screen. `/about` is an inte
 
 The graph displays at most six suggestions on phones, twelve on tablets and twenty-four on desktops. This is a display budget, not a membership or evidence limit. Topic pages expose every assigned shabad through pagination. Full verses remain available by tapping a node or a topic entry.
 
-“Source” controls suggested connections: All SGGS, Prefer Amrit Keertan, or Amrit Keertan only. Topic selection separately controls the source of the starting shabad. The origin label and “Try another” retain that topic and source. AK badges identify indexed membership; preference never relabels a thematic score as stronger evidence.
+Amrit Keertan informed the product, but is not a user-facing category, filter or ranking preference. Exploration and topic random starts use the full SGGS corpus. Archived source membership stays preserved as provenance.

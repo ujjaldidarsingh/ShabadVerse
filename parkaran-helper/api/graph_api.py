@@ -17,7 +17,6 @@ _tag_vocab = None
 _sggs_lookup = None
 _sggs_vector_store = None
 _lines_vector_store = None
-_sggs_sources = None
 
 # A tag carried by more than this share of the corpus is structural, not
 # distinctive: labelling a cluster "Naam Simran" when a third of Gurbani carries
@@ -246,25 +245,6 @@ def _get_sggs_lookup():
     return _sggs_lookup
 
 
-def _get_sggs_sources() -> dict[str, dict]:
-    """Lazy-load shabad source flags (Amrit Keertan today, others later).
-
-    Maps shabad_id -> {amrit_keertan: bool, ak_chapters: list[int], ...}.
-    Built by bootstrap/index_amrit_keertan.py from BaniDB. Returns an empty
-    dict if the file isn't present (graceful degradation — AK boost just
-    becomes a no-op when source data is missing).
-    """
-    global _sggs_sources
-    if _sggs_sources is None:
-        path = os.path.join(config.DATA_DIR, "sggs_sources.json")
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                _sggs_sources = json.load(f)
-        else:
-            _sggs_sources = {}
-    return _sggs_sources
-
-
 @graph_bp.route("/graph/init")
 def graph_init():
     """Return metadata + tag_index + tag_vocab for client-side graph rendering."""
@@ -310,7 +290,6 @@ def graph_neighbors(shabad_id):
     """
     graph = _get_graph()
     sggs_lookup = _get_sggs_lookup()
-    sources = _get_sggs_sources()
     metadata = graph.get("metadata", {})
 
     threshold = request.args.get("threshold", 0.3, type=float)
@@ -324,25 +303,10 @@ def graph_neighbors(shabad_id):
     if match_mode not in ("shabad", "line"):
         match_mode = "shabad"
     line_index = request.args.get("line_index", type=int)
-    # AK boost: when on, multiply AK-flagged neighbor scores by AK_BOOST_FACTOR
-    # before threshold-filtering and per-tag sort. This lifts canonically-recited
-    # shabads in the recommendation order without excluding non-AK matches.
-    ak_boost = request.args.get("ak_boost", "", type=str).lower() in ("1", "true", "yes")
-
-    source_mode = request.args.get('source', 'prefer-ak' if ak_boost else 'all')
-    if source_mode not in ('all', 'prefer-ak', 'ak-only'):
-        return jsonify({'error': 'Unknown source mode'}), 400
-    if source_mode != 'all' and not sources:
-        return jsonify({'error': 'Amrit Keertan source index is unavailable'}), 503
-    ak_ids = {sid for sid, value in sources.items() if value.get('amrit_keertan') and sid in metadata}
-
     if str(shabad_id) not in metadata:
         return jsonify({"error": "Shabad not found"}), 404
     requested_match = match_mode
     fallback_reason = None
-
-    def is_ak(nid: str) -> bool:
-        return bool(sources.get(str(nid), {}).get("amrit_keertan"))
 
     # Get this shabad's tags from graph metadata
     my_meta = metadata.get(str(shabad_id), {})
@@ -366,7 +330,7 @@ def graph_neighbors(shabad_id):
                 distance = r.get("distance")
                 base_score = max(0, min(1, 1 - distance)) if distance is not None else 0.0
                 score = base_score
-                if score < threshold or (source_mode == "ak-only" and not is_ak(nid)):
+                if score < threshold:
                     continue
                 tuk_results[nid] = {
                     "id": nid,
@@ -378,7 +342,6 @@ def graph_neighbors(shabad_id):
                     "ang": n_meta.get("ang") or r["metadata"].get("ang", 0),
                     "tags": n_meta.get("tags", []),
                     "is_repertoire": False,
-                    "is_amrit_keertan": is_ak(nid),
                     "primary_theme": n_meta.get("primary_theme") or r["metadata"].get("primary_theme", ""),
                     "mood": n_meta.get("mood") or r["metadata"].get("mood", ""),
                     "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or r["metadata"].get("brief_meaning", ""),
@@ -393,14 +356,10 @@ def graph_neighbors(shabad_id):
         # Neighbors are the shabads whose closest line most resembles our anchor
         # line, scored by line-embedding cosine with the container's tags as a
         # weak prior. Shaped like precomputed neighbors so the clustering,
-        # AK-boost and enrichment below need no special-casing.
+        # Enrichment below uses the same response shape.
         hits, line_anchor = _line_neighbors(
-            shabad_id, line_index, 30, threshold, metadata, tag_index,
-            eligible_ids=ak_ids if source_mode == "ak-only" else None
+            shabad_id, line_index, 30, threshold, metadata, tag_index
         )
-        if source_mode == 'prefer-ak':
-            source_hits, _ = _line_neighbors(shabad_id, line_index, 30, threshold, metadata, tag_index, eligible_ids=ak_ids)
-            hits = list({hit['id']: hit for hit in hits + source_hits}.values())
         raw_neighbors = []
         for hit in hits:
             nid = hit["id"]
@@ -421,17 +380,7 @@ def graph_neighbors(shabad_id):
         # ── GRAPH PATH: pre-computed shabad-level neighbors ──
         raw_neighbors = graph.get("neighbors", {}).get(str(shabad_id), [])
 
-    if source_mode != 'all' and match_mode == 'shabad':
-        from api.source_candidates import retrieve
-        extra = retrieve(_get_sggs_vector_store(), str(shabad_id), ak_ids, metadata,
-                         lambda x, y: _weighted_jaccard(x, y, tag_index, len(metadata)),
-                         query=tuk_english)
-        # Preserve the graph's score for existing edges; add newly retrieved AK edges.
-        merged = {n['id']: n for n in extra}
-        merged.update({n['id']: n for n in raw_neighbors})
-        raw_neighbors = list(merged.values())
-    neighbors = [n for n in raw_neighbors if n['score'] >= threshold and
-                 (source_mode != 'ak-only' or is_ak(n['id']))]
+    neighbors = [n for n in raw_neighbors if n['score'] >= threshold]
 
     # Group neighbors by thematic direction
     my_tags_set = set(my_tags)
@@ -479,7 +428,6 @@ def graph_neighbors(shabad_id):
             "ang": n_meta.get("ang", 0),
             "tags": n_meta.get("tags", []),
             "is_repertoire": False,
-            "is_amrit_keertan": is_ak(nid),
             "primary_theme": n_meta.get("primary_theme", ""),
             "mood": n_meta.get("mood", ""),
             "brief_meaning": n_meta.get("brief_meaning") or n_sggs.get("brief_meaning") or "",
@@ -520,16 +468,14 @@ def graph_neighbors(shabad_id):
 
     # Bound the source-expanded view globally, preserving unmodified similarity.
     def ranking(n):
-        return n['score'] + (.15 if source_mode == 'prefer-ak' and n['is_amrit_keertan'] else 0)
-    if source_mode != 'all' or sum(map(len, by_tag.values())) > max_neighbors:
+        return n['score']
+    if sum(map(len, by_tag.values())) > max_neighbors:
         chosen = sorted((n for group in by_tag.values() for n in group), key=lambda n: (-ranking(n), n['id']))[:max_neighbors]
         keep = {n['id'] for n in chosen}
         by_tag = {tag: [n for n in group if n['id'] in keep] for tag, group in by_tag.items()}
     for group in by_tag.values():
         for n in group:
             n['rank_score'] = round(ranking(n), 3)
-            n['source_preferred'] = source_mode == 'prefer-ak' and n['is_amrit_keertan']
-            n['ak_chapters'] = sources.get(n['id'], {}).get('ak_chapters', [])
     # Cap each cluster, sorted by score
     for tag in by_tag:
         by_tag[tag].sort(key=lambda x: (-x["rank_score"], x["id"]))
@@ -553,11 +499,6 @@ def graph_neighbors(shabad_id):
             "max": round(max(all_scores), 3) if all_scores else 0,
             "median": round(sorted(all_scores)[len(all_scores) // 2], 3) if all_scores else 0,
         },
-        "source_mode": source_mode,
-        "source_counts": {"ak": sum(n['is_amrit_keertan'] for group in by_tag.values() for n in group),
-                          "shown": sum(len(group) for group in by_tag.values())},
-        "source_notice": ('No Amrit Keertan connections at this setting. Lower selectivity or choose All SGGS.'
-                          if source_mode == 'ak-only' and not by_tag else ''),
         "threshold_used": threshold,
         "tuk_search": bool(tuk_results),
         "match": match_mode,
@@ -611,8 +552,6 @@ def get_shabads_by_ids():
             "gurmukhi_text": sggs.get("gurmukhi_text") or "",
             "verses": source.get("verses", []),
             "concept_evidence": _concept_evidence(sid),
-            "is_amrit_keertan": bool(_get_sggs_sources().get(sid, {}).get('amrit_keertan')),
-            "ak_chapters": _get_sggs_sources().get(sid, {}).get('ak_chapters', []),
             "interpretation_notice": "Themes and summaries are machine-assisted interpretation; read the full shabad.",
             "english_translation": sggs.get("english_translation") or "",
             "transliteration": sggs.get("transliteration") or "",
@@ -639,9 +578,6 @@ def get_shabad_verses_graph(shabad_id):
     if data is None:
         return jsonify({"error": "Shabad not found"}), 404
     data["concepts"] = _concept_evidence(str(shabad_id))
-    source = _get_sggs_sources().get(str(shabad_id), {})
-    data['is_amrit_keertan'] = bool(source.get('amrit_keertan'))
-    data['ak_chapters'] = source.get('ak_chapters', [])
     return jsonify(data)
 
 

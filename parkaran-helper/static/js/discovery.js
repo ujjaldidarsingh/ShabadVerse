@@ -34,11 +34,11 @@ function renderNeighborCards(sid, data) {
         const added = State.parkaran.some(p => String(p.id) === String(id));
         return `<div class="connection-actions"><button type="button" data-discovery="preview" data-id="${escAttr(id)}">Read &amp; evidence</button><button type="button" data-discovery="add" data-id="${escAttr(id)}" ${added ? 'disabled' : ''}>${added ? 'In my set' : '+ Add to set'}</button>${expand ? `<button type="button" data-discovery="expand" data-id="${escAttr(id)}">Explore</button>` : ''}</div>`;
     }
-    panel.innerHTML = `<article class="connection-card seed-card"><span class="connection-label">Exploring</span><h1 lang="pa-Guru">${escapeHtml(seed.gurmukhi || seed.title)}</h1><p>${escapeHtml(seed.raag || '')} · Ang ${escapeHtml(String(seed.ang || ''))}</p>${sourceBadge(seed)}${actions(sid, false)}</article>
+    panel.innerHTML = `<article class="connection-card seed-card"><span class="connection-label">Exploring</span><h1 lang="pa-Guru">${escapeHtml(seed.gurmukhi || seed.title)}</h1><p>${escapeHtml(seed.raag || '')} · Ang ${escapeHtml(String(seed.ang || ''))}</p>${actions(sid, false)}</article>
         ${data.fallback_reason ? `<p class="connection-notice" role="status">${escapeHtml(data.fallback_reason)}</p>` : ''}
         ${data.anchor_line ? `<aside class="connection-notice">Connecting from this line:<p lang="pa-Guru">${escapeHtml(data.anchor_line.gurmukhi)}</p><p>${escapeHtml(data.anchor_line.english)}</p></aside>` : ''}
         <p class="connection-notice">Connections are suggestions. Read each shabad in full before choosing a sequence.</p>
-        ${Object.entries(data.by_tag || {}).map(([tag, items]) => `<section class="connection-group"><h2>${escapeHtml(tag)} <small>${tag === 'Translation similarity' ? 'inferred connection' : (seed.tags || []).includes(tag) ? 'shared concept' : 'neighbor concept'}</small></h2>${items.map(item => `<article class="connection-card"><h3 lang="pa-Guru">${escapeHtml(item.gurmukhi || item.title)}</h3><p>${escapeHtml(item.raag || '')} · Ang ${escapeHtml(String(item.ang || ''))}</p>${item.matched_line_gurmukhi ? `<blockquote lang="pa-Guru">${escapeHtml(item.matched_line_gurmukhi)}</blockquote><p>Matched line · translation similarity</p>` : ''}${sourceBadge(item)}${actions(item.id, true)}</article>`).join('')}</section>`).join('')}
+        ${Object.entries(data.by_tag || {}).map(([tag, items]) => `<section class="connection-group"><h2>${escapeHtml(tag)} <small>${tag === 'Translation similarity' ? 'inferred connection' : (seed.tags || []).includes(tag) ? 'shared concept' : 'neighbor concept'}</small></h2>${items.map(item => `<article class="connection-card"><h3 lang="pa-Guru">${escapeHtml(item.gurmukhi || item.title)}</h3><p>${escapeHtml(item.raag || '')} · Ang ${escapeHtml(String(item.ang || ''))}</p>${item.matched_line_gurmukhi ? `<blockquote lang="pa-Guru">${escapeHtml(item.matched_line_gurmukhi)}</blockquote><p>Matched line · translation similarity</p>` : ''}${actions(item.id, true)}</article>`).join('')}</section>`).join('')}
         ${data.total_shown ? '' : '<p class="connection-notice">No connections at this setting. Lower the selectivity or choose another shabad.</p>'}`;
     panel.querySelectorAll('[data-discovery]').forEach(button => button.addEventListener('click', () => {
         const id = button.dataset.id;
@@ -74,15 +74,8 @@ function moveInParkaran(index, direction) {
 }
 
 
-function sourceBadge(record) {
-    if (!record?.is_amrit_keertan) return '';
-    const chapters = (record.ak_chapters || []).join(', ');
-    return `<span class="source-badge" title="Indexed Amrit Keertan membership${chapters ? ' · chapters '+escapeHtml(chapters) : ''}">Amrit Keertan${chapters ? `<small> · ch. ${escapeHtml(chapters)}</small>` : ''}</span>`;
-}
 function renderConnectionStatus(data) {
-    const counts = data.source_counts || {};
-    const source = {'all':'All SGGS', 'prefer-ak':'Amrit Keertan preferred', 'ak-only':'Amrit Keertan only'}[data.source_mode] || 'All SGGS';
     const anchor = data.anchor_line?.gurmukhi;
-    document.getElementById('connectionStatus').textContent = data.source_notice ||
-        `${source} · ${counts.shown ?? data.total_shown} connections · ${counts.ak || 0} in Amrit Keertan${data.fallback_reason ? ' · '+data.fallback_reason : anchor ? ' · Line: '+anchor : ''}`;
+    document.getElementById('connectionStatus').textContent =
+        `${data.total_shown} connections${data.fallback_reason ? ' · '+data.fallback_reason : anchor ? ' · Line: '+anchor : ''}`;
 }

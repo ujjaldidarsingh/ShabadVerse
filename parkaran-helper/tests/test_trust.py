@@ -20,7 +20,7 @@ class GraphTruthTests(unittest.TestCase):
                           '4': [{'id': '3', 'score': .8, 'shared_tags': []}]},
             'tag_index': {'Naam': ['1', '2'], 'Hukam': ['3'], 'Maya': ['4']},
         }
-        self.patches = [patch.object(api, '_graph_data', self.graph), patch.object(api, '_sggs_lookup', {}), patch.object(api, '_sggs_sources', {})]
+        self.patches = [patch.object(api, '_graph_data', self.graph), patch.object(api, '_sggs_lookup', {})]
         for p in self.patches: p.start()
         self.addCleanup(lambda: [p.stop() for p in self.patches])
 

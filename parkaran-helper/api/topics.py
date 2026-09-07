@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import jsonify, request
 import config
 from database import corpus
-from api.graph_api import graph_bp, _get_graph, _get_tag_vocab, _get_concepts, _get_sggs_sources
+from api.graph_api import graph_bp, _get_graph, _get_tag_vocab, _get_concepts
 
 
 @lru_cache(maxsize=1)
@@ -25,26 +25,20 @@ def statistics():
         inferred = len(assignments) - lexical
         result[tag] = {**value, 'tag': tag, 'count': len(graph['tag_index'].get(tag, [])),
                        'lexical': lexical, 'inferred': inferred, 'policy': policy,
-                       'indexed_shabads': denominator,
-                       'ak_count': sum(bool(_get_sggs_sources().get(sid, {}).get('amrit_keertan')) for sid in graph['tag_index'].get(tag, []))}
+                       'indexed_shabads': denominator}
     return result
 
 
-def eligible(tag, source):
-    ids = _get_graph()['tag_index'].get(tag, [])
-    if source == 'ak-only':
-        ids = [sid for sid in ids if _get_sggs_sources().get(sid, {}).get('amrit_keertan')]
-    return ids
+def eligible(tag):
+    return _get_graph()['tag_index'].get(tag, [])
 
 
 def detail(sid):
     meta = _get_graph()['metadata'][sid]
     info = corpus.shabad(sid) or {}
-    source = _get_sggs_sources().get(sid, {})
     return {'id': sid, 'gurmukhi': meta.get('gurmukhi', ''), 'title': meta.get('title', ''),
             'raag': info.get('raag', meta.get('raag', '')), 'writer': info.get('writer', ''),
-            'ang': info.get('ang', meta.get('ang', 0)), 'is_amrit_keertan': bool(source.get('amrit_keertan')),
-            'ak_chapters': source.get('ak_chapters', [])}
+            'ang': info.get('ang', meta.get('ang', 0))}
 
 
 @graph_bp.route('/topics')
@@ -55,9 +49,7 @@ def topics():
 @graph_bp.route('/topics/<tag>')
 def topic(tag):
     if tag not in statistics(): return jsonify({'error': 'Unknown topic'}), 404
-    source = request.args.get('source', 'all')
-    if source not in ('all', 'ak-only'): return jsonify({'error': 'Unknown source'}), 400
-    ids = eligible(tag, source)
+    ids = eligible(tag)
     offset = max(0, request.args.get('offset', 0, type=int))
     limit = max(1, min(50, request.args.get('limit', 20, type=int)))
     return jsonify({'topic': statistics()[tag], 'total': len(ids), 'offset': offset,
@@ -68,12 +60,10 @@ def topic(tag):
 @graph_bp.route('/topics/<tag>/random')
 def topic_random(tag):
     if tag not in statistics(): return jsonify({'error': 'Unknown topic'}), 404
-    source = request.args.get('source', 'all')
-    if source not in ('all', 'ak-only'): return jsonify({'error': 'Unknown source'}), 400
-    ids = eligible(tag, source)
+    ids = eligible(tag)
     excluded = set(request.args.get('exclude', '')[:2000].split(','))
     pool = [sid for sid in ids if sid not in excluded] or ids
-    if not pool: return jsonify({'error': 'No shabads in this topic and source selection', 'total': 0}), 404
+    if not pool: return jsonify({'error': 'No shabads in this topic', 'total': 0}), 404
     return jsonify({'shabad': detail(random.SystemRandom().choice(pool)), 'total': len(ids), 'tag': tag})
 
 

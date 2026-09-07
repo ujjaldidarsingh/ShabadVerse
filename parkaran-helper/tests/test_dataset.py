@@ -27,7 +27,7 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(validate(self.path)['shabads'], 5542)
 
     def test_all_cluster_labels_and_nonempty_expansions(self):
-        with patch.object(api, '_graph_data', self.graph), patch.object(api, '_sggs_lookup', {}), patch.object(api, '_sggs_sources', {}):
+        with patch.object(api, '_graph_data', self.graph), patch.object(api, '_sggs_lookup', {}):
             for sid in self.graph['metadata']:
                 with app.test_request_context('/api/graph/neighbors/' + sid): data = api.graph_neighbors(sid).get_json()
                 if any(n['score'] >= .3 for n in self.graph['neighbors'][sid]): self.assertGreater(data['total_shown'], 0, sid)
