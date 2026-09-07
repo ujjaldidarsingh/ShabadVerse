@@ -1,6 +1,8 @@
 flask==3.1.0
 chromadb>=1.0.0
 python-dotenv>=1.0.0
-sentence-transformers>=2.2.0
 ollama>=0.4.0
 requests>=2.31.0
+# Embeddings run on ChromaDB's built-in ONNX all-MiniLM-L6-v2 (onnxruntime,
+# bundled with chromadb) — sentence-transformers/torch dropped in Batch 9 to
+# shrink the image (~9.8GB→~1.5GB) and runtime RAM (~760MB→~250MB).

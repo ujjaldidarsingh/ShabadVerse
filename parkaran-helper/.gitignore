@@ -21,3 +21,12 @@ __pycache__/
 
 # Claude local
 .claude/launch.json
+data/*.pre_sharpen.json
+
+# Complete candidates and historical snapshots stay outside source control.
+releases/
+data/chroma_db.bak/
+data/concept_tags.json
+data/concept_tag_report.md
+data/sggs_tags_pre_rebuild.json
+data/release-manifest.json

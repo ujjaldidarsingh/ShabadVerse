@@ -100,7 +100,7 @@ class BaniDBMatcher:
 
     def search(self, query, searchtype=None):
         """Search BaniDB with caching. Supports optional searchtype override."""
-        stype = searchtype or config.BANIDB_SEARCH_TYPE
+        stype = config.BANIDB_SEARCH_TYPE if searchtype is None else searchtype
         cache_key = f"{query}||{stype}"
 
         # Check cache

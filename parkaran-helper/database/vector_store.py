@@ -1,18 +1,82 @@
-"""ChromaDB vector store for semantic shabad search."""
+"""ChromaDB vector store for semantic shabad search.
+
+Embeddings use ChromaDB's built-in ONNX export of all-MiniLM-L6-v2
+(ONNXMiniLM_L6_V2). This is the SAME model that the previous
+SentenceTransformerEmbeddingFunction wrapped, minus the torch runtime —
+it runs on onnxruntime (which ChromaDB already ships), so the Docker
+image drops the multi-GB torch/CUDA stack while keeping identical 384-dim
+vectors and live query embedding for semantic search.
+"""
 
 import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+import os
+import shutil
+import tempfile
+import threading
+from pathlib import Path
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 import config
+
+
+_runtime_directory = None
+_runtime_lock = threading.Lock()
+_client_lock = threading.Lock()
+
+
+def _vector_path():
+    """Chroma maintains SQLite state even for queries; isolate those writes."""
+    global _runtime_directory
+    if os.getenv("SHABADVERSE_BUILD") == "1":
+        return config.CHROMA_DB_PATH
+    with _runtime_lock:
+        if _runtime_directory is None:
+            if not (Path(config.CHROMA_DB_PATH) / "chroma.sqlite3").is_file():
+                raise RuntimeError("Local vector snapshot is missing")
+            directory = tempfile.TemporaryDirectory(prefix="shabadverse-vectors-")
+            try:
+                shutil.copytree(config.CHROMA_DB_PATH, Path(directory.name) / "index")
+            except Exception:
+                directory.cleanup()
+                raise
+            _runtime_directory = directory
+        return str(Path(_runtime_directory.name) / "index")
 
 
 class ShabadVectorStore:
     def __init__(self, collection_name=None):
-        self.embedding_fn = SentenceTransformerEmbeddingFunction(
-            model_name=config.EMBEDDING_MODEL
-        )
-        self.client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH)
+        # ONNXMiniLM_L6_V2 is hardcoded to all-MiniLM-L6-v2; no model_name arg.
+        # The ~90MB ONNX model is downloaded on first use and cached; the
+        # Dockerfile pre-warms this cache at build time so runtime needs no network.
+        self.embedding_fn = ONNXMiniLM_L6_V2()
+        # Chroma shares process-wide initialization state across collections.
+        # Serialize cold starts when simultaneous browser requests arrive.
+        with _client_lock:
+            self.client = chromadb.PersistentClient(path=_vector_path(), settings=chromadb.Settings(anonymized_telemetry=False))
+            self.collection_name = collection_name or config.PERSONAL_COLLECTION_NAME
+            if os.getenv("SHABADVERSE_BUILD") == "1":
+                self.collection = self.client.get_or_create_collection(
+                    name=self.collection_name, embedding_function=self.embedding_fn,
+                    metadata={"hnsw:space": "cosine"})
+            else:
+                # Missing or incompatible collections are a release error, not an
+                # invitation to create an empty index or silently change embedders.
+                self.collection = self.client.get_collection(
+                    name=self.collection_name, embedding_function=self.embedding_fn)
+
+    def reset_collection(self):
+        """Drop and recreate this collection with the ONNX embedding function.
+
+        Required when migrating from the old SentenceTransformer-embedded
+        collection: ChromaDB pins an embedding-function config to each
+        collection, so a clean re-embed must start from a fresh collection.
+        """
+        try:
+            self.client.delete_collection(self.collection_name)
+        except (ValueError, chromadb.errors.NotFoundError):
+            # Collection didn't exist yet — nothing to drop.
+            pass
         self.collection = self.client.get_or_create_collection(
-            name=collection_name or config.PERSONAL_COLLECTION_NAME,
+            name=self.collection_name,
             embedding_function=self.embedding_fn,
             metadata={"hnsw:space": "cosine"},
         )
@@ -113,11 +177,59 @@ class ShabadVectorStore:
 
         print(f"Total in vector store: {self.collection.count()}")
 
+    def add_lines(self, lines):
+        """Add individual verses (tuks) to the vector store.
+
+        Each line is embedded on its English translation alone — the line IS the
+        unit of meaning here, so no shabad-level theme text is mixed in (that
+        would drag every line of a shabad toward the same point in vector space
+        and defeat line-level matching).
+
+        Expects dicts with: id, english, gurmukhi, shabad_id, line_index,
+        is_rahao, ang.
+        """
+        if not lines:
+            print("No lines to add.")
+            return
+
+        batch_size = 500
+        total_batches = (len(lines) + batch_size - 1) // batch_size
+        for i in range(0, len(lines), batch_size):
+            batch = lines[i : i + batch_size]
+            batch_num = i // batch_size + 1
+            print(
+                f"  Embedding batch {batch_num}/{total_batches} ({len(batch)} lines)...",
+                end=" ",
+                flush=True,
+            )
+            self.collection.upsert(
+                ids=[ln["id"] for ln in batch],
+                documents=[ln["english"] for ln in batch],
+                metadatas=[
+                    {
+                        "shabad_id": ln["shabad_id"],
+                        "line_index": ln["line_index"],
+                        "gurmukhi": ln["gurmukhi"],
+                        "english": ln["english"],
+                        "is_rahao": ln["is_rahao"],
+                        "ang": ln["ang"],
+                    }
+                    for ln in batch
+                ],
+            )
+            print("done")
+
+        print(f"Total lines in vector store: {self.collection.count()}")
+
     def search_similar(self, query_text, n_results=20, exclude_ids=None, where_filter=None):
         """
         Search for semantically similar shabads.
         Returns list of dicts with id, title, score, metadata.
         """
+        model = Path(ONNXMiniLM_L6_V2.DOWNLOAD_PATH) / ONNXMiniLM_L6_V2.EXTRACTED_FOLDER_NAME
+        required = ("config.json", "model.onnx", "special_tokens_map.json", "tokenizer_config.json", "tokenizer.json", "vocab.txt")
+        if any(not (model / name).is_file() for name in required):
+            raise RuntimeError("Local embedding model is missing. Restore the model cache before searching.")
         count = self.collection.count()
         if count == 0:
             return []

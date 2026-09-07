@@ -1,0 +1,617 @@
+{
+  "_README": {
+    "purpose": "Concept vocabulary for embedding-derived tagging of SGGS. Replaces LLM string-voting, which had 2% survival for specific concepts and missed 4 of the 5 thieves entirely.",
+    "how_to_edit": [
+      "include: set false to drop a concept entirely.",
+      "description: this exact English text is embedded. Lines are embedded on their English translation, so write it the way BaniDB renders the idea.",
+      "anchors_accept: Gurmukhi token PREFIXES. Any word starting with these counts as a lexical positive.",
+      "anchors_reject: prefixes to exclude. This is where the traps live (see notes).",
+      "open_question: I need your ruling. Answer inline by editing, or just tell me.",
+      "confirmed_by_ujjal: flip to true when you're happy with a concept. I won't build until you say go.",
+      "ADD concepts freely: copy the shape of any entry. lexical_shabads is recomputed by the builder."
+    ],
+    "anchors_are_seeds_not_rules": "Anchors only seed each concept's prototype vector and calibrate its threshold. Final tagging is by embedding similarity, so a shabad that teaches ego without saying ਹਉਮੈ still gets tagged.",
+    "counts": {
+      "concepts": 44,
+      "lexically_anchored": 40,
+      "description_only": 4
+    }
+  },
+  "concepts": {
+    "Kaam": {
+      "group": "Panj Chor",
+      "include": true,
+      "confidence": "lexical",
+      "description": "lust, sexual craving, being consumed by desire",
+      "anchors_accept": [
+        "ਕਾਮ"
+      ],
+      "anchors_reject": [
+        "ਕਾਮਣਿ",
+        "ਕਾਮਣੀ",
+        "ਕਾਮਣ"
+      ],
+      "lexical_shabads": 422,
+      "note": "reject ਕਾਮਣਿ = soul-bride, not lust",
+      "open_question": "Rejecting ਕਾਮਣਿ/ਕਾਮਣੀ (soul-bride). Confirm — this is the biggest single trap.",
+      "confirmed_by_ujjal": true
+    },
+    "Krodh": {
+      "group": "Panj Chor",
+      "include": true,
+      "confidence": "lexical",
+      "description": "anger, wrath, rage, burning with fury",
+      "anchors_accept": [
+        "ਕ੍ਰੋਧ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 208,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Lobh": {
+      "group": "Panj Chor",
+      "include": true,
+      "confidence": "lexical",
+      "description": "greed, avarice, craving wealth, never satisfied",
+      "anchors_accept": [
+        "ਲੋਭ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 254,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Moh": {
+      "group": "Panj Chor",
+      "include": true,
+      "confidence": "lexical",
+      "description": "worldly attachment, entanglement with family and possessions, clinging to the transient",
+      "anchors_accept": [
+        "ਮੋਹ"
+      ],
+      "anchors_reject": [
+        "ਮੋਹਨ"
+      ],
+      "lexical_shabads": 738,
+      "note": "reject ਮੋਹਨ = name of God. ਮੋਹਣੀ (enticer/maya) — your call",
+      "open_question": "Include ਮੋਹਣੀ (enticer)? It usually means Maya's allure — attachment, or its own thing?",
+      "confirmed_by_ujjal": true
+    },
+    "Ahankar": {
+      "group": "Panj Chor",
+      "include": true,
+      "confidence": "lexical",
+      "description": "pride, arrogance, conceit, self-importance",
+      "anchors_accept": [
+        "ਅਹੰਕਾਰ",
+        "ਗਰਬ",
+        "ਅਭਿਮਾਨ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 328,
+      "note": "three words for one vice; merge or split?",
+      "open_question": "Merging ਅਹੰਕਾਰ + ਗਰਬ + ਅਭਿਮਾਨ per your call. Confirm ਗਰਬ/ਅਭਿਮਾਨ belong here and not as worldly-pride separate.",
+      "confirmed_by_ujjal": true
+    },
+    "Haumai": {
+      "group": "Panj Chor",
+      "include": true,
+      "confidence": "lexical",
+      "description": "egotism, the 'I am', self-conceit that separates the soul from God",
+      "anchors_accept": [
+        "ਹਉਮੈ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 463,
+      "note": "distinct from Ahankar, or same?",
+      "confirmed_by_ujjal": true
+    },
+    "Nindaa": {
+      "group": "Vice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "slander, backbiting, speaking ill of others",
+      "anchors_accept": [
+        "ਨਿੰਦ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 171,
+      "note": "ਨਿੰਦਕ = the slanderer (person) — include?",
+      "open_question": "Include ਨਿੰਦਕ / ਨਿੰਦਕੁ (the slanderer, the person) alongside ਨਿੰਦਾ (the act)?",
+      "confirmed_by_ujjal": true
+    },
+    "Trishna": {
+      "group": "Vice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "craving, thirst, unquenchable desire",
+      "anchors_accept": [
+        "ਤ੍ਰਿਸਨ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 195,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Bharam": {
+      "group": "Vice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "doubt, delusion, wandering of the mind",
+      "anchors_accept": [
+        "ਭਰਮ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 479,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Pakhand": {
+      "group": "Vice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "hypocrisy, religious pretence, empty show of piety",
+      "anchors_accept": [
+        "ਪਾਖੰਡ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 42,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Santokh": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "lexical",
+      "description": "contentment, satisfaction, wanting no more",
+      "anchors_accept": [
+        "ਸੰਤੋਖ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 149,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Daya": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "lexical",
+      "description": "compassion, mercy shown to others, kindness",
+      "anchors_accept": [
+        "ਦਇਆ"
+      ],
+      "anchors_reject": [
+        "ਦਇਆਲ",
+        "ਦਇਆਰ"
+      ],
+      "lexical_shabads": 187,
+      "note": "reject ਦਇਆਲ = 'the Merciful One' (epithet of God)",
+      "open_question": "Rejecting ਦਇਆਲ/ਦਇਆਲੁ ('the Merciful One'). Should divine mercy be its own concept, separate from human compassion?",
+      "confirmed_by_ujjal": true
+    },
+    "Sach": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "lexical",
+      "description": "truth, truthful living, the True One",
+      "anchors_accept": [
+        "ਸਚੁ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 626,
+      "note": "very broad (626) — keep?",
+      "open_question": "626 shabads. Truth is nearly everywhere in SGGS — keep as a tag, or is it too structural to be useful?",
+      "confirmed_by_ujjal": true
+    },
+    "Prem": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "lexical",
+      "description": "loving devotion, love for the Divine",
+      "anchors_accept": [
+        "ਪ੍ਰੇਮ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 182,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Bhau": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "lexical",
+      "description": "fear and awe of God, reverence",
+      "anchors_accept": [
+        "ਭਉ"
+      ],
+      "anchors_reject": [
+        "ਭਉਜਲ"
+      ],
+      "lexical_shabads": 278,
+      "note": "reject ਭਉਜਲ = world-ocean (own concept)",
+      "confirmed_by_ujjal": true
+    },
+    "Naam": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the Divine Name, dwelling on the Name",
+      "anchors_accept": [
+        "ਨਾਮੁ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 1864,
+      "note": "1,864 shabads — structural, may be too broad to label clusters",
+      "open_question": "1,864 shabads (34%). Will be tagged but auto-barred from titling clusters by the >25% coverage rule. Keep?",
+      "confirmed_by_ujjal": true
+    },
+    "Simran": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "remembrance, repetition of the Name",
+      "anchors_accept": [
+        "ਸਿਮਰ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 482,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Seva": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "selfless service to others",
+      "anchors_accept": [
+        "ਸੇਵਾ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 362,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Sangat": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the holy congregation, company of the saints",
+      "anchors_accept": [
+        "ਸੰਗਤਿ",
+        "ਸਾਧਸੰਗਿ",
+        "ਸਤਸੰਗਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 371,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Kirtan": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "singing the Guru's praise, devotional music",
+      "anchors_accept": [
+        "ਕੀਰਤਨ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 131,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Ardas": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "prayer, supplication before the Divine",
+      "anchors_accept": [
+        "ਅਰਦਾਸਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 102,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Daan": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "charity, giving to those in need",
+      "anchors_accept": [
+        "ਦਾਨੁ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 210,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Vichar": {
+      "group": "Practice",
+      "include": true,
+      "confidence": "lexical",
+      "description": "contemplation, reflection on the Guru's word",
+      "anchors_accept": [
+        "ਵੀਚਾਰ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 294,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Hukam": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the Divine Command, God's Will, cosmic order",
+      "anchors_accept": [
+        "ਹੁਕਮ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 290,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Maya": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "illusion, the material world's grip",
+      "anchors_accept": [
+        "ਮਾਇਆ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 635,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Gurmukh": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "one who faces the Guru, lives by the Guru's word",
+      "anchors_accept": [
+        "ਗੁਰਮੁਖਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 860,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Manmukh": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "one who follows their own mind, self-willed",
+      "anchors_accept": [
+        "ਮਨਮੁਖਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 151,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Mukti": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "liberation, release from the cycle of birth and death",
+      "anchors_accept": [
+        "ਮੁਕਤਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 220,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Karma": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "deeds and their consequences, action and reward",
+      "anchors_accept": [
+        "ਕਰਮ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 578,
+      "note": "ਕਰਮ also = grace/mercy in some contexts — ambiguous",
+      "open_question": "ਕਰਮ means both 'deeds' and 'grace/mercy' depending on context. Split into Karma (deeds) and fold the grace sense into Kirpa?",
+      "confirmed_by_ujjal": true
+    },
+    "Janam-Maran": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the cycle of birth and death, reincarnation",
+      "anchors_accept": [
+        "ਜਨਮ",
+        "ਮਰਣ",
+        "ਮਰਨ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 811,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Kirpa": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "divine grace, God's mercy freely given",
+      "anchors_accept": [
+        "ਕਿਰਪਾ",
+        "ਨਦਰਿ"
+      ],
+      "anchors_reject": [
+        "ਕਿਰਪਾਲ"
+      ],
+      "lexical_shabads": 845,
+      "note": "reject ਕਿਰਪਾਲ = 'the Merciful One' (epithet)",
+      "open_question": "Merges ਕਿਰਪਾ + ਨਦਰਿ (845). Rejects ਕਿਰਪਾਲ (epithet). Split nadar out?",
+      "confirmed_by_ujjal": true
+    },
+    "Shabad": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the Word, the Guru's utterance as divine sound",
+      "anchors_accept": [
+        "ਸਬਦੁ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 458,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Satguru": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the True Guru, the perfect teacher",
+      "anchors_accept": [
+        "ਸਤਿਗੁਰ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 1539,
+      "note": "1,538 — structural",
+      "open_question": "1,539 shabads (28%). Same as Naam — tagged but never a cluster label. Keep?",
+      "confirmed_by_ujjal": true
+    },
+    "Jot": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the divine light within all beings",
+      "anchors_accept": [
+        "ਜੋਤਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 257,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Bhaujal": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "the terrifying world-ocean one must cross",
+      "anchors_accept": [
+        "ਭਉਜਲ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 61,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Sahaj": {
+      "group": "State",
+      "include": true,
+      "confidence": "lexical",
+      "description": "intuitive poise, effortless equipoise, natural balance",
+      "anchors_accept": [
+        "ਸਹਜ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 715,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Anand": {
+      "group": "State",
+      "include": true,
+      "confidence": "lexical",
+      "description": "bliss, spiritual joy, ecstasy",
+      "anchors_accept": [
+        "ਅਨੰਦ",
+        "ਅਨਦ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 566,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Bhagti": {
+      "group": "State",
+      "include": true,
+      "confidence": "lexical",
+      "description": "loving devotion, worship, the devotee's path",
+      "anchors_accept": [
+        "ਭਗਤਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 510,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Jaat": {
+      "group": "Social",
+      "include": true,
+      "confidence": "lexical",
+      "description": "caste, birth-status, the rejection of caste hierarchy",
+      "anchors_accept": [
+        "ਜਾਤਿ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 103,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Tirath": {
+      "group": "Social",
+      "include": true,
+      "confidence": "lexical",
+      "description": "pilgrimage sites, ritual bathing, and their futility",
+      "anchors_accept": [
+        "ਤੀਰਥ"
+      ],
+      "anchors_reject": [],
+      "lexical_shabads": 169,
+      "note": "",
+      "confirmed_by_ujjal": true
+    },
+    "Vismad": {
+      "group": "State",
+      "include": true,
+      "confidence": "description-only",
+      "description": "wonder, awe at the vastness of creation",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "NO LEXICAL ANCHOR: ਵਿਸਮਾਦੁ in only 4 shabads | kept per your call; will be flagged lower-confidence in /about",
+      "confirmed_by_ujjal": true
+    },
+    "Birha": {
+      "group": "State",
+      "include": true,
+      "confidence": "description-only",
+      "description": "the pain of separation from the Beloved",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "NO LEXICAL ANCHOR: ਬਿਰਹ* in 29; also ਵਿਛੋੜਾ | kept per your call; will be flagged lower-confidence in /about",
+      "confirmed_by_ujjal": true
+    },
+    "Chardi Kala": {
+      "group": "State",
+      "include": true,
+      "confidence": "description-only",
+      "description": "rising spirits, eternal optimism",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "NO LEXICAL ANCHOR: phrase absent from SGGS | kept per your call; will be flagged lower-confidence in /about",
+      "confirmed_by_ujjal": true
+    },
+    "Nimrata": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "description-only",
+      "description": "humility, lowliness, meekness",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "NO LEXICAL ANCHOR: no single anchor word | kept per your call; will be flagged lower-confidence in /about",
+      "confirmed_by_ujjal": true
+    }
+  }
+}

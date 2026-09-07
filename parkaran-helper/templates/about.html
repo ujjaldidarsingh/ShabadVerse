@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}How ShabadVerse works{% endblock %}
+{% block body_class %}about-page{% endblock %}
+{% block content %}
+<div class="about-wrap">
+    <header class="about-header">{% include "brand.html" %}<a href="/" class="about-back">Open explorer ↗</a></header>
+    <section class="about-hero">
+        <span class="eyebrow">Gurbani · connections · parkaran</span>
+        <h1>Begin with a shabad.<br>See where it leads.</h1>
+        <p class="about-lede">Explore thematic relationships across Sri Guru Granth Sahib Ji. Read shabads in context, follow a connection that interests you, and bring your choices together in a parkaran.</p>
+        <div class="about-actions"><a href="/?topic=Naam" class="about-cta">Choose a starting topic</a><a href="#walkthrough">See how it works ↓</a></div>
+    </section>
+
+    <section id="walkthrough" class="walkthrough">
+        <div class="walkthrough-heading"><span class="eyebrow">A short walkthrough</span><h2>Search. Explore. Bring it together.</h2></div>
+        <div class="walkthrough-tabs" role="tablist" aria-label="Walkthrough steps">
+            <button role="tab" aria-selected="true" aria-controls="demo-search" id="step-search" data-step="search">01 · Find a shabad</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-explore" id="step-explore" data-step="explore">02 · Follow a connection</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-build" id="step-build" data-step="build">03 · Build your parkaran</button>
+        </div>
+        <article id="demo-search" role="tabpanel" aria-labelledby="step-search" class="demo-panel">
+            <div><h3>Start with what you remember.</h3><p>Enter a line’s first letters using Gurmukhi or the supported Roman-key layout. Search from the start of a line or anywhere within it. You can also search transliteration or describe a theme in English.</p><p class="demo-input"><code>h k s j k</code><span lang="pa-Guru">ਹ ਕ ਸ ਜ ਕ</span></p><p>Prefer a topic? Choose one and let ShabadVerse select a random starting shabad from its full list.</p></div>
+            <div class="demo-scripture"><span class="eyebrow">An example from the preserved corpus</span><p lang="pa-Guru">{{ demo.verses[1].gurmukhi }}</p><small>{{ demo.writer }} · {{ demo.raag }} · Ang {{ demo.ang }}</small><a href="/?start=970">Explore this shabad ↗</a></div>
+        </article>
+        <article id="demo-explore" role="tabpanel" aria-labelledby="step-explore" class="demo-panel hidden">
+            <div><h3>Read what connects them.</h3><p>Tap a shabad in the graph to read it or explore from there. Topic labels describe the neighboring shabad’s assignments. Open the evidence to see the verse behind a lexical or inferred tag.</p><p>Choose whole-shabad matching or a particular line. Amrit Keertan controls let you prefer its indexed shabads or restrict suggestions to them.</p></div>
+            <div class="demo-connections"><span class="eyebrow">Suggested neighbors in this dataset</span>{% for item in demo_neighbors %}<a href="/?start={{ item.id }}"><span lang="pa-Guru">{{ item.gurmukhi }}</span><small>Read in context ↗</small></a>{% endfor %}<p>These links are suggestions to examine, not an approved parkaran.</p></div>
+        </article>
+        <article id="demo-build" role="tabpanel" aria-labelledby="step-build" class="demo-panel hidden">
+            <div><h3>Choose the sequence yourself.</h3><p>Add shabads to your set, move them earlier or later, then open Review to read the sequence in full. Your library stays in this browser. A share link carries the ordered shabad IDs so someone else can open the set.</p><p>Cards offer another way to browse the same connections. You can switch views at any time.</p></div>
+            <div class="demo-sequence"><span>1 · Read the complete shabad</span><span>2 · Choose and order your set</span><span>3 · Review, save and share</span><a href="/" class="about-cta">Build a parkaran</a></div>
+        </article>
+    </section>
+
+    <section class="about-section methodology"><span class="eyebrow">Sources and judgment</span><h2>What the system knows, and what it suggests.</h2>
+        <div class="method-grid"><article><h3>Preserved Gurbani</h3><p>The local BaniDB snapshot supplies Gurbani, translations, transliteration, writer, raag and ang. Search normalization changes only search keys. Displayed scripture stays intact.</p></article>
+        <article><h3>{{ concept_count }} curated concepts</h3><p>Concept definitions were curated and confirmed by Ujjal. Assignments are a separate layer: lexical tags record configured word matches; inferred tags use English-translation similarity. Read the cited verse in context.</p></article>
+        <article><h3>Evidence before counts</h3><p>Lexical matches are preserved. Inferred connections use a threshold for each concept, without a quota on how often it may occur. These suggestions remain open to review in their full shabad.</p></article>
+        <article><h3>Your interpretation</h3><p>Connections, summaries and inferred assignments can be wrong. Description-only topics have no configured lexical anchors. Ranking indicates where to look; your reading determines whether a connection belongs in the parkaran.</p></article></div>
+    </section>
+    <section class="about-section"><h2>Local by design.</h2><p>The core explorer uses local data, fonts, scripts and search models. Your saved sets live in browser storage and do not sync between devices automatically. This is a responsive web app; native installation is separate work.</p></section>
+    <footer class="about-credits"><p>Built by Ujjal Didar Singh Sekhon. Gurbani from <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a> / <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a>.</p><p><a href="https://github.com/ujjaldidarsingh/ShabadVerse/issues" target="_blank" rel="noopener">Report a connection or a problem</a>. Include the shabad IDs, topic and match mode so the example can be checked.</p><a href="/" class="about-cta">Open ShabadVerse ↗</a></footer>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/walkthrough.js') }}"></script>{% endblock %}

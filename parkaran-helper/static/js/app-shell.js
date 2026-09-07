@@ -127,15 +127,20 @@ initTheme();
         });
     }
 
-    function readTabFromURL() {
+    async function readTabFromURL() {
+        await window.shabadverseReady;
         const params = new URLSearchParams(window.location.search);
+        const start = params.get("start");
+        const topic = params.get("topic");
+        if (start && State.metadata[start]) await expandShabad(start);
+        if (topic && State.tagIndex[topic]) await openTagBrowser(topic);
         const tab = params.get("tab");
 
         // Check for shared library in URL: ?items=id1,id2,id3&name=LibraryName
         const sharedItems = params.get("items");
         const sharedName = params.get("name");
         if (sharedItems && typeof State !== "undefined") {
-            const ids = sharedItems.split(",").map((s) => s.trim()).filter(Boolean);
+            const ids = [...new Set(sharedItems.split(",").map((s) => s.trim()).filter((id) => State.metadata[id]))].slice(0, 200);
             if (ids.length > 0) {
                 // Load shared items into a new temp library (don't overwrite user's own)
                 const lib = typeof getLibrary === "function" ? getLibrary() : { parkarans: {}, currentId: null };

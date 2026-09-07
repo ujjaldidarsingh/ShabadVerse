@@ -3,16 +3,11 @@
 {% block body_class %}app-page{% endblock %}
 
 {% block content %}
+<header class="workspace-header">{% include "brand.html" %}<div class="header-actions"><a href="/about">How it works</a><button type="button" class="appearance-button" onclick="toggleTheme()" aria-label="Change appearance">◐</button></div></header>
 <div class="app-shell" style="height: calc(100vh - 4px);">
     <!-- FLOATING SIDEBAR (over content) -->
     <aside class="library-panel" id="sidebarPanel">
-        <!-- Logo (yellow circle toggles sidebar) -->
-        <div class="sidebar-logo">
-            <button onclick="toggleSidebar()" class="sidebar-orb" title="Toggle sidebar" aria-label="Toggle sidebar">
-                <div class="w-1.5 h-1.5 rounded-full bg-star-200"></div>
-            </button>
-            <span class="font-['IBM_Plex_Mono'] text-star-400 text-[11px] tracking-wider">SHABADVERSE</span>
-        </div>
+        <div class="sidebar-heading"><span>My parkaran</span><button type="button" onclick="toggleSidebar()" aria-label="Collapse set sidebar">‹</button></div>
 
         <!-- Tab bar -->
         <div class="app-tabs">
@@ -27,17 +22,20 @@
                 <span id="libraryCount" class="text-[9px] text-gray-600 font-normal tracking-normal">0</span>
             </div>
             <p id="libraryEmpty" class="text-gray-700 text-[10px] text-center py-6 font-['IBM_Plex_Mono'] tracking-wide">
-                Click shabads to<br>build your library
+                Add shabads to<br>build your parkaran
             </p>
             <div id="libraryList" class="flex-1 overflow-y-auto p-1.5 space-y-1"></div>
         </div>
 
         <!-- BaniDB credit -->
         <div class="sidebar-footer">
-            Gurbani sourced from
-            <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a>
-            /
-            <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a>
+            <a href="/about" class="sidebar-about-link">About &amp; how it works</a>
+            <div style="margin-top:4px;">
+                Gurbani sourced from
+                <a href="https://banidb.com" target="_blank" rel="noopener">BaniDB</a>
+                /
+                <a href="https://sikhitothemax.org" target="_blank" rel="noopener">SikhiToTheMax</a>
+            </div>
         </div>
 
         <!-- Library actions -->
@@ -51,9 +49,14 @@
         </div>
     </aside>
 
+    <nav class="mobile-tabs" aria-label="Workspace">
+        <button type="button" onclick="switchToTab('explore')">Explore</button>
+        <button type="button" onclick="switchToTab('review')">Review</button>
+        <button type="button" onclick="toggleMobileLibrary()">My set <span id="mobileSetCount">0</span></button>
+    </nav>
     <!-- Full-screen loading overlay (shown on first load) -->
     <div id="loadingOverlay" class="loading-overlay">
-        <div class="text-[48px] opacity-[0.06] font-['Noto_Sans_Gurmukhi']">&#x0A74;</div>
+        <img src="{{ url_for('static', filename='brand/mark.svg') }}" class="loading-brand" alt="">
         <div class="loading-bar-track">
             <div id="loadingBarFill" class="loading-bar-fill"></div>
         </div>
@@ -80,16 +83,26 @@
                     <button type="button" class="search-mode" data-mode="transliteration" title="English transliteration search">ABC</button>
                     <button type="button" class="search-mode active" data-mode="first-letter-start" title="First letter from start (Gurmukhi keyboard)">ੳ▸</button>
                     <button type="button" class="search-mode" data-mode="first-letter-anywhere" title="First letter anywhere (Gurmukhi keyboard)">▸ੳ▸</button>
+                    <button type="button" class="search-mode" data-mode="semantic" title="Describe what you're looking for in your own words (meaning search)">&#x2728;</button>
                 </div>
                 <div class="search-cmd relative flex-1 max-w-lg">
-                    <input type="text" id="graphSearch" class="search-input gurmukhi-mode" placeholder="first letter from start e.g. h k s j k" autocomplete="off" spellcheck="false">
-                    <div id="gurmukhiPreview" class="gurmukhi-preview"></div>
+                    <input type="text" aria-label="Search Gurbani" id="graphSearch" class="search-input gurmukhi-mode" placeholder="First letters, e.g. h k s j k" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false">
+                    <div id="gurmukhiPreview" class="gurmukhi-preview" lang="pa-Guru" aria-live="polite"></div>
                     <div id="searchDropdown" class="autocomplete-dropdown hidden"></div>
                 </div>
-                <button class="btn-ghost" onclick="openTagBrowser()">TAGS</button>
-                <button class="btn-ghost" onclick="surpriseMe()">RANDOM</button>
+                <button class="btn-ghost" onclick="openTagBrowser()">Topics</button>
+                <button class="btn-ghost" onclick="surpriseMe()">Random</button>
             </div>
 
+            <div class="discovery-options">
+                <div class="segmented" aria-label="Display">
+                    <button type="button" id="listViewButton" onclick="setDiscoveryView('list')">Cards</button>
+                    <button type="button" id="graphViewButton" onclick="setDiscoveryView('graph')">Graph</button>
+                </div>
+                <label>Match <select id="matchModeSelect" onchange="setMatchMode(this.value)"><option value="shabad">Whole shabad</option><option value="line">A line</option></select></label>
+            </div>
+            <div class="exploration-context"><p id="connectionStatus" role="status">Search a shabad or choose a topic to begin.</p><div id="topicOrigin" class="hidden"><span id="topicOriginLabel"></span><button type="button" id="topicAnother">Try another</button></div></div>
+            <section id="neighborCards" class="neighbor-cards hidden" aria-label="Shabad connections"></section>
             <div class="graph-container relative overflow-hidden h-full">
                 <div id="cy" class="w-full h-full"></div>
 
@@ -117,12 +130,12 @@
                         <input type="range" id="forceDistance" min="80" max="400" step="10" value="250">
                         <span id="forceDistanceVal">200</span>
                     </div>
-                    <div class="force-panel" id="thresholdControl" style="display:none;">
+                    <div class="force-panel" id="thresholdControl" style="display:none;" title="Match strictness: raise it to show only the closest connections, lower it to see more distant ones">
                         <label>SELECTIVE</label>
                         <input type="range" id="thresholdSlider" min="0.15" max="0.85" step="0.05" value="0.35">
                         <span id="thresholdScore">0.35</span>
                     </div>
-                    <button id="akModeToggle" type="button" class="btn-ghost" onclick="toggleAkMode()" title="Boost Amrit Keertan shabads in suggestions">AK MODE</button>
+                    <label class="source-choice" title="Source for suggested connections">Source <select id="sourceModeSelect" onchange="setSourceMode(this.value)"><option value="all">All SGGS</option><option value="prefer-ak">Prefer Amrit Keertan</option><option value="ak-only">Amrit Keertan only</option></select></label>
                     <button onclick="State.cy && State.cy.fit(50)" class="btn-ghost">FIT</button>
                 </div>
 
@@ -164,14 +177,6 @@
     </div>
 </div>
 
-<!-- Tag shabads modal -->
-<div id="tagShabadsModal" class="fixed inset-0 z-[60] hidden">
-    <div class="shabad-preview-backdrop absolute inset-0" onclick="closeTagShabadsModal()"></div>
-    <div class="shabad-preview-overlay relative mx-auto" role="dialog" aria-modal="true" aria-label="Shabads in tag">
-        <div id="tagShabadsContent"></div>
-    </div>
-</div>
-
 <!-- Library management modal -->
 <div id="libraryModal" class="fixed inset-0 z-[60] hidden">
     <div class="shabad-preview-backdrop absolute inset-0" onclick="closeLibraryModal()"></div>
@@ -180,28 +185,19 @@
     </div>
 </div>
 
-<!-- Tag browser modal (constellation map) -->
-<div id="tagModal" class="fixed inset-0 z-50 hidden">
-    <div class="tag-modal-overlay absolute inset-0" onclick="closeTagBrowser()"></div>
-    <div class="relative z-10 mx-auto mt-16 max-w-2xl max-h-[75vh] overflow-y-auto rounded-md bg-[#161420] border border-white/[0.06] p-5">
-        <div class="flex items-center justify-between mb-3">
-            <span class="font-['IBM_Plex_Mono'] text-[11px] text-star-500 tracking-[0.15em] uppercase font-bold">CONSTELLATION MAP</span>
-            <button onclick="closeTagBrowser()" class="text-gray-600 hover:text-gray-400 text-sm">&times;</button>
-        </div>
-        <input type="text" id="tagFilterInput" class="search-input mb-3" placeholder="Filter tags…" autocomplete="off" spellcheck="false" style="font-size:11px;padding:0.4rem 0.6rem;min-height:0;">
-        <div id="tagFilterCount" class="font-['IBM_Plex_Mono'] text-[9px] text-gray-600 tracking-wider mb-2 hidden"></div>
-        <div id="tagGrid" class="flex flex-wrap gap-1.5"></div>
-        <div id="tagFilterEmpty" class="hidden font-['IBM_Plex_Mono'] text-[10px] text-gray-600 text-center py-6 tracking-wide">No matching tags</div>
-        <div id="tagDetail" class="hidden mt-4 border-t border-white/[0.04] pt-3">
-            <h3 id="tagDetailTitle" class="font-['IBM_Plex_Mono'] text-star-500/70 text-xs mb-2"></h3>
-            <div id="tagDetailList" class="space-y-1"></div>
-        </div>
-    </div>
+<div id="topicModal" class="topic-modal hidden" role="dialog" aria-modal="true" aria-label="Explore topics">
+    <div class="topic-backdrop" onclick="closeTagBrowser()"></div>
+    <section class="topic-panel"><header class="topic-panel-header"><h1>Topics in Gurbani</h1><button type="button" onclick="closeTagBrowser()" aria-label="Close topics">×</button></header>
+        <div class="topic-filters"><input id="topicSearch" type="search" aria-label="Find a topic" placeholder="Find a topic or Gurbani term" oninput="renderTopicIndex()"><label>Starting shabads<select id="topicSource" onchange="if (Topic.tag) selectTag(Topic.tag)"><option value="all">All SGGS</option><option value="ak-only">Amrit Keertan only</option></select></label></div>
+        <div id="topicIndex" class="topic-index"></div><div id="topicDetail"><p>Choose a topic to browse its shabads, start at random, or inspect the evidence behind its assignments.</p></div>
+    </section>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/cytoscape-3.30.4.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/discovery.js') }}"></script>
+<script src="{{ url_for('static', filename='js/topics.js') }}"></script>
 <script src="{{ url_for('static', filename='js/graph-explorer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/parkaran-reviewer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app-shell.js') }}"></script>

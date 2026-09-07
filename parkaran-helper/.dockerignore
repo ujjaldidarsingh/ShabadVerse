@@ -11,3 +11,15 @@ CLAUDE.md
 DESIGN.md
 state.md
 architecture.md
+
+node_modules/
+tests/
+**/*.bak/
+**/*.pre_sharpen.json
+**/sggs_tags_pre_rebuild.json
+**/tag_reasoning/
+**/tag_reasoning.json
+**/*report.md
+**/*audit.md
+**/*checkpoint*.json
+**/tag_validation*.json

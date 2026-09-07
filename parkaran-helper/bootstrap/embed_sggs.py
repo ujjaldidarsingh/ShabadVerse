@@ -27,6 +27,20 @@ def embed_sggs():
     valid = [s for s in shabads if s.get("english_translation") or s.get("transliteration")]
     print(f"Loaded {len(shabads)} shabads, {len(valid)} have text for embedding.")
 
+    # Clean re-embed: drop the old collection FIRST with a bare client (no
+    # embedding fn) so the ONNX store can create it fresh. ChromaDB pins an
+    # embedding-function config to each collection, so opening the old
+    # SentenceTransformer-built collection with the ONNX fn would conflict.
+    import chromadb
+
+    print(f"Dropping old SGGS collection ({config.SGGS_COLLECTION_NAME})...")
+    bare_client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH)
+    try:
+        bare_client.delete_collection(config.SGGS_COLLECTION_NAME)
+        print("  dropped.")
+    except Exception as err:  # noqa: BLE001 — chromadb raises various not-found types
+        print(f"  nothing to drop ({type(err).__name__}).")
+
     print(f"Initializing SGGS vector store (collection: {config.SGGS_COLLECTION_NAME})...")
     store = ShabadVectorStore(collection_name=config.SGGS_COLLECTION_NAME)
 
@@ -37,4 +51,6 @@ def embed_sggs():
 
 
 if __name__ == "__main__":
+    from bootstrap.build_guard import require_build_target
+    require_build_target(legacy=False)
     embed_sggs()
