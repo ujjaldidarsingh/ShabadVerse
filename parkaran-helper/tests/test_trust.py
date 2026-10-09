@@ -2,6 +2,7 @@
 import json
 import sys
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest.mock import patch
 
@@ -56,6 +57,62 @@ class GraphTruthTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/graph/neighbors/1?threshold=nan').status_code, 400)
         for value in [None, [], {'ids': '1'}, {'ids': ['1'] * 201}]:
             self.assertEqual(self.client.post('/api/graph/shabads', json=value).status_code, 400)
+
+
+class LineMatchTests(unittest.TestCase):
+    """Line mode compares verse translations. Concepts play no part."""
+    def setUp(self):
+        self.client = app.test_client()
+        ids = [str(i) for i in range(1, 6)]
+        graph = {'metadata': {sid: {'tags': ['Naam']} for sid in ids}, 'neighbors': {}, 'tag_index': {'Naam': ids}}
+        for p in (patch.object(api, '_graph_data', graph), patch.object(api, '_sggs_lookup', {})):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_score_is_translation_similarity_alone(self):
+        from unittest.mock import Mock
+        def hit(sid, distance, gurmukhi, english):
+            return {'distance': distance, 'metadata': {'shabad_id': sid, 'line_index': 0, 'gurmukhi': gurmukhi, 'english': english}}
+        store = Mock()
+        store.get_count.return_value = 6
+        store.search_similar.return_value = [
+            hit('1', .05, 'ਉਹੀ ਸ਼ਬਦ ॥', 'The anchor shabad itself.'),
+            hit('2', .2, 'ਸਿਰੀਰਾਗੁ ਮਹਲਾ ੧ ॥', 'Siree Raag, First Mehl:'),
+            hit('3', .3, 'ਹਰਿ ਨਾਮੁ ਧਿਆਇ ॥', 'Meditate on the Name.'),
+            hit('4', .35, 'ਹਰਿ ਨਾਮੁ ਧਿਆਇ ॥', 'Meditate on the Name.'),
+            hit('3', .4, 'ਦੂਜੀ ਤੁਕ ॥', 'A weaker verse of shabad 3.'),
+            hit('5', .45, 'ਪ੍ਰਭੁ ਸਿਮਰਿ ॥', 'Remember God.'),
+        ]
+        with patch.object(api, '_resolve_anchor_line', return_value=(0, 'Meditate.', 'ਨਾਮੁ ਧਿਆਇ ॥')), \
+                patch.object(api, '_get_lines_vector_store', return_value=store), \
+                patch.object(api, '_get_word_frequency', return_value=(Counter(), 1000)):
+            hits, anchor = api._line_neighbors('1', None, 10, .5)
+        self.assertEqual([(h['id'], h['score']) for h in hits], [('3', .7), ('5', .55)])
+        self.assertEqual([h['shared_word'] for h in hits], ['ਧਿਆਇ', None])
+        self.assertEqual(anchor['line_index'], 0)
+
+    def test_groups_by_shared_word_never_by_concept(self):
+        hits = [{'id': sid, 'score': score, 'line_score': score, 'matched_line_index': 0, 'matched_line_gurmukhi': '',
+                 'matched_line_english': '', 'matched_line_is_rahao': False, 'shared_word': word}
+                for sid, score, word in [('2', .8, 'ਧਿਆਇ'), ('3', .7, 'ਧਿਆਇ'), ('4', .6, 'ਸਿਮਰਿ'), ('5', .55, None)]]
+        with patch.object(api, '_line_neighbors', return_value=(hits, {'line_index': 0, 'english': '', 'gurmukhi': ''})):
+            data = self.client.get('/api/graph/neighbors/1?match=line').get_json()
+        self.assertEqual(data['match'], 'line')
+        self.assertEqual({tag: [n['id'] for n in items] for tag, items in data['by_tag'].items()},
+                         {'ਧਿਆਇ': ['2', '3'], api.SIMILAR_TRANSLATION: ['4', '5']})
+        self.assertEqual(data['label_kinds'], {'ਧਿਆਇ': 'shared_word', api.SIMILAR_TRANSLATION: 'similar_translation'})
+
+    def test_default_anchor_is_the_marked_rahao_not_a_heading(self):
+        from unittest.mock import Mock
+        def metas(*verses):
+            return {'metadatas': [{'line_index': i, 'english': str(i), 'gurmukhi': g, 'is_rahao': r} for i, (g, r) in enumerate(verses)]}
+        heading = ('ਸਿਰੀਰਾਗੁ ਮਹਲਾ ੧ ॥', False)
+        store = Mock()
+        with patch.object(api, '_get_lines_vector_store', return_value=store):
+            store.collection.get.return_value = metas(heading, ('ਗੁਰਮਤਿ ਸਾਚਿ ਰਹਾਉ ॥', True), ('ਰਹਾਉ ਦੀ ਤੁਕ ॥੧॥ ਰਹਾਉ ॥', True))
+            self.assertEqual(api._resolve_anchor_line('1', None)[0], 2)
+            store.collection.get.return_value = metas(heading, ('ਪਹਿਲੀ ਤੁਕ ॥੧॥', False))
+            self.assertEqual(api._resolve_anchor_line('1', None)[0], 1)
 
 
 class SearchTests(unittest.TestCase):

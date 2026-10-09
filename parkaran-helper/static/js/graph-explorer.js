@@ -65,6 +65,7 @@ const State = {
     evidenceCache: {},
     shabadInfoCache: {}, // {shabadId: {raag, writer, ang}} — from BaniDB, fills metadata gaps
     matchMode: "shabad", // "shabad" | "line" — which matching algorithm expansions use
+    thresholds: { shabad: 0.35, line: 0.5 }, // each mode scores on its own scale
     forces: {           // Obsidian-style force parameters
         center: 0.08,   // gravity: 0.01-0.5 (low = spread out)
         repel: 50000,   // nodeRepulsion: 5000-200000 (high = push apart)
@@ -73,6 +74,11 @@ const State = {
     },
     tagClusters: {},    // {tag: [nodeId, ...]} for post-layout label positioning
 };
+
+/** Cytoscape id for a cluster label. Labels can be Gurmukhi words, so encode rather than strip. */
+function tagLabelId(sid, tag) {
+    return `tl_${sid}_${encodeURIComponent(tag)}`;
+}
 
 /** Escape for safe insertion into onclick attribute string literals. */
 function escAttr(s) {
@@ -342,7 +348,7 @@ function getStyles() {
                 "background-opacity": 0,
                 "border-width": 0,
                 color: "rgba(245,158,11,0.45)",
-                "font-family": "IBM Plex Mono, monospace",
+                "font-family": "IBM Plex Mono, Noto Sans Gurmukhi, monospace",
                 "font-size": "13px",
                 "font-weight": 600,
                 "text-halign": "center",
@@ -458,11 +464,9 @@ async function expandShabad(shabadId) {
     // Show threshold slider once a shabad is expanded
     showThresholdSlider();
 
-    // Fetch neighbors — pass tuk English if user searched a specific verse
     const threshold = getThreshold();
     const neighborLimit = innerWidth <= 768 ? 6 : innerWidth <= 1024 ? 12 : 24;
     const tuk = State.selectedTuk[sid];
-    const tukEnglish = tuk?.english || "";
     // Matching algorithm: "shabad" (which shabads are about the same things) or
     // "line" (where else this exact thought appears). When the user picked a
     // specific verse, anchor line mode on that verse.
@@ -470,10 +474,7 @@ async function expandShabad(shabadId) {
     const anchorLineIndex = (matchMode === "line" && typeof tuk?.index === "number" && tuk.index >= 0)
         ? tuk.index
         : null;
-    // Cache by shabad ID + threshold + match mode + anchor. Tuk-specific
-    // suggestions are otherwise a display-layer concern; the neighbor set from
-    // the API is the same.
-    const cacheKey = JSON.stringify([sid, threshold, matchMode, anchorLineIndex, tukEnglish, neighborLimit]);
+    const cacheKey = JSON.stringify([sid, threshold, matchMode, anchorLineIndex, neighborLimit]);
     if (!State.neighborCache[cacheKey]) {
         // Show graph loading spinner during first fetch for this shabad
         const graphLoadingEl = document.getElementById("graphLoading");
@@ -486,16 +487,13 @@ async function expandShabad(shabadId) {
             if (matchMode === "line") {
                 url += `&match=line`;
                 if (anchorLineIndex !== null) url += `&line_index=${anchorLineIndex}`;
-            } else if (tukEnglish) {
-                // Shabad mode only: blend in vector hits for the searched verse.
-                url += `&tuk_english=${encodeURIComponent(tukEnglish)}`;
             }
             State.neighborCache[cacheKey] = await API.get(url);
         } catch (err) {
             console.error("Neighbor fetch failed:", err);
             State.expanding = false;
             document.getElementById("graphLoading")?.classList.add("hidden");
-            document.getElementById("connectionStatus").textContent = "Connections unavailable. Try another shabad or source setting.";
+            document.getElementById("connectionStatus").textContent = "Connections unavailable. Try another shabad.";
             if (State.pendingExpansion) { const next = State.pendingExpansion; State.pendingExpansion = null; await expandShabad(next); }
             return;
         }
@@ -596,7 +594,7 @@ async function expandShabad(shabadId) {
         const clusterRadius = radius * (0.9 + (ti % 2) * 0.2);
 
         // Place tag label between center and cluster (closer to cluster)
-        const tagId = `tl_${sid}_${tag.replace(/\W/g, "_")}`;
+        const tagId = tagLabelId(sid, tag);
         const labelR = clusterRadius * 0.55;
         cy.add({
             group: "nodes",
@@ -698,7 +696,7 @@ function positionTagLabels(centerSid) {
     const centerPos = centerEl.length ? centerEl.position() : { x: 0, y: 0 };
 
     for (const [tag, nodeIds] of Object.entries(State.tagClusters || {})) {
-        const tagId = `tl_${centerSid}_${tag.replace(/\W/g, "_")}`;
+        const tagId = tagLabelId(centerSid, tag);
         const labelEl = cy.getElementById(tagId);
         if (!labelEl.length || !nodeIds.length) continue;
 
@@ -1041,7 +1039,8 @@ async function loadVerseSelector(shabadId, nodeEl) {
             const v = State.verseCache[vsid]?.[vidx];
             if (v) {
                 State.selectedTuk[vsid] = { gurmukhi: v.gurmukhi, english: v.english || "", index: vidx };
-                // Re-expand with new tuk context (different suggestions)
+                // Picking a verse means matching from that verse.
+                applyMatchMode("line");
                 hideTooltip();
                 expandShabad(vsid);
             }
@@ -1063,6 +1062,7 @@ function initThresholdSlider() {
 
     // Re-expand on release (debounced)
     slider.addEventListener("change", debounce(() => {
+        State.thresholds[State.matchMode] = parseFloat(slider.value);
         if (!State.centerNode) return;
         const sid = State.centerNode;
         State.neighborCache = {};
@@ -1073,25 +1073,40 @@ function initThresholdSlider() {
 /**
  * Matching algorithm: "shabad" asks which shabads are about the same things;
  * "line" asks where else this exact thought appears. The choice is sticky
- * across expansions and reloads, and applies per expansion — a trail can mix
- * modes hop to hop.
- *
- * The UI surface for this lands later; setMatchMode() is the seam it will use.
+ * across expansions and reloads, and applies per expansion, so a trail can mix
+ * modes hop to hop. Each mode keeps its own strictness because the scores are
+ * on different scales.
  */
 function initMatchMode() {
     const stored = localStorage.getItem("shabadverse_match_mode");
     State.matchMode = stored === "line" ? "line" : "shabad";
     document.getElementById("matchModeSelect").value = State.matchMode;
+    setThresholdControl(State.thresholds[State.matchMode]);
+}
+
+function setThresholdControl(value) {
+    const slider = document.getElementById("thresholdSlider");
+    const scoreEl = document.getElementById("thresholdScore");
+    if (slider) slider.value = String(value);
+    if (scoreEl) scoreEl.textContent = Number(value).toFixed(2);
+}
+
+/** Switch modes without expanding; returns whether the mode changed. */
+function applyMatchMode(mode) {
+    const next = mode === "line" ? "line" : "shabad";
+    if (next === State.matchMode) return false;
+    State.thresholds[State.matchMode] = getThreshold();
+    State.matchMode = next;
+    localStorage.setItem("shabadverse_match_mode", next);
+    document.getElementById("matchModeSelect").value = next;
+    setThresholdControl(State.thresholds[next]);
+    return true;
 }
 
 window.setMatchMode = function (mode) {
-    const next = mode === "line" ? "line" : "shabad";
-    if (next === State.matchMode) return;
-    State.matchMode = next;
-    localStorage.setItem("shabadverse_match_mode", next);
     // Cache keys include the mode, so switching re-queries rather than
     // re-rendering a stale neighbor set.
-    if (State.centerNode) expandShabad(State.centerNode);
+    if (applyMatchMode(mode) && State.centerNode) expandShabad(State.centerNode);
 };
 
 function getThreshold() {
@@ -1376,13 +1391,14 @@ function selectSearch(sid, matchedVerse, englishTranslation, lineIndex = -1) {
     document.getElementById("searchDropdown").classList.add("hidden");
     document.getElementById("graphSearch").value = "";
     document.getElementById("gurmukhiPreview").textContent = "";
-    // Store the searched tuk with its English translation for tuk-aware suggestions
+    // A first-letter result is a specific verse: match from that verse.
     if (matchedVerse) {
         State.selectedTuk[sid] = {
             gurmukhi: matchedVerse,
             english: englishTranslation || "",
             index: lineIndex,
         };
+        if (lineIndex >= 0) applyMatchMode("line");
     } else {
         delete State.selectedTuk[sid];
     }

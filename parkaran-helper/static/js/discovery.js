@@ -38,7 +38,7 @@ function renderNeighborCards(sid, data) {
         ${data.fallback_reason ? `<p class="connection-notice" role="status">${escapeHtml(data.fallback_reason)}</p>` : ''}
         ${data.anchor_line ? `<aside class="connection-notice">Connecting from this line:<p lang="pa-Guru">${escapeHtml(data.anchor_line.gurmukhi)}</p><p>${escapeHtml(data.anchor_line.english)}</p></aside>` : ''}
         <p class="connection-notice">Connections are suggestions. Read each shabad in full before choosing a sequence.</p>
-        ${Object.entries(data.by_tag || {}).map(([tag, items]) => `<section class="connection-group"><h2>${escapeHtml(tag)} <small>${tag === 'Translation similarity' ? 'inferred connection' : (seed.tags || []).includes(tag) ? 'shared concept' : 'neighbor concept'}</small></h2>${items.map(item => `<article class="connection-card"><h3 lang="pa-Guru">${escapeHtml(item.gurmukhi || item.title)}</h3><p>${escapeHtml(item.raag || '')} · Ang ${escapeHtml(String(item.ang || ''))}</p>${item.matched_line_gurmukhi ? `<blockquote lang="pa-Guru">${escapeHtml(item.matched_line_gurmukhi)}</blockquote><p>Matched line · translation similarity</p>` : ''}${actions(item.id, true)}</article>`).join('')}</section>`).join('')}
+        ${Object.entries(data.by_tag || {}).map(([tag, items]) => `<section class="connection-group"><h2>${groupHeading(tag, data, seed)}</h2>${items.map(item => `<article class="connection-card"><h3 lang="pa-Guru">${escapeHtml(item.gurmukhi || item.title)}</h3><p>${escapeHtml(item.raag || '')} · Ang ${escapeHtml(String(item.ang || ''))}</p>${item.matched_line_gurmukhi ? `<blockquote lang="pa-Guru">${escapeHtml(item.matched_line_gurmukhi)}</blockquote><p>Matched line · translation similarity${item.shared_word && item.shared_word !== tag ? ` · shares <span lang="pa-Guru">${escapeHtml(item.shared_word)}</span>` : ''}</p>` : ''}${actions(item.id, true)}</article>`).join('')}</section>`).join('')}
         ${data.total_shown ? '' : '<p class="connection-notice">No connections at this setting. Lower the selectivity or choose another shabad.</p>'}`;
     panel.querySelectorAll('[data-discovery]').forEach(button => button.addEventListener('click', () => {
         const id = button.dataset.id;
@@ -46,6 +46,16 @@ function renderNeighborCards(sid, data) {
         if (button.dataset.discovery === 'expand') { expandShabad(id); panel.scrollTop = 0; }
         if (button.dataset.discovery === 'add') { addToParkaran(id); renderNeighborCards(sid, data); }
     }));
+}
+
+/** What a group label is, so a shared word or a line match is never read as a concept. */
+function groupHeading(tag, data, seed) {
+    const kind = data.label_kinds?.[tag];
+    if (kind === 'shared_word') return `<span lang="pa-Guru">${escapeHtml(tag)}</span> <small>shared word</small>`;
+    if (kind === 'similar_translation') return escapeHtml(tag);
+    const note = (kind === 'untagged' || tag === 'Translation similarity') ? 'inferred connection'
+        : (seed.tags || []).includes(tag) ? 'shared concept' : 'neighbor concept';
+    return `${escapeHtml(tag)} <small>${note}</small>`;
 }
 
 function conceptEvidenceHTML(concepts) {

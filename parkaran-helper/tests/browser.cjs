@@ -22,7 +22,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:5052';
       await page.locator('#graphSearch').fill('ਸਬ');
       await page.locator('[data-action="select-search"]').first().click();
       await page.locator('.seed-card').waitFor();
-      await page.locator('#matchModeSelect').selectOption('line');
+      assert.equal(await page.locator('#matchModeSelect').inputValue(),'line','a searched verse opens line matching');
       await page.waitForFunction(()=>State.lastNeighbors?.data?.requested_match === 'line');
       assert.equal(await page.evaluate(()=>Boolean(State.lastNeighbors.data.anchor_line || State.lastNeighbors.data.fallback_reason)),true,'line anchor or explicit fallback');
       await page.locator('#matchModeSelect').selectOption('shabad');
