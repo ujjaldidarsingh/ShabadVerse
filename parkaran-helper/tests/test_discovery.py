@@ -47,6 +47,8 @@ class TopicTests(unittest.TestCase):
         for target,value in [('statistics',{'Naam':{'tag':'Naam','count':60}}),('eligible',ids)]:
             p=patch.object(topics,target,return_value=value);p.start();self.addCleanup(p.stop)
         p=patch.object(topics,'detail',side_effect=lambda sid:{'id':sid});p.start();self.addCleanup(p.stop)
+        p=patch.object(topics,'central',return_value=());p.start();self.addCleanup(p.stop)
+        p=patch.object(topics,'member',side_effect=lambda sid,tag:{'central':False,'weight':0.0});p.start();self.addCleanup(p.stop)
 
     def test_pagination_exposes_full_count_and_last_member(self):
         data=self.client.get('/api/topics/Naam?offset=40&limit=20').get_json()
@@ -63,6 +65,14 @@ class TopicTests(unittest.TestCase):
         self.assertEqual(len(pool),59)
         self.assertIn('40',pool)
 
+    def test_random_starts_from_shabads_centered_on_the_topic(self):
+        with patch.object(topics,'central',return_value=('3','5')), patch('api.topics.random.SystemRandom') as rng:
+            rng.return_value.choice.side_effect=lambda pool:pool[0]
+            data=self.client.get('/api/topics/Naam/random?exclude=3').get_json()
+            pool=rng.return_value.choice.call_args.args[0]
+        self.assertEqual(pool,['5'])
+        self.assertEqual((data['shabad']['id'],data['central_total']),('5',2))
+
     def test_empty_intersection_never_falls_back_to_all(self):
         with patch.object(topics,'eligible',return_value=[]):
             response=self.client.get('/api/topics/Naam/random?source=ak-only')
@@ -71,6 +81,30 @@ class TopicTests(unittest.TestCase):
     def test_unknown_topic_and_source(self):
         self.assertEqual(self.client.get('/api/topics/Unknown/random').status_code,404)
         self.assertEqual(self.client.get('/api/topics/Naam/random?source=ak-only').status_code,200)
+
+
+class TopicOrderTests(unittest.TestCase):
+    """A shabad that only brushes a topic must not lead its list, as the Mool Mantar did under Kaam.
+    Within each tier, shabads that use the word lead inferred ones."""
+    def setUp(self):
+        weights={('1','Kaam'):(False,4.0,True,.9),('2','Kaam'):(True,90.0,False,.5),('3','Kaam'):(True,80.0,True,0.0),('4','Kaam'):(False,4.0,False,.6)}
+        for target,value in [('_weights',weights),('_get_graph',{'tag_index':{'Kaam':['1','2','3','4']}})]:
+            p=patch.object(topics,target,return_value=value);p.start();self.addCleanup(p.stop)
+        for cached in (topics.eligible,topics.central):
+            cached.cache_clear();self.addCleanup(cached.cache_clear)
+
+    def test_central_members_lead_by_weight(self):
+        self.assertEqual(topics.eligible('Kaam'),('3','2','1','4'))
+        self.assertEqual(topics.central('Kaam'),('3','2'))
+
+
+class RahaoTests(unittest.TestCase):
+    def test_span_runs_back_to_the_previous_stanza(self):
+        verses=['ਗਉੜੀ ਮਹਲਾ ੫ ॥','ਪਹਿਲੀ ਤੁਕ ॥','ਦੂਜੀ ਤੁਕ ॥੧॥','ਰਹਾਉ ਦੀ ਪਹਿਲੀ ਤੁਕ ॥','ਰਹਾਉ ਦੀ ਦੂਜੀ ਤੁਕ ॥੧॥ ਰਹਾਉ ॥','ਅਗਲੀ ਤੁਕ ॥੨॥']
+        self.assertEqual(corpus.rahao_span(verses),{3,4})
+
+    def test_rahao_meaning_remain_is_not_a_marker(self):
+        self.assertEqual(corpus.rahao_span(['ਗੁਰਮਤਿ ਸਾਚਿ ਰਹਾਉ ॥']),set())
 
 
 if __name__=='__main__': unittest.main()

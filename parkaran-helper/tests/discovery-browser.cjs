@@ -35,7 +35,7 @@ const base=process.env.BASE_URL || 'http://127.0.0.1:5053';
   await page.locator('button').filter({hasText:/^Topics$/}).click();
   await page.locator('.topic-chip[data-tag="Naam"]').click();await page.locator('#topicRandom').waitFor();
   assert.match(await page.locator('.topic-counts').textContent(),/lexical/);
-  await page.locator('.topic-method summary').click();assert.match(await page.locator('.topic-method').textContent(),/without a percentage ceiling/);
+  await page.locator('.topic-method summary').click();assert.match(await page.locator('.topic-method').textContent(),/no topic has a membership quota/);
   await page.locator('#topicNext').click();await page.waitForFunction(()=>Topic.offset===20 && document.querySelector('.topic-tools')?.textContent.includes('21'));
   await page.locator('#topicReview').click();await page.locator('#topicReviewSamples [data-read]').first().waitFor();
   assert.equal(await page.locator('#topicReviewSamples').textContent().then(t=>t.includes('Previously retained inference')),false);

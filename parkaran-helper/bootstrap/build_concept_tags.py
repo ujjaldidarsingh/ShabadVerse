@@ -75,6 +75,19 @@ MIN_ANCHOR_LINES = 20
 DESC_WEIGHT, SEED_WEIGHT = 0.4, 0.6
 # Keep tag sets tight: a shabad's strongest concepts, not everything it brushes.
 MAX_PRESENTATION_TAGS = 6
+# Per-shabad weight (0 to 100): the share of a shabad's verses that express a
+# concept, with every verse of the rahao counted RAHAO_WEIGHT times because the
+# rahao states the shabad's central idea. A verse expresses a concept when the
+# concept's word appears in it, or when its translation passes the concept's
+# threshold and the concept is among the verse's CONCEPTS_PER_VERSE strongest by
+# standardized similarity. Without that limit a verse counted toward four
+# concepts on average and the broadest concepts outweighed everything else.
+# Interim rule: provisional until calibrated against reviewed verses.
+RAHAO_WEIGHT = 3.0
+CONCEPTS_PER_VERSE = 2
+# A concept is central to a shabad when it is among the shabad's CENTRAL_RANK
+# heaviest concepts and weighs at least CENTRAL_FLOOR.
+CENTRAL_RANK, CENTRAL_FLOOR = 2, 20.0
 
 
 def nfc(s: str) -> str:
@@ -145,6 +158,54 @@ def build_prototype(desc_vec, seed_rows, E):
     return proto / (np.linalg.norm(proto) + 1e-9)
 
 
+def annotate_weights(assignments: dict, names: list[str], S: np.ndarray, thresholds: np.ndarray,
+                     anchors: dict[str, set[str]], row_of: dict[str, int]) -> None:
+    """Add weight, weight_verses and central to every assignment (see RAHAO_WEIGHT).
+
+    Membership is unchanged: every verse that adds weight also qualifies its
+    shabad for the concept under the membership rule, which is checked here.
+    """
+    from database.corpus import rahao_span, shabad as source_shabad
+
+    column = {name: j for j, name in enumerate(names)}
+    Z = (S - S.mean(axis=0)) / (S.std(axis=0) + 1e-9)
+    strongest = np.zeros(S.shape, dtype=bool)
+    np.put_along_axis(strongest, np.argsort(-Z, axis=1)[:, :CONCEPTS_PER_VERSE], True, axis=1)
+    inferred = strongest & (S >= thresholds)
+
+    lexical: dict[str, dict[int, set[int]]] = {}
+    for name, line_ids in anchors.items():
+        for line_id in line_ids:
+            sid, idx = line_id.split(":")
+            lexical.setdefault(sid, {}).setdefault(int(idx), set()).add(column[name])
+    rows: dict[str, dict[int, int]] = {}
+    for line_id, row in row_of.items():
+        sid, idx = line_id.split(":")
+        rows.setdefault(sid, {})[int(idx)] = row
+
+    for sid in set(rows) | set(lexical):
+        verse_rows, verse_words = rows.get(sid, {}), lexical.get(sid, {})
+        counted = sorted(set(verse_rows) | set(verse_words))
+        span = rahao_span([v["gurmukhi"] for v in source_shabad(sid)["verses"]])
+        omega = {v: RAHAO_WEIGHT if v in span else 1.0 for v in counted}
+        total = sum(omega.values())
+        support: dict[int, list[int]] = {}
+        for v in counted:
+            for j in verse_words.get(v, set()) | ({int(j) for j in np.flatnonzero(inferred[verse_rows[v]])} if v in verse_rows else set()):
+                support.setdefault(j, []).append(v)
+        group = assignments.get(sid, [])
+        missing = {names[j] for j in support} - {a["concept"] for a in group}
+        if missing:
+            raise ValueError(f"Weight evidence without membership in shabad {sid}: {sorted(missing)}")
+        for a in group:
+            verses = support.get(column[a["concept"]], [])
+            a["weight"] = round(100.0 * sum(omega[v] for v in verses) / total, 1)
+            a["weight_verses"] = verses
+        ranked = sorted(group, key=lambda a: (-a["weight"], not a["lexical"], -a["margin"]))
+        for rank, a in enumerate(ranked):
+            a["central"] = rank < CENTRAL_RANK and a["weight"] >= CENTRAL_FLOOR
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--vocab", type=Path, default=VOCAB_PATH)
@@ -169,6 +230,7 @@ def main() -> None:
     n_shabads = len(set(line_sid))
 
     assignments: dict[str, list[dict]] = {}
+    concept_sims, concept_thresholds = [], []
     report_rows = []
     comparison = {}
     baseline_path = os.environ.get('SHABADVERSE_COMPARISON_SOURCE')
@@ -191,6 +253,8 @@ def main() -> None:
         else:
             thr = float(np.quantile(sim, 0.995))  # description-only: top 0.5% of verses
             calib = "description-only"
+        concept_sims.append(sim)
+        concept_thresholds.append(thr)
 
         def best_line_over(rows) -> dict[str, tuple[float, int, str]]:
             out: dict[str, tuple[float, int, str]] = {}
@@ -277,6 +341,14 @@ def main() -> None:
         lst.sort(key=lambda a: -a["margin"])
         # Full evidence survives. Only the graph proposal budget uses a smaller projection.
 
+    annotate_weights(assignments, list(concepts), np.column_stack(concept_sims),
+                     np.asarray(concept_thresholds, dtype=np.float32), anchors, row_of)
+    central_counts: dict[str, int] = {}
+    for lst in assignments.values():
+        for a in lst:
+            if a["central"]:
+                central_counts[a["concept"]] = central_counts.get(a["concept"], 0) + 1
+
     counts: dict[str, int] = {}
     for lst in assignments.values():
         for a in lst:
@@ -329,18 +401,23 @@ def main() -> None:
             "review_status": "provisional",
             "previous_count": comparison[name]['previous_count'],
             "new_inferred": comparison[name]['new_inferred'],
+            "central_count": central_counts.get(name, 0),
         }
         for name, c in concepts.items()
         if counts.get(name, 0) > 0
     }
-    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads}}, ensure_ascii=False, indent=2), encoding="utf-8")
+    weights_policy = {"method": "rahao-weighted share of verses expressing the concept",
+                      "rahao_weight": RAHAO_WEIGHT, "concepts_per_verse": CONCEPTS_PER_VERSE,
+                      "central_rank": CENTRAL_RANK, "central_floor": CENTRAL_FLOOR,
+                      "review": "provisional"}
+    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads, "weights": weights_policy}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     lines = ["# Concept tagging report", "", f"{tagged_shabads} shabads tagged, avg {avg:.1f} tags each.", ""]
-    lines += ["| concept | group | calibration | says it | inferred | tagged | gen. recall |",
-              "|---|---|---|---:|---:|---:|---:|"]
+    lines += ["| concept | group | calibration | says it | inferred | tagged | central | gen. recall |",
+              "|---|---|---|---:|---:|---:|---:|---:|"]
     for r in sorted(report_rows, key=lambda r: -counts.get(r["concept"], 0)):
         lines.append(f"| {r['concept']} | {r['group']} | {r['calib']} | {r['anchor_shabads']} | "
-                     f"{r['generalized']} | {counts.get(r['concept'],0)} | {r['gen_recall']:.0%} |")
+                     f"{r['generalized']} | {counts.get(r['concept'],0)} | {central_counts.get(r['concept'], 0)} | {r['gen_recall']:.0%} |")
     REPORT_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\nwrote {TAGS_OUT.name}, {VOCAB_OUT.name}, {REPORT_OUT.name}")
 

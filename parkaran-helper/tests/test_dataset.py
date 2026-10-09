@@ -55,6 +55,26 @@ class DatasetTests(unittest.TestCase):
                 if not assignment['lexical']:
                     self.assertGreaterEqual(assignment['strength'] + .00051, review[assignment['concept']]['threshold'])
 
+    def test_weights_name_at_most_two_central_concepts(self):
+        assignments = json.loads((self.path / 'concept_tags.json').read_text())
+        for sid, group in assignments.items():
+            self.assertTrue(all(0 <= a['weight'] <= 100 for a in group), sid)
+            central = [a for a in group if a['central']]
+            self.assertLessEqual(len(central), 2, sid)
+            self.assertTrue(all(a['weight'] >= 20 for a in central), sid)
+
+    def test_mool_mantar_does_not_lead_kaam(self):
+        from api import topics
+        concepts = json.loads((self.path / 'concept_tags.json').read_text())
+        cached = (topics._weights, topics.eligible, topics.central)
+        with patch.object(api, '_graph_data', self.graph), patch.object(api, '_concepts', concepts):
+            for function in cached: function.cache_clear()
+            try:
+                self.assertNotEqual(topics.eligible('Kaam')[0], '1')
+                self.assertNotIn('1', topics.central('Kaam'))
+            finally:
+                for function in cached: function.cache_clear()
+
     def test_blind_review_hides_status_until_reveal(self):
         from api import topics
         with patch.object(config, 'DATA_DIR', str(self.path)), patch.object(topics, 'statistics', return_value={'Naam': {}}), patch.object(topics, 'detail', side_effect=lambda sid: {'id':sid}):
