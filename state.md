@@ -1,4 +1,18 @@
-# ShabadVerse state, September 7, 2026
+# ShabadVerse state, October 3, 2026
+
+## Matching redesign phase 1 (candidate, not deployed)
+
+Production is unchanged; see the September 7 release below. This work follows `audits/2026-09-30-matching-strategy/STRATEGY.md` and is uncommitted on branch `phase1-line-matching-topic-weights`.
+
+- `shabad_cache.db` was restored from the host into all four release directories (SHA-256 `fdbaecd8…`, matching every manifest). Keep a second copy off the host.
+- Line matching is now its own algorithm: cosine similarity of verse translations only, the best verse per shabad, no concept prior and no concept clusters. Matches group under a rare Gurmukhi word shared with the anchor when at least two share it, otherwise under "Similar translation". The default anchor is the marked rahao, skipping headings. A searched verse opens line matching. Each mode keeps its own strictness (whole shabad 0.35, line 0.5).
+- Every concept assignment carries a provisional weight (0 to 100, rahao verses counted three times, each verse counting toward at most its two strongest concepts) and a central flag (top two by weight, at least 20). Membership, presentation tags and the graph are unchanged.
+- Topic lists start with shabads that center on the topic. Within each tier, shabads that use the word come before inferred ones, then heavier weights. Random topic starts draw from central shabads when there are any. Kaam now opens with Ang 1358 (ਹੇ ਕਾਮੰ ਨਰਕ ਬਿਸ੍ਰਾਮੰ); shabad 1 is 4,474th of 4,769.
+- Candidate `parkaran-helper/releases/2026-10-02-phase1` (dataset `dd79bddf182e6cf7…`) was built with `bootstrap/setup.py` from `2026-09-07-explore`. Membership, assignment order and graph neighbors match `2026-09-07-sggs`. The only differences are float32 noise in thresholds (at most 1.2e-7), the order inside `shared_tags` lists, and one tied evidence verse (shabad 4603, Satguru).
+- 36 Python checks, including the dataset checks, and both browser suites pass against the candidate on phone, tablet and desktop.
+- Ujjal's review sets: `audits/2026-10-02-review-sets/`, served as a private page (https://claude.ai/artifact/Fdo93Mwweb7DTDSniuY7iW). All 458 judgments were complete on October 9; see `RESULTS.md` there. Line matching: translation-only ties the live method (68% same or related for both). Central concepts from verse evidence agree with Ujjal in 35% of shabads against a 75% bar, and 21 of his 69 picks were never assigned. Word matches are 90% right, and inferred evidence is reliable only as each verse's strongest concept.
+
+## September 7 production release
 
 Current production release: `parkaran-helper/releases/2026-09-07-sggs`, merged through PR #22. AK preference, AK-only filtering, badges, chapter labels and topic membership counts are removed. Old source preferences and query parameters no longer affect results. The dataset is byte-identical to the evidence candidate; archived source membership remains preserved. The new runtime SHA-256 is `3f2480975ddd3681ebb1b85d77e2d03a898b8a2166dd337b7124332ba2c80269`. The deployment and rollback record is `deployments/2026-09-07-sggs.json`.
 

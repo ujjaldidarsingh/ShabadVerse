@@ -64,6 +64,12 @@ First-letter browser input converts the supported Roman keyboard mapping before 
 
 The September 7 review candidate is `releases/2026-09-07-explore`, copied from the September 6 candidate without rebuilding assignments. Only generation-policy metadata was added to its vocabulary. The manifest binds the updated runtime and dataset. After any runtime edit, regenerate and verify it before serving a fresh process. Run both `tests/browser.cjs` and `tests/discovery-browser.cjs` against that process.
 
+## Two matching algorithms (October 2 candidate)
+
+Whole-shabad matching reads the precomputed graph and labels clusters with concepts. Line matching is separate. It embeds the anchor verse's BaniDB English, ranks other verses by cosine similarity alone, keeps the best verse per shabad, and skips headings and verbatim refrains. It never applies concept labels or a concept prior. Its optional label is a Gurmukhi word both verses contain: at least three letters once one final vowel sign or nasal is dropped, found in at most 1% of verses, not on a short stoplist, and shared by at least two matches. `database/corpus.py` defines the rahao marker, the rahao span (the marked verse plus up to three verses before it, back to a stanza end or heading) and heading detection.
+
+`bootstrap/build_concept_tags.py` annotates each assignment with `weight`, `weight_verses` and `central`; its constants define the interim rule. Weights never change membership, and the build fails if a verse adds weight to a concept the shabad lacks. `release.validate` checks weight ranges. `api/topics.py` orders topics and draws random starts from these fields.
+
 ## Evidence candidate and review
 
 `releases/2026-09-07-evidence` rebuilds the complete candidate from `releases/2026-09-07-explore`. It preserves all 41,462 previous assignments and adds 47,388 inferred assignments under the existing thresholds. High coverage is visible evidence of model behavior, not proof of thematic accuracy. Graph display budgets remain independent.

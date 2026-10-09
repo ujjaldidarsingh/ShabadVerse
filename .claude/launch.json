@@ -6,6 +6,12 @@
       "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
       "runtimeArgs": ["-c", "import sys; sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5050)"],
       "port": 5050
+    },
+    {
+      "name": "parkaran-phase1",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-02-phase1'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5071)"],
+      "port": 5071
     }
   ]
 }
