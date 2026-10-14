@@ -299,10 +299,13 @@ def _verses():
 
 
 def warm():
-    """Build the verse index and open both vector collections before the first search."""
+    """Build the verse index before the first search.
+
+    The vector collections stay lazy, as for line matching: opened at startup they
+    hold about 500 MB, which an idle staging container beside production cannot spare.
+    """
     try:
         _verses()
-        candidates("warm up")
     except (OSError, RuntimeError, sqlite3.Error) as error:
         log.warning("Search warm-up failed: %s", error)
 
