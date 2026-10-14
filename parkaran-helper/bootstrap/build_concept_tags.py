@@ -56,6 +56,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
+from database.corpus import verse_record
 from database.vector_store import ShabadVectorStore
 
 VOCAB_PATH = Path(config.DATA_DIR) / "draft_vocabulary.json"
@@ -103,13 +104,52 @@ def load_vocabulary(path: Path) -> dict:
     return included
 
 
-def lexical_line_positives(concepts: dict) -> dict[str, set[str]]:
+def load_word_senses(path: Path) -> list[dict]:
+    """Words whose sense, read from the verse's translation, decides the concept."""
+    return json.loads(path.read_text(encoding="utf-8")).get("word_senses", [])
+
+
+def compile_senses(word_senses: list[dict]) -> list[tuple[str, list[tuple]]]:
+    """Longest word first, so ਦਇਆਲ is decided before ਦਇਆ."""
+    def pattern(text):
+        return re.compile(text) if text else None
+    rules = [(w["word"], [(s.get("concept"), pattern(s.get("english_any")), pattern(s.get("english_none"))) for s in w["senses"]])
+             for w in word_senses]
+    return sorted(rules, key=lambda rule: -len(rule[0]))
+
+
+def sense_concept(token: str, english: str, senses) -> tuple[bool, str | None]:
+    """(covered, concept): whether a sense word covers the token, and the concept its sense supports.
+
+    The first sense whose english_any is found and whose english_none is absent
+    decides. A covered token with no matching sense counts for nothing.
+    """
+    for word, rules in senses:
+        if token.startswith(word):
+            for concept, wanted, unwanted in rules:
+                if (wanted is None or wanted.search(english)) and not (unwanted and unwanted.search(english)):
+                    return True, concept
+            return True, None
+    return False, None
+
+
+def concept_terms(name: str, concept: dict, word_senses: list[dict]) -> list[str]:
+    """Gurmukhi words that count for a concept, for display."""
+    routed = [w["word"] for w in word_senses if any(s.get("concept") == name for s in w["senses"])]
+    return list(dict.fromkeys(concept.get("anchors_accept", []) + routed))
+
+
+def lexical_line_positives(concepts: dict, word_senses: list[dict] = ()) -> dict[str, set[str]]:
     """Verse ids ("{shabad}:{index}") whose Gurmukhi carries a concept's anchor.
 
     Matching is on whitespace tokens with prefix rules, never raw substring:
     ਮੋਹ as a substring also matches ਮੋਹਨ (a name of God), and ਕਾਮ matches
     ਕਾਮਣਿ (the soul-bride). Those false positives would poison the prototypes.
+    A word listed in word_senses counts for the concept its sense supports,
+    judged from the verse's English translation, because one spelling can
+    carry two concepts (ਕਰਮ as deeds or as grace).
     """
+    senses = compile_senses(list(word_senses))
     db = sqlite3.connect(Path(config.CACHE_DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)
     hits: dict[str, set[str]] = {c: set() for c in concepts}
     for shabad_id, response in db.execute("SELECT shabad_id, response FROM shabad_cache"):
@@ -121,15 +161,17 @@ def lexical_line_positives(concepts: dict) -> dict[str, set[str]]:
             gur = nfc((verse.get("verse") or {}).get("unicode", ""))
             if not gur:
                 continue
-            tokens = [t for t in re.sub(r"[॥।0-9੦-੯]", " ", gur).split() if t]
-            for name, c in concepts.items():
-                acc, rej = c.get("anchors_accept", []), c.get("anchors_reject", [])
-                if not acc:
+            line_id, english = f"{shabad_id}:{idx}", verse_record(verse, idx)["english"]
+            for t in (t for t in re.sub(r"[॥।0-9੦-੯]", " ", gur).split() if t):
+                covered, concept = sense_concept(t, english, senses)
+                if covered:
+                    if concept in hits:
+                        hits[concept].add(line_id)
                     continue
-                for t in tokens:
+                for name, c in concepts.items():
+                    acc, rej = c.get("anchors_accept", []), c.get("anchors_reject", [])
                     if any(t.startswith(a) for a in acc) and not any(t.startswith(r) for r in rej):
-                        hits[name].add(f"{shabad_id}:{idx}")
-                        break
+                        hits[name].add(line_id)
     db.close()
     return hits
 
@@ -217,7 +259,8 @@ def main() -> None:
     print(f"Vocabulary: {len(concepts)} concepts from {args.vocab.name}")
 
     print("Scanning corpus for lexical anchors...")
-    anchors = lexical_line_positives(concepts)
+    word_senses = load_word_senses(args.vocab)
+    anchors = lexical_line_positives(concepts, word_senses)
 
     print("Loading verse vectors...")
     store = ShabadVectorStore(collection_name=config.SGGS_LINES_COLLECTION_NAME)
@@ -240,13 +283,19 @@ def main() -> None:
     for name, c in concepts.items():
         desc_vec = np.array(fn([c["description"]])[0], dtype=np.float32)
         desc_vec /= np.linalg.norm(desc_vec) + 1e-9
-        seed_rows = [row_of[l] for l in anchors[name] if l in row_of]
+        anchor_rows = [row_of[l] for l in anchors[name] if l in row_of]
+        # calibration "description": the words still count as evidence but shape
+        # neither the prototype nor the threshold, because few or varied words
+        # make a generic centroid and a threshold that admits unrelated verses.
+        seed_rows = [] if c.get("calibration") == "description" else anchor_rows
         proto = build_prototype(desc_vec, seed_rows, E)
 
         sim = E @ proto
 
         # Calibrate: capture TARGET_ANCHOR_RECALL of this concept's anchor verses.
-        if len(seed_rows) >= MIN_ANCHOR_LINES:
+        if not c.get("infer", True):
+            thr, calib = 1.0, "word-only"  # cosine never exceeds 1: nothing is inferred
+        elif len(seed_rows) >= MIN_ANCHOR_LINES:
             anchor_scores = np.sort(sim[seed_rows])[::-1]
             thr = float(anchor_scores[int(len(anchor_scores) * TARGET_ANCHOR_RECALL) - 1])
             calib = "lexical"
@@ -266,7 +315,7 @@ def main() -> None:
 
         # Preserve literal occurrences as lexical evidence. Their thematic meaning
         # still depends on context. The prototype adds inferred associations.
-        anchor_best = best_line_over(seed_rows)
+        anchor_best = best_line_over(anchor_rows)
         thresholded = best_line_over(np.where(sim >= thr)[0])
         generalized = {s: v for s, v in thresholded.items() if s not in anchor_best}
 
@@ -300,7 +349,7 @@ def main() -> None:
                 assignments.setdefault(sid, []).append({
                     "concept": name,
                     "strength": round(score, 3),
-                    "margin": round(bonus + (score - thr) / span, 4),
+                    "margin": round(bonus + ((score - thr) / span if calib != "word-only" else 0.0), 4),
                     "lexical": bonus > 0,
                     "line_index": li,
                     "line_gurmukhi": gur,
@@ -395,7 +444,7 @@ def main() -> None:
             "description": c["description"],
             "group": c.get("group", ""),
             "confidence": c.get("confidence", ""),
-            "gurbani_term": " ".join(c.get("anchors_accept", [])),
+            "gurbani_term": " ".join(concept_terms(name, c, word_senses)),
             "inference_threshold": comparison[name]['threshold'],
             "calibration": comparison[name]['calibration'],
             "review_status": "provisional",

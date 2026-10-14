@@ -36,9 +36,10 @@ class DatasetTests(unittest.TestCase):
                         for item in items: self.assertIn(label, item['tags'], (sid, item['id']))
 
     def test_all_lexical_anchors_retained(self):
-        from bootstrap.build_concept_tags import lexical_line_positives, load_vocabulary
+        from bootstrap.build_concept_tags import lexical_line_positives, load_vocabulary, load_word_senses
+        vocabulary = self.path / 'draft_vocabulary.json'
         with patch.object(config, 'CACHE_DB_PATH', str(self.path / 'shabad_cache.db')):
-            anchors = lexical_line_positives(load_vocabulary(self.path / 'draft_vocabulary.json'))
+            anchors = lexical_line_positives(load_vocabulary(vocabulary), load_word_senses(vocabulary))
         tags = {str(r['banidb_shabad_id']): set(r['tags']) for r in self.rows}
         for concept, line_ids in anchors.items():
             for line in line_ids: self.assertIn(concept, tags[line.split(':')[0]], line)
