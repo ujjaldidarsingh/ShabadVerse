@@ -70,6 +70,10 @@ Whole-shabad matching reads the precomputed graph and labels clusters with conce
 
 `bootstrap/build_concept_tags.py` annotates each assignment with `weight`, `weight_verses` and `central`; its constants define the interim rule. Weights never change membership, and the build fails if a verse adds weight to a concept the shabad lacks. `release.validate` checks weight ranges. `api/topics.py` orders topics and draws random starts from these fields.
 
+## Concept vocabulary and word senses (October 13 candidate)
+
+`parkaran-helper/data/draft_vocabulary.json` is the curated vocabulary, under version control. Each concept carries Ujjal's dated rulings. `word_senses` lists words whose sense decides the concept: for a token starting with the word (longest word first), the first sense whose `english_any` pattern appears in the verse's BaniDB English, and whose `english_none` pattern does not, decides. A word with no matching sense counts for nothing. One spelling can therefore support two concepts, as ਦਇਆ does for Daya (human) and Daya (divine). Split concepts use one word in parentheses. Two optional settings guard calibration: `infer: false` counts word evidence only, for a word sense such as Sahaj (ease); `calibration: description` keeps a concept's threshold on its description while its words still count, for words too few or varied to calibrate on (Nimrata). `bootstrap/setup.py --vocabulary data/draft_vocabulary.json` builds a candidate from a preserved snapshot with the revised vocabulary, so snapshots are never edited. `tests/test_vocabulary.py` keeps Ujjal's ruled examples as regression cases.
+
 ## Evidence candidate and review
 
 `releases/2026-09-07-evidence` rebuilds the complete candidate from `releases/2026-09-07-explore`. It preserves all 41,462 previous assignments and adds 47,388 inferred assignments under the existing thresholds. High coverage is visible evidence of model behavior, not proof of thematic accuracy. Graph display budgets remain independent.

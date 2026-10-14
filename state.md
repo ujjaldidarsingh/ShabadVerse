@@ -1,4 +1,8 @@
-# ShabadVerse state, October 3, 2026
+# ShabadVerse state, October 13, 2026
+
+## Concept alignment (candidate, not deployed)
+
+Ujjal confirmed all 44 concept cards on October 13 (39 agreed, 5 changed). `audits/2026-10-09-concept-alignment/RESULTS.md` records what changed and why. The curated vocabulary, `parkaran-helper/data/draft_vocabulary.json`, now holds 48 concepts with dated rulings: Daya, Daan and Sach split into (human) and (divine), Sahaj into (poise) and (ease), and seven words are judged by their sense in the verse's translation. Candidate `parkaran-helper/releases/2026-10-13-alignment` is built from the phase 1 snapshot with `bootstrap/setup.py --vocabulary`. Its runtime code is the committed phase 1 code. Kaam's members fell from 4,769 to 320, and word evidence scores 93% against Ujjal's earlier verse labels, up from 89%. Agreement with his central-concept picks is unchanged at about a third; calibrating thresholds and the per-verse rule against his labels is the next step. Nothing here is committed or deployed yet.
 
 ## Matching redesign phase 1 (candidate, not deployed)
 
