@@ -1171,9 +1171,9 @@ function setSearchMode(mode) {
 
     // Update input styling and placeholder
     if (mode === "semantic") {
-        // Natural-language / meaning search — plain text, no Gurmukhi preview.
+        // Meaning search takes English, Punjabi in English letters or Gurmukhi; no preview.
         input.classList.remove("gurmukhi-mode");
-        input.placeholder = "describe it e.g. walking the path and inspiring others to follow";
+        input.placeholder = "a line, word or theme e.g. tati vao na lagai, ਹਉਮੈ, humility";
         preview.classList.add("hidden");
     } else if (mode === "transliteration") {
         input.classList.remove("gurmukhi-mode");
@@ -1232,9 +1232,9 @@ function initSearch() {
         const generation = searchGeneration;
         const modeAtRequest = searchMode;
         const q = input.value.trim();
-        // Semantic search needs a fuller phrase to be meaningful; other modes
-        // are useful from 2 chars.
-        const minLen = searchMode === "semantic" ? 4 : 2;
+        // Meaning search starts at three characters, enough for a concept name
+        // such as moh; other modes are useful from 2 chars.
+        const minLen = searchMode === "semantic" ? 3 : 2;
         if (q.length < minLen) {
             dropdown.classList.add("hidden");
             return;
@@ -1244,30 +1244,21 @@ function initSearch() {
             let results = [];
 
             if (searchMode === "semantic") {
-                // Natural-language meaning search via ONNX embedding + ChromaDB.
-                dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">FINDING BY MEANING</span></div>';
+                // Local lists answer at once. When the server offers it, Claude Haiku
+                // reorders them once the typing has paused.
+                dropdown.innerHTML = '<div class="autocomplete-item" style="font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text-dim);"><span class="searching-dots">SEARCHING</span></div>';
                 dropdown.classList.remove("hidden");
-                const semResults = await API.get(`/api/graph/semantic-search?q=${encodeURIComponent(q)}&limit=10`);
+                const url = `/api/graph/semantic-search?q=${encodeURIComponent(q)}&limit=10`;
+                const stale = () => generation !== searchGeneration || modeAtRequest !== searchMode || dropdown.classList.contains("hidden");
+                const found = await API.get(url);
                 if (generation !== searchGeneration || modeAtRequest !== searchMode) return;
-                if (semResults && semResults.length > 0) {
-                    dropdown.innerHTML = semResults.map((r) => {
-                        const sid = String(r.banidb_shabad_id);
-                        const m = State.metadata[sid] || {};
-                        return searchResultHTML(sid, {
-                            gurmukhi: r.title_gurmukhi || m.gurmukhi || "",
-                            title: r.title_transliteration || m.title || "",
-                            raag: r.raag || m.raag || "",
-                            writer: r.writer || m.writer || "",
-                            ang: r.ang_number || m.ang || 0,
-                            is_repertoire: false,
-                            brief_meaning: "Machine-assisted summary: " + (r.first_line_translation || m.brief_meaning || ""),
-                            score: r.score,
-                        }, "", r.first_line_translation);
-                    }).join("");
-                } else {
-                    dropdown.innerHTML = '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO MATCHES — try describing it differently</div>';
-                }
+                dropdown.innerHTML = meaningResultsHTML(found);
                 dropdown.classList.remove("hidden");
+                if (!found.rerank_available || found.results.length < 2) return;
+                await new Promise((resolve) => setTimeout(resolve, RERANK_PAUSE_MS));
+                if (stale()) return;
+                const ordered = await API.get(url + "&rerank=1").catch(() => null);
+                if (ordered?.reordered && !stale()) dropdown.innerHTML = meaningResultsHTML(ordered);
                 return;
             }
 
@@ -1361,30 +1352,52 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish, lineIndex = -1) 
     // never break the inline JS string. The dropdown click handler in initSearch reads these.
     const verseAttr = matchedVerse ? escAttr(matchedVerse) : "";
     const engAttr = matchedEnglish ? escAttr(matchedEnglish) : "";
-    // Semantic results carry a 0–1 cosine score. Showing it raw misleads: 0.53
-    // is an excellent match for an abstract phrase, but "53% match" reads as a
-    // coin flip. Bands describe the result instead of scoring it.
-    const scoreBadge = (typeof m.score === "number")
-        ? `<span style="float:right;font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.55);letter-spacing:0.05em;">${matchStrengthLabel(m.score)}</span>`
+    // Meaning results name how they were found instead of showing a raw score.
+    const badge = m.badge
+        ? `<span style="float:right;font-family:'IBM Plex Mono';font-size:8px;color:rgba(245,158,11,0.55);letter-spacing:0.05em;">${escapeHtml(m.badge)}</span>`
         : "";
     return `
         <button type="button" class="autocomplete-item" data-action="select-search" data-line-index="${lineIndex}" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
-            ${scoreBadge}
+            ${badge}
             ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
             <div style="font-family:'IBM Plex Mono';color:var(--text-faint);font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
                 ${m.is_repertoire ? " &#9733;" : ""}
             </div>
             ${summary ? `<div style="font-family:'IBM Plex Mono';color:var(--text-secondary);font-size:9px;margin-top:2px;">${escapeHtml(truncWords(summary, 90))}</div>` : ""}
+            ${m.note ? `<div style="font-family:'IBM Plex Mono';color:var(--text-dim);font-size:9px;margin-top:2px;">${escapeHtml(truncWords(m.note, 140))}</div>` : ""}
         </button>
     `;
 }
 
-/** Describe a semantic-search cosine score in words. Thresholds come from the
- *  observed distribution: abstract phrases top out near 0.7, and anything under
- *  0.45 is thematically adjacent rather than a real match. */
-function matchStrengthLabel(score) {
-    return "SUGGESTED BY MEANING";
+/** Wait this long after local results appear before asking Claude Haiku to reorder them. */
+const RERANK_PAUSE_MS = 700;
+
+/** Meaning results. A result that carries its matching verse opens line matching from it. */
+function meaningResultsHTML(data) {
+    const results = data.results || [];
+    if (!results.length) {
+        return '<div class="autocomplete-item text-gray-600" style="font-family:\'IBM Plex Mono\';font-size:10px;">NO MATCHES. Try a line you remember, a Gurmukhi word or a theme.</div>';
+    }
+    const header = data.reordered
+        ? '<div style="font-family:\'IBM Plex Mono\';font-size:9px;color:var(--text-dim);padding:6px 12px;">ORDERED BY CLAUDE HAIKU</div>'
+        : "";
+    return header + results.map((r) => {
+        const sid = String(r.banidb_shabad_id);
+        const m = State.metadata[sid] || {};
+        const hasVerse = Number.isInteger(r.matched_line_index);
+        const english = r.first_line_translation || "";
+        return searchResultHTML(sid, {
+            gurmukhi: r.title_gurmukhi || m.gurmukhi || "",
+            raag: r.raag || m.raag || "",
+            writer: r.writer || m.writer || "",
+            ang: r.ang_number || m.ang || 0,
+            is_repertoire: false,
+            brief_meaning: hasVerse ? english : "Machine-assisted summary: " + english,
+            badge: r.badge,
+            note: r.reason ? "Machine-assisted note: " + r.reason : "",
+        }, hasVerse ? r.title_gurmukhi : "", hasVerse ? english : "", hasVerse ? r.matched_line_index : -1);
+    }).join("");
 }
 
 function selectSearch(sid, matchedVerse, englishTranslation, lineIndex = -1) {

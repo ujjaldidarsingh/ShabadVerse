@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from flask import Flask, redirect, render_template, url_for, request, jsonify
 from api.graph_api import graph_bp
 import api.topics  # Register topic routes before the blueprint is attached.
+import api.meaning_search  # Same for the meaning search route.
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 256 * 1024
@@ -87,7 +88,8 @@ def about():
     graph = _get_graph()
     neighbors = [{"id": n['id'], **graph['metadata'][n['id']]} for n in graph['neighbors'].get('970', [])[:3]]
     return render_template("about.html", demo=shabad('970'), demo_neighbors=neighbors,
-                           concept_count=len(_get_tag_vocab().get('theme_tags', {})))
+                           concept_count=len(_get_tag_vocab().get('theme_tags', {})),
+                           rerank=api.meaning_search.rerank_enabled())
 
 
 @app.route("/explore")
