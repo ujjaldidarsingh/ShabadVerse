@@ -1,10 +1,12 @@
 # ShabadVerse state, October 13, 2026
 
-## Meaning search rebuild (candidate, not deployed)
+## Meaning search rebuild (on staging, Claude reordering off)
 
-The ✨ search is rebuilt in `parkaran-helper/api/meaning_search.py` (see `architecture.md`). Candidate `parkaran-helper/releases/2026-10-13-search` holds the alignment data with this code. On 60 test searches (`audits/2026-10-13-search/RESULTS.md`), remembered lines in the top 5 rose from 8 of 45 to 43 of 45: every line typed in English letters or Gurmukhi now comes first. Concept searches now return shabads on the concept in 0.83 of the top 5 results, up from 0.43. 61 Python checks and both browser suites pass against the candidate. The browser suites now include a typed line opening line matching.
+https://test.shabadverse.com runs the rebuilt ✨ search from image `shabadverse:2026-10-13-search`, commit f1d06b5, with the alignment dataset `97ad24e6…`. Both browser suites pass on the public test site. Production is untouched. The receipt and rollback command are in `deployments/2026-10-13-search-staging.json`. Staging has an out-of-memory score of 500 so the kernel stops it before production. With both sites in use the server had 160 MiB free and no swap; adding swap or a larger instance is Ujjal's call.
 
-Claude Haiku 5.5 reordering is built but off. The local API key's account has no credit, so no live reordering has run. Enabling it on a server needs `anthropic` from the updated requirements, the key in that server's environment, `SHABADVERSE_RERANK=1` and a spending limit on the account. Nothing is committed or deployed yet.
+The search is rebuilt in `parkaran-helper/api/meaning_search.py` (see `architecture.md`). Candidate `parkaran-helper/releases/2026-10-13-search` holds the alignment data with this code. On 60 test searches (`audits/2026-10-13-search/RESULTS.md`), remembered lines in the top 5 rose from 8 of 45 to 43 of 45: every line typed in English letters or Gurmukhi now comes first. Concept searches now return shabads on the concept in 0.83 of the top 5 results, up from 0.43. 61 Python checks and both browser suites pass against the candidate. The browser suites now include a typed line opening line matching.
+
+Claude Haiku 5.5 reordering is built but off. The local API key's account has no credit, so no live reordering has run. Ujjal will add credit and a spending limit; then `audits/2026-10-13-search/eval_search.py --rerank` compares it with the local order for about 3 cents. Enabling it on staging needs the key in the server environment and `SHABADVERSE_RERANK=1`; the image already has the SDK.
 
 ## Concept alignment (on staging)
 
