@@ -74,6 +74,20 @@ Whole-shabad matching reads the precomputed graph and labels clusters with conce
 
 `parkaran-helper/data/draft_vocabulary.json` is the curated vocabulary, under version control. Each concept carries Ujjal's dated rulings. `word_senses` lists words whose sense decides the concept: for a token starting with the word (longest word first), the first sense whose `english_any` pattern appears in the verse's BaniDB English, and whose `english_none` pattern does not, decides. A word with no matching sense counts for nothing. One spelling can therefore support two concepts, as ਦਇਆ does for Daya (human) and Daya (divine). Split concepts use one word in parentheses. Two optional settings guard calibration: `infer: false` counts word evidence only, for a word sense such as Sahaj (ease); `calibration: description` keeps a concept's threshold on its description while its words still count, for words too few or varied to calibrate on (Nimrata). `bootstrap/setup.py --vocabulary data/draft_vocabulary.json` builds a candidate from a preserved snapshot with the revised vocabulary, so snapshots are never edited. `tests/test_vocabulary.py` keeps Ujjal's ruled examples as regression cases.
 
+## Meaning search (October 13 search candidate)
+
+`api/meaning_search.py` serves `/api/graph/semantic-search`. It fuses five local lists by weighted reciprocal rank (k = 60). Each entry is one shabad with the verse that matched, so choosing a result opens line matching from that verse.
+
+1. Typed line: words typed in English letters against each verse's BaniDB transliteration. Both sides reduce each word to a consonant skeleton: vowels go, every n after a word's first letter goes, and spellings of one letter merge (`Th`, `dh`, `chh`). A verse must hold five consonants of the typed line in order and at least half of it.
+2. Gurmukhi words, matched at word starts.
+3. Concept names in English letters or Gurmukhi, through the concept weights. `word_senses` in the curated vocabulary decide what a Gurmukhi word names; ਕਾਮਣਿ names nothing. Extra English-letter spellings are a hand-kept list in the module.
+4. Verse translations by meaning (`sggs_lines`). When a typed line finds a verse holding 80% of it, that verse's English replaces the query here.
+5. Machine summaries by meaning (`sggs_shabads`), skipping summaries that only report missing text.
+
+Typed matches weigh three times, scaled by the share of the line their verse holds. A query made only of concept names weighs its concept list three times. Titles that `corpus.HEADING` misses are excluded inside this module only. The verse index, about 60,000 verses and 20 MB, is read from the BaniDB cache once; `wsgi.py` builds it in a background thread at startup.
+
+Claude Haiku 5.5 reordering runs only with `ANTHROPIC_API_KEY` and `SHABADVERSE_RERANK=1`. The browser asks for it after a 0.7 second pause, while the local order is already on screen. The server sends the query and up to 30 candidates: each matched verse's BaniDB English and transliteration, plus the rahao. It uses thinking off, low effort and a JSON schema. Unknown ids are dropped. A refusal, error, timeout or limit returns the local order. Orders are cached per query. The limits are 30 reorderings per visitor per ten minutes and `SHABADVERSE_RERANK_DAILY_CAP` per day per process, default 2,000; an Anthropic Console spending limit is the hard backstop. `/about` states what leaves the server when the flag is on. `audits/2026-10-13-search/` holds the evaluation.
+
 ## Evidence candidate and review
 
 `releases/2026-09-07-evidence` rebuilds the complete candidate from `releases/2026-09-07-explore`. It preserves all 41,462 previous assignments and adds 47,388 inferred assignments under the existing thresholds. High coverage is visible evidence of model behavior, not proof of thematic accuracy. Graph display budgets remain independent.
