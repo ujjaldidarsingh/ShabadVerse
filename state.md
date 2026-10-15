@@ -1,6 +1,8 @@
 # ShabadVerse state, October 13, 2026
 
-## Shared heading check (candidate, not deployed)
+## Shared heading check (on staging)
+
+https://test.shabadverse.com runs this from image `shabadverse:2026-10-15-headings`, commit b3af363, with the alignment dataset. Both browser suites pass on the public test site, and production is untouched. The receipt and rollback command are in `deployments/2026-10-15-headings-staging.json`.
 
 `corpus.is_heading` now catches Bhagat and Vaar titles, composition labels and set labels (ਛਕਾ ੧ ॥): 132 more lines across all 60,403 verses, and no verse. Before the change, 17 shabads started line matching from a title, and those starts returned 84 matches that were themselves titles. Now no shabad does. Eleven BaniDB entries hold only a heading or set label; line mode for them falls back openly to whole-shabad matching. Candidate `parkaran-helper/releases/2026-10-15-headings` is the alignment data with this code. 63 Python checks and both browser suites pass, and the 60 test searches return the same results. At the next concept rebuild, titles also leave the rahao span in 17 shabads, so their verses stop counting three times there.
 
