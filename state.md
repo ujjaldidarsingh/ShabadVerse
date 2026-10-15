@@ -1,5 +1,11 @@
 # ShabadVerse state, October 13, 2026
 
+## Shared heading check (candidate, not deployed)
+
+`corpus.is_heading` now catches Bhagat and Vaar titles, composition labels and set labels (ਛਕਾ ੧ ॥): 132 more lines across all 60,403 verses, and no verse. Before the change, 17 shabads started line matching from a title, and those starts returned 84 matches that were themselves titles. Now no shabad does. Eleven BaniDB entries hold only a heading or set label; line mode for them falls back openly to whole-shabad matching. Candidate `parkaran-helper/releases/2026-10-15-headings` is the alignment data with this code. 63 Python checks and both browser suites pass, and the 60 test searches return the same results. At the next concept rebuild, titles also leave the rahao span in 17 shabads, so their verses stop counting three times there.
+
+Open question for Ujjal: the concept build counts every embedded line as a verse, headings included. ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ supplies Satguru evidence: 376 assignments rest only on heading lines (296 of them Satguru), 647 draw some weight from one (535 Satguru), and 2,908 cite a heading as their evidence verse. The heading is almost always ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ or the Mool Mantar. Excluding headings from evidence would change concept membership.
+
 ## Meaning search rebuild (on staging, Claude reordering off)
 
 https://test.shabadverse.com runs the rebuilt ✨ search from image `shabadverse:2026-10-13-search`, commit f1d06b5, with the alignment dataset `97ad24e6…`. Both browser suites pass on the public test site. Production is untouched. The receipt and rollback command are in `deployments/2026-10-13-search-staging.json`. Staging has an out-of-memory score of 500 so the kernel stops it before production. With both sites in use the server had 160 MiB free and no swap; adding swap or a larger instance is Ujjal's call.
