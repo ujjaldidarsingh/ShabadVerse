@@ -65,16 +65,6 @@ EVIDENCE_ORDER = ("line", "words", "verse", "concept", "shabad")
 MIN_ROMAN_LETTERS = 5
 ROMAN_COVERAGE = 0.5
 FOUND_LINE = 0.8  # share of a typed line a verse must hold to stand in for the query
-# Titles that database.corpus.HEADING misses: Bhagat and Vaar titles, composition
-# labels and raag lines with a bare number (ਗਉੜੀ ਮਾਲਾ ੫). Their English is a run of
-# names, which the embedding model matches to any Punjabi typed in English letters.
-TITLE = re.compile(
-    r"ਬਾਣੀ ਭਗਤਾਂ? ਕੀ|ਬਾਣੀ ਭਗਤ \S+ ਜੀ|ਕੀ ਵਾਰ|(?:ਦੁ|ਤਿ|ਚਉ|ਪੰਚ|ਛਿ|ਅਸਟ)ਪਦੇ|(?:ਇਕ|ਦੁ|ਤਿ|ਚਾਰ|ਚਉ)ਤੁਕੇ"
-    r"|^[^੦-੯]*\s[੦-੯]+\s*॥?\s*$"
-    r"|(?:ਕਬੀਰ|ਨਾਮਦੇ[ਉਵ]|ਰਵਿਦਾਸ|ਧੰਨੇ|ਬੇਣੀ|ਤ੍ਰਿਲੋਚਨ|ਸਧਨੇ|ਸੈਣ|ਪੀਪਾ|ਭੀਖਨ|ਜੈਦੇਵ|ਸੂਰਦਾਸ|ਪਰਮਾਨੰਦ|ਰਾਮਾਨੰਦ|ਫਰੀਦ)\s+ਜੀਉ?(?=\s|॥|$)"
-)
-UNMARKED = re.compile(r"^[^॥]*$")  # no verse mark; a title when it opens the shabad
-TITLE_LINES = 3
 # Machine summaries that say nothing about the shabad.
 EMPTY_SUMMARY = re.compile(
     r"(?i)incomplete|only the header|header provided|without verse content|no verse content|cannot be analy[sz]ed"
@@ -259,15 +249,6 @@ def gurmukhi_stems(text):
     return [stem(t) for t in tokens if GURMUKHI.search(t)]
 
 
-def is_title(gurmukhi, index):
-    """Headings and titles, which are never search results."""
-    return (
-        corpus.is_heading(gurmukhi)
-        or bool(TITLE.search(gurmukhi))
-        or (index < TITLE_LINES and bool(UNMARKED.match(gurmukhi)))
-    )
-
-
 def _build_verse_index():
     ids, rows = set(_get_graph()["metadata"]), []
     path = Path(config.CACHE_DB_PATH).resolve()
@@ -278,14 +259,14 @@ def _build_verse_index():
             for idx, verse in enumerate(json.loads(response).get("verses", [])):
                 record = corpus.verse_record(verse, idx)
                 gurmukhi = unicodedata.normalize("NFC", record["gurmukhi"])
-                if gurmukhi and not is_title(gurmukhi, idx):
+                if gurmukhi and not corpus.is_heading(gurmukhi, idx):
                     skel = roman_needle(record["transliteration"])
                     rows.append((str(sid), idx, " " + gurmukhi, skel))
     return tuple(rows)
 
 
 def _verses():
-    """(shabad, verse index, Gurmukhi, transliteration skeleton) for every verse but titles.
+    """(shabad, verse index, Gurmukhi, transliteration skeleton) for every verse but headings.
 
     Only the BaniDB cache holds each verse's transliteration, so the index is read
     from it once, on first use or at warm-up.
@@ -466,8 +447,8 @@ def verse_meaning(query):
     hits = []
     for match in _get_lines_vector_store().search_similar(query, n_results=VERSE_FETCH):
         meta = match.get("metadata") or {}
-        title = is_title(meta.get("gurmukhi", ""), meta.get("line_index", 0))
-        if title or match.get("distance") is None:
+        heading = corpus.is_heading(meta.get("gurmukhi", ""), meta.get("line_index"))
+        if heading or match.get("distance") is None:
             continue
         hits.append(
             (

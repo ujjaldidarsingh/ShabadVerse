@@ -15,13 +15,32 @@ import config
 RAHAO_MARK = re.compile(r"॥\s*(?:[੦-੯0-9]+\s*॥)?\s*ਰਹਾਉ(?:\s+ਦੂਜਾ)?\s*॥")
 STANZA_END = re.compile(r"॥\s*[੦-੯0-9]+\s*॥\s*$")
 HEADING = re.compile(r"ੴ|ਮਹਲਾ|ਮਃ|ਘਰੁ\s*[੦-੯]|^\s*(?:ਸਲੋਕ|ਪਉੜੀ|ਛੰਤੁ|ਡਖਣਾ|ਰਾਗੁ)")
+# Titles HEADING misses: Bhagat and Vaar titles, composition labels, and raag or
+# set labels with a bare number (ਗਉੜੀ ਮਾਲਾ ੫ ॥, ਛਕਾ ੧ ॥). Across all 60,403 verses
+# these and UNMARKED add 132 headings and no verses.
+TITLE = re.compile(
+    r"ਬਾਣੀ ਭਗਤਾਂ? ਕੀ|ਬਾਣੀ ਭਗਤ \S+ ਜੀ|ਕੀ ਵਾਰ|(?:ਦੁ|ਤਿ|ਚਉ|ਪੰਚ|ਛਿ|ਅਸਟ)ਪਦੇ|(?:ਇਕ|ਦੁ|ਤਿ|ਚਾਰ|ਚਉ)ਤੁਕੇ"
+    r"|^[^੦-੯]*\s[੦-੯]+\s*॥?\s*$"
+    r"|(?:ਕਬੀਰ|ਨਾਮਦੇ[ਉਵ]|ਰਵਿਦਾਸ|ਧੰਨੇ|ਬੇਣੀ|ਤ੍ਰਿਲੋਚਨ|ਸਧਨੇ|ਸੈਣ|ਪੀਪਾ|ਭੀਖਨ|ਜੈਦੇਵ|ਸੂਰਦਾਸ|ਪਰਮਾਨੰਦ|ਰਾਮਾਨੰਦ|ਫਰੀਦ)\s+ਜੀਉ?(?=\s|॥|$)"
+)
+# A line without a verse mark is a title when it opens the shabad (ਰਾਮਕਲੀ ਸਦੁ);
+# further in, a few verses lack the mark.
+UNMARKED = re.compile(r"^[^॥]+$")
+TITLE_LINES = 3
 # A rahao spans at most this many verses before the one carrying its marker.
 RAHAO_LOOKBACK = 3
 
 
-def is_heading(gurmukhi):
-    """Invocations and raag or composition headings, not verses of the shabad."""
-    return bool(HEADING.search(gurmukhi or ""))
+def is_heading(gurmukhi, index=None):
+    """Invocations, raag and composition headings and titles, not verses of the shabad.
+
+    Pass the verse index when it is known: a line without a verse mark counts as a
+    title only among the first lines of a shabad.
+    """
+    text = gurmukhi or ""
+    if HEADING.search(text) or TITLE.search(text):
+        return True
+    return index is not None and index < TITLE_LINES and bool(UNMARKED.match(text))
 
 
 def rahao_span(verses):
@@ -35,7 +54,7 @@ def rahao_span(verses):
         span.add(end)
         j = end - 1
         while j >= 0 and end - j <= RAHAO_LOOKBACK and j not in span:
-            if STANZA_END.search(verses[j] or "") or is_heading(verses[j]):
+            if STANZA_END.search(verses[j] or "") or is_heading(verses[j], j):
                 break
             span.add(j)
             j -= 1

@@ -20,10 +20,10 @@
       "port": 5072
     },
     {
-      "name": "parkaran-search",
+      "name": "parkaran-headings",
       "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
-      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-13-search'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5073)"],
-      "port": 5073
+      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-15-headings'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5074)"],
+      "port": 5074
     }
   ]
 }

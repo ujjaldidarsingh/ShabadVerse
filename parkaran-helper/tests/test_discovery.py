@@ -106,5 +106,26 @@ class RahaoTests(unittest.TestCase):
     def test_rahao_meaning_remain_is_not_a_marker(self):
         self.assertEqual(corpus.rahao_span(['ਗੁਰਮਤਿ ਸਾਚਿ ਰਹਾਉ ॥']),set())
 
+    def test_span_stops_at_a_title(self):
+        self.assertEqual(corpus.rahao_span(['ਗਉੜੀ ਮਾਲਾ ੫ ॥','ਮਾਧਉ ਹਰਿ ਹਰਿ ਹਰਿ ਮੁਖਿ ਕਹੀਐ ॥੧॥ ਰਹਾਉ ॥']),{1})
+
+
+class HeadingTests(unittest.TestCase):
+    def test_bhagat_and_vaar_titles(self):
+        for line in ['ਆਸਾ ਸ੍ਰੀ ਕਬੀਰ ਜੀਉ ਕੇ ਦੁਪਦੇ','ਗਉੜੀ ਬੈਰਾਗਣਿ ਰਵਿਦਾਸ ਜੀਉ ॥','ਬਸੰਤ ਕੀ ਵਾਰ ਮਹਲੁ ੫','ਗਉੜੀ ਮਾਲਾ ੫ ॥',
+                     'ਮਾਲੀ ਗਉੜਾ ਬਾਣੀ ਭਗਤ ਨਾਮਦੇਵ ਜੀ ਕੀ','ਛਕਾ ੧॥','ਸਵਈਏ ਮਹਲੇ ਪਹਿਲੇ ਕੇ ੧']:
+            self.assertTrue(corpus.is_heading(line),line)
+
+    def test_unmarked_line_is_a_title_only_where_a_shabad_opens(self):
+        self.assertTrue(corpus.is_heading('ਰਾਮਕਲੀ ਸਦੁ',0))
+        self.assertFalse(corpus.is_heading('ਰਾਮਕਲੀ ਸਦੁ'))
+        self.assertFalse(corpus.is_heading('ਸਹਜ ਧੁਨਿ ਗਾਵੈ ਮੰਗਲ ਮਨੂਆ',8))
+
+    def test_verses_are_not_titles(self):
+        for line,index in [('ਭਗਤਾ ਕੀ ਚਾਲ ਨਿਰਾਲੀ ॥',42),('ਜੋ ਜਪਦੇ ਹਰਿ ਹਰਿ ਦਿਨਸੁ ਰਾਤਿ ਤਿਨ ਹਉ ਕੁਰਬੈਣੀ ॥',3),
+                           ('ਕਹਿ ਕਬੀਰ ਜੀਵਨ ਪਦ ਕਾਰਨਿ ਹਰਿ ਕੀ ਭਗਤਿ ਕਰੀਜੈ ॥',5),('ਗੁਰ ਉਪਦੇਸਿ ਕਾਲ ਸਿਉ ਜੁਰੈ ॥',1),
+                           ('ਨਾਨਕ ਪਤਿਤ ਪਵਿਤ ਮਿਲਿ ਸੰਗਤਿ ਗੁਰ ਸਤਿਗੁਰ ਪਾਛੈ ਛੁਕਟੀ ॥੨॥੬॥ ਛਕਾ ੧',6)]:
+            self.assertFalse(corpus.is_heading(line,index),line)
+
 
 if __name__=='__main__': unittest.main()

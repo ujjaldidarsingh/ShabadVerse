@@ -144,8 +144,8 @@ def _resolve_anchor_line(shabad_id, line_index):
     (saloks carry no rahao), the first verse that is not a heading. Raag headings
     with four or more translated words are in the index, so they are skipped here.
 
-    Returns (line_index, english, gurmukhi) or None when the shabad has no
-    embeddable lines at all.
+    Returns (line_index, english, gurmukhi), or None when no embedded line is a
+    verse: a few BaniDB entries hold only a heading or a set label (ਛਕਾ ੧ ॥).
     """
     store = _get_lines_vector_store()
     got = store.collection.get(where={"shabad_id": str(shabad_id)})
@@ -158,7 +158,9 @@ def _resolve_anchor_line(shabad_id, line_index):
         if chosen is None:
             return None
     else:
-        verses = [m for m in metas if not corpus.is_heading(m.get("gurmukhi", ""))] or metas
+        verses = [m for m in metas if not corpus.is_heading(m.get("gurmukhi", ""), m.get("line_index"))]
+        if not verses:
+            return None
         rahao = ([m for m in verses if corpus.RAHAO_MARK.search(m.get("gurmukhi", ""))]
                  or [m for m in verses if m.get("is_rahao")])
         chosen = min(rahao or verses, key=lambda m: m["line_index"])
@@ -187,7 +189,7 @@ def _line_neighbors(shabad_id, line_index, limit, threshold):
         meta = match.get("metadata") or {}
         cid = str(meta.get("shabad_id", ""))
         gurmukhi = meta.get("gurmukhi", "")
-        if not cid or cid == str(shabad_id) or cid in results or corpus.is_heading(gurmukhi):
+        if not cid or cid == str(shabad_id) or cid in results or corpus.is_heading(gurmukhi, meta.get("line_index")):
             continue
         english = (meta.get("english") or "").strip()
         # Refrains repeat verbatim across shabads; one instance is informative,

@@ -15,6 +15,7 @@ import config
 from api import graph_api as api
 from api import meaning_search as ms
 from app import app
+from database import corpus
 
 VERSES = (
     (
@@ -72,28 +73,6 @@ class SpellingTests(unittest.TestCase):
 
     def test_nasal_marks_join_the_word(self):
         self.assertEqual(ms.roman_needle("ma(n)dhaa"), ms.roman_needle("manda"))
-
-
-class TitleTests(unittest.TestCase):
-    def test_titles_the_shared_heading_check_misses(self):
-        for line in [
-            "ਆਸਾ ਸ੍ਰੀ ਕਬੀਰ ਜੀਉ ਕੇ ਦੁਪਦੇ",
-            "ਗਉੜੀ ਬੈਰਾਗਣਿ ਰਵਿਦਾਸ ਜੀਉ ॥",
-            "ਬਸੰਤ ਕੀ ਵਾਰ ਮਹਲੁ ੫",
-            "ਗਉੜੀ ਮਾਲਾ ੫ ॥",
-            "ਮਾਲੀ ਗਉੜਾ ਬਾਣੀ ਭਗਤ ਨਾਮਦੇਵ ਜੀ ਕੀ",
-        ]:
-            self.assertTrue(ms.is_title(line, 0), line)
-
-    def test_verses_are_not_titles(self):
-        for line, index in [
-            ("ਭਗਤਾ ਕੀ ਚਾਲ ਨਿਰਾਲੀ ॥", 42),
-            ("ਜੋ ਜਪਦੇ ਹਰਿ ਹਰਿ ਦਿਨਸੁ ਰਾਤਿ ਤਿਨ ਹਉ ਕੁਰਬੈਣੀ ॥", 3),
-            ("ਕਹਿ ਕਬੀਰ ਜੀਵਨ ਪਦ ਕਾਰਨਿ ਹਰਿ ਕੀ ਭਗਤਿ ਕਰੀਜੈ ॥", 5),
-            ("ਸਹਜ ਧੁਨਿ ਗਾਵੈ ਮੰਗਲ ਮਨੂਆ", 8),
-            ("ਨਾਨਕ ਪਤਿਤ ਪਵਿਤ ਮਿਲਿ ਸੰਗਤਿ ਗੁਰ ਸਤਿਗੁਰ ਪਾਛੈ ਛੁਕਟੀ ॥੨॥੬॥ ਛਕਾ ੧", 6),
-        ]:
-            self.assertFalse(ms.is_title(line, index), line)
 
 
 class LocalListTests(unittest.TestCase):
@@ -350,9 +329,9 @@ class CorpusSearchTests(unittest.TestCase):
         self.assertEqual(ms.named_concepts("ਹਉਮੈ"), (["Haumai"], True))
         self.assertEqual(ms.named_concepts("ਕਾਮਣਿ")[0], [])
 
-    def test_no_title_is_indexed(self):
+    def test_no_heading_is_indexed(self):
         self.assertFalse(
-            any(ms.is_title(text.strip(), idx) for _, idx, text, _ in ms._verses())
+            any(corpus.is_heading(text.strip(), idx) for _, idx, text, _ in ms._verses())
         )
 
 

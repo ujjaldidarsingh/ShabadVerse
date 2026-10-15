@@ -78,6 +78,7 @@ class LineMatchTests(unittest.TestCase):
         store.search_similar.return_value = [
             hit('1', .05, 'ਉਹੀ ਸ਼ਬਦ ॥', 'The anchor shabad itself.'),
             hit('2', .2, 'ਸਿਰੀਰਾਗੁ ਮਹਲਾ ੧ ॥', 'Siree Raag, First Mehl:'),
+            hit('2', .25, 'ਗਉੜੀ ਕਬੀਰ ਜੀ ॥', 'Gauree, Kabeer Jee:'),
             hit('3', .3, 'ਹਰਿ ਨਾਮੁ ਧਿਆਇ ॥', 'Meditate on the Name.'),
             hit('4', .35, 'ਹਰਿ ਨਾਮੁ ਧਿਆਇ ॥', 'Meditate on the Name.'),
             hit('3', .4, 'ਦੂਜੀ ਤੁਕ ॥', 'A weaker verse of shabad 3.'),
@@ -113,6 +114,10 @@ class LineMatchTests(unittest.TestCase):
             self.assertEqual(api._resolve_anchor_line('1', None)[0], 2)
             store.collection.get.return_value = metas(heading, ('ਪਹਿਲੀ ਤੁਕ ॥੧॥', False))
             self.assertEqual(api._resolve_anchor_line('1', None)[0], 1)
+            store.collection.get.return_value = metas(('ਛਕੇ ੨ ॥', False), ('ਪਹਿਲੀ ਤੁਕ ॥੧॥', False))
+            self.assertEqual(api._resolve_anchor_line('1', None)[0], 1, 'a set label is not a verse')
+            store.collection.get.return_value = metas(('ਛਕਾ ੧ ॥', False))
+            self.assertIsNone(api._resolve_anchor_line('1', None), 'a label-only entry has no verse to match from')
 
 
 class SearchTests(unittest.TestCase):
