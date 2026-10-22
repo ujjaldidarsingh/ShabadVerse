@@ -1,6 +1,12 @@
-# ShabadVerse state, October 13, 2026
+# ShabadVerse state, October 22, 2026
 
-## Shared heading check (on staging)
+## Production (October 22)
+
+https://shabadverse.com runs the October 15 evidence release, merged through PR #23: the matching redesign, Ujjal's concept alignment, the rebuilt ✨ search, the shared heading check and concept evidence without headings. Image `shabadverse:2026-10-15-evidence`, runtime code `8168105e…`, dataset `d0e928d2…`. Both browser suites pass on the public site. The receipt and rollback command are in `deployments/2026-10-15-evidence-production.json`; staging runs the same image.
+
+Next: the About page demo video. A silent public cut is being recorded from the current site for Ujjal to watch before it ships as its own release.
+
+## Shared heading check (released October 22)
 
 https://test.shabadverse.com runs this from image `shabadverse:2026-10-15-headings`, commit b3af363, with the alignment dataset. Both browser suites pass on the public test site, and production is untouched. The receipt and rollback command are in `deployments/2026-10-15-headings-staging.json`.
 
@@ -8,7 +14,7 @@ https://test.shabadverse.com runs this from image `shabadverse:2026-10-15-headin
 
 Candidate `parkaran-helper/releases/2026-10-15-evidence` leaves headings out of concept evidence, weights and thresholds, as Ujjal chose on October 15. It awaits his review; see `audits/2026-10-15-heading-evidence/RESULTS.md`. The build change is uncommitted until then. Before it, the concept build counted every embedded line as a verse, headings included. ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ supplies Satguru evidence: 376 assignments rest only on heading lines (296 of them Satguru), 647 draw some weight from one (535 Satguru), and 2,908 cite a heading as their evidence verse. The heading is almost always ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ or the Mool Mantar. Excluding headings from evidence would change concept membership.
 
-## Meaning search rebuild (on staging, Claude reordering off)
+## Meaning search rebuild (released October 22, Claude reordering off)
 
 https://test.shabadverse.com runs the rebuilt ✨ search from image `shabadverse:2026-10-13-search`, commit f1d06b5, with the alignment dataset `97ad24e6…`. Both browser suites pass on the public test site. Production is untouched. The receipt and rollback command are in `deployments/2026-10-13-search-staging.json`. Staging has an out-of-memory score of 500 so the kernel stops it before production. With both sites in use the server had 160 MiB free and no swap; adding swap or a larger instance is Ujjal's call.
 
@@ -16,13 +22,13 @@ The search is rebuilt in `parkaran-helper/api/meaning_search.py` (see `architect
 
 Claude Haiku 5.5 reordering is built but off. The local API key's account has no credit, so no live reordering has run. Ujjal will add credit and a spending limit; then `audits/2026-10-13-search/eval_search.py --rerank` compares it with the local order for about 3 cents. Enabling it on staging needs the key in the server environment and `SHABADVERSE_RERANK=1`; the image already has the SDK.
 
-## Concept alignment (on staging)
+## Concept alignment (released October 22)
 
 Candidate `2026-10-13-alignment` runs on https://test.shabadverse.com from image `shabadverse:2026-10-13-alignment`, committed as e4c4331 (dataset `97ad24e6…`). 40 Python checks and both browser suites pass locally and on the public test site. Production is untouched and still serves the September 7 release. The receipt and rollback command are in `deployments/2026-10-13-alignment-staging.json`.
 
 Ujjal confirmed all 44 concept cards on October 13 (39 agreed, 5 changed). `audits/2026-10-09-concept-alignment/RESULTS.md` records what changed and why. The curated vocabulary, `parkaran-helper/data/draft_vocabulary.json`, now holds 48 concepts with dated rulings: Daya, Daan and Sach split into (human) and (divine), Sahaj into (poise) and (ease), and seven words are judged by their sense in the verse's translation. Candidate `parkaran-helper/releases/2026-10-13-alignment` is built from the phase 1 snapshot with `bootstrap/setup.py --vocabulary`. Its runtime code is the committed phase 1 code. Kaam's members fell from 4,769 to 320, and word evidence scores 93% against Ujjal's earlier verse labels, up from 89%. Agreement with his central-concept picks is unchanged at about a third; calibrating thresholds and the per-verse rule against his labels is the next step.
 
-## Matching redesign phase 1 (on staging, inside the alignment candidate)
+## Matching redesign phase 1 (released October 22)
 
 Production is unchanged; see the September 7 release below. This work follows `audits/2026-09-30-matching-strategy/STRATEGY.md` and is committed on branch `phase1-line-matching-topic-weights`.
 
