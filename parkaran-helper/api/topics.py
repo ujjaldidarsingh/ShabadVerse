@@ -12,6 +12,16 @@ from api.graph_api import graph_bp, _get_graph, _get_tag_vocab, _get_concepts
 
 
 @lru_cache(maxsize=1)
+def _weights():
+    """(shabad, concept) -> (central, weight, lexical, strength) from the assignments."""
+    table = {}
+    for sid, group in _get_concepts().items():
+        for a in group:
+            table[(sid, a['concept'])] = (bool(a.get('central')), a.get('weight') or 0.0, bool(a['lexical']), a.get('strength') or 0.0)
+    return table
+
+
+@lru_cache(maxsize=1)
 def statistics():
     graph, concepts = _get_graph(), _get_concepts()
     with closing(sqlite3.connect((Path(config.DATA_DIR) / 'chroma_db/chroma.sqlite3').as_uri()+'?mode=ro', uri=True)) as db:
@@ -24,13 +34,35 @@ def statistics():
         lexical = sum(bool(a['lexical']) for a in assignments)
         inferred = len(assignments) - lexical
         result[tag] = {**value, 'tag': tag, 'count': len(graph['tag_index'].get(tag, [])),
+                       'central': len(central(tag)),
                        'lexical': lexical, 'inferred': inferred, 'policy': policy,
                        'indexed_shabads': denominator}
     return result
 
 
+@lru_cache(maxsize=64)
 def eligible(tag):
-    return _get_graph()['tag_index'].get(tag, [])
+    """Every member of a topic in reading order: shabads that center on it first.
+    Within each tier, shabads that use the word come before inferred ones, which
+    are less reliable until reviewed, and heavier weights come first."""
+    weights = _weights()
+
+    def key(sid):
+        is_central, weight, lexical, strength = weights.get((sid, tag), (False, 0.0, False, 0.0))
+        return (not is_central, not lexical, -weight, -strength, int(sid))
+    return tuple(sorted(_get_graph()['tag_index'].get(tag, []), key=key))
+
+
+@lru_cache(maxsize=64)
+def central(tag):
+    """Members where this topic is one of the shabad's central concepts."""
+    weights = _weights()
+    return tuple(sid for sid in eligible(tag) if weights.get((sid, tag), (False,))[0])
+
+
+def member(sid, tag):
+    is_central, weight = _weights().get((sid, tag), (False, 0.0))[:2]
+    return {'central': is_central, 'weight': weight}
 
 
 def detail(sid):
@@ -52,19 +84,21 @@ def topic(tag):
     ids = eligible(tag)
     offset = max(0, request.args.get('offset', 0, type=int))
     limit = max(1, min(50, request.args.get('limit', 20, type=int)))
-    return jsonify({'topic': statistics()[tag], 'total': len(ids), 'offset': offset,
+    return jsonify({'topic': statistics()[tag], 'total': len(ids), 'central_total': len(central(tag)), 'offset': offset,
                     'next_offset': offset + limit if offset + limit < len(ids) else None,
-                    'shabads': [detail(sid) for sid in ids[offset:offset+limit]]})
+                    'shabads': [{**detail(sid), **member(sid, tag)} for sid in ids[offset:offset+limit]]})
 
 
 @graph_bp.route('/topics/<tag>/random')
 def topic_random(tag):
     if tag not in statistics(): return jsonify({'error': 'Unknown topic'}), 404
     ids = eligible(tag)
+    # Start from a shabad that centers on the topic when one exists.
+    source = central(tag) or ids
     excluded = set(request.args.get('exclude', '')[:2000].split(','))
-    pool = [sid for sid in ids if sid not in excluded] or ids
+    pool = [sid for sid in source if sid not in excluded] or list(source)
     if not pool: return jsonify({'error': 'No shabads in this topic', 'total': 0}), 404
-    return jsonify({'shabad': detail(random.SystemRandom().choice(pool)), 'total': len(ids), 'tag': tag})
+    return jsonify({'shabad': detail(random.SystemRandom().choice(pool)), 'total': len(ids), 'central_total': len(central(tag)), 'tag': tag})
 
 
 @graph_bp.route('/topics/<tag>/review')

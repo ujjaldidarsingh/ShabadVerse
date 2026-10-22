@@ -64,6 +64,30 @@ First-letter browser input converts the supported Roman keyboard mapping before 
 
 The September 7 review candidate is `releases/2026-09-07-explore`, copied from the September 6 candidate without rebuilding assignments. Only generation-policy metadata was added to its vocabulary. The manifest binds the updated runtime and dataset. After any runtime edit, regenerate and verify it before serving a fresh process. Run both `tests/browser.cjs` and `tests/discovery-browser.cjs` against that process.
 
+## Two matching algorithms (October 2 candidate)
+
+Whole-shabad matching reads the precomputed graph and labels clusters with concepts. Line matching is separate. It embeds the anchor verse's BaniDB English, ranks other verses by cosine similarity alone, keeps the best verse per shabad, and skips headings and verbatim refrains. It never applies concept labels or a concept prior. Its optional label is a Gurmukhi word both verses contain: at least three letters once one final vowel sign or nasal is dropped, found in at most 1% of verses, not on a short stoplist, and shared by at least two matches. `database/corpus.py` defines the rahao marker, the rahao span (the marked verse plus up to three verses before it, back to a stanza end or heading) and heading detection. Headings include Bhagat and Vaar titles, composition labels and set labels such as ਛਕਾ ੧ ॥. A line without a verse mark counts as a title only among a shabad's first three lines, so callers pass the verse index when they know it. Eleven BaniDB entries hold only a heading or set label; they have no line to anchor on, and line mode falls back to whole-shabad matching for them.
+
+`bootstrap/build_concept_tags.py` annotates each assignment with `weight`, `weight_verses` and `central`; its constants define the interim rule. Weights never change membership, and the build fails if a verse adds weight to a concept the shabad lacks. `release.validate` checks weight ranges. `api/topics.py` orders topics and draws random starts from these fields.
+
+## Concept vocabulary and word senses (October 13 candidate)
+
+`parkaran-helper/data/draft_vocabulary.json` is the curated vocabulary, under version control. Each concept carries Ujjal's dated rulings. `word_senses` lists words whose sense decides the concept: for a token starting with the word (longest word first), the first sense whose `english_any` pattern appears in the verse's BaniDB English, and whose `english_none` pattern does not, decides. A word with no matching sense counts for nothing. One spelling can therefore support two concepts, as ਦਇਆ does for Daya (human) and Daya (divine). Split concepts use one word in parentheses. Two optional settings guard calibration: `infer: false` counts word evidence only, for a word sense such as Sahaj (ease); `calibration: description` keeps a concept's threshold on its description while its words still count, for words too few or varied to calibrate on (Nimrata). `bootstrap/setup.py --vocabulary data/draft_vocabulary.json` builds a candidate from a preserved snapshot with the revised vocabulary, so snapshots are never edited. `tests/test_vocabulary.py` keeps Ujjal's ruled examples as regression cases.
+
+## Meaning search (October 13 search candidate)
+
+`api/meaning_search.py` serves `/api/graph/semantic-search`. It fuses five local lists by weighted reciprocal rank (k = 60). Each entry is one shabad with the verse that matched, so choosing a result opens line matching from that verse.
+
+1. Typed line: words typed in English letters against each verse's BaniDB transliteration. Both sides reduce each word to a consonant skeleton: vowels go, every n after a word's first letter goes, and spellings of one letter merge (`Th`, `dh`, `chh`). A verse must hold five consonants of the typed line in order and at least half of it.
+2. Gurmukhi words, matched at word starts.
+3. Concept names in English letters or Gurmukhi, through the concept weights. `word_senses` in the curated vocabulary decide what a Gurmukhi word names; ਕਾਮਣਿ names nothing. Extra English-letter spellings are a hand-kept list in the module.
+4. Verse translations by meaning (`sggs_lines`). When a typed line finds a verse holding 80% of it, that verse's English replaces the query here.
+5. Machine summaries by meaning (`sggs_shabads`), skipping summaries that only report missing text.
+
+Typed matches weigh three times, scaled by the share of the line their verse holds. A query made only of concept names weighs its concept list three times. Headings never become results. The verse index, about 60,000 verses and 20 MB, is read from the BaniDB cache once; `wsgi.py` builds it in a background thread at startup.
+
+Claude Haiku 5.5 reordering runs only with `ANTHROPIC_API_KEY` and `SHABADVERSE_RERANK=1`. The browser asks for it after a 0.7 second pause, while the local order is already on screen. The server sends the query and up to 30 candidates: each matched verse's BaniDB English and transliteration, plus the rahao. It uses thinking off, low effort and a JSON schema. Unknown ids are dropped. A refusal, error, timeout or limit returns the local order. Orders are cached per query. The limits are 30 reorderings per visitor per ten minutes and `SHABADVERSE_RERANK_DAILY_CAP` per day per process, default 2,000; an Anthropic Console spending limit is the hard backstop. `/about` states what leaves the server when the flag is on. `audits/2026-10-13-search/` holds the evaluation.
+
 ## Evidence candidate and review
 
 `releases/2026-09-07-evidence` rebuilds the complete candidate from `releases/2026-09-07-explore`. It preserves all 41,462 previous assignments and adds 47,388 inferred assignments under the existing thresholds. High coverage is visible evidence of model behavior, not proof of thematic accuracy. Graph display budgets remain independent.
@@ -78,6 +102,6 @@ The image passed full manifest verification at build time. With networking disab
 
 Rollback assets are retained at `/opt/shabadverse-backups/2026-09-07-pre-evidence`, including the prior runtime data, container configuration and Caddy configuration. The prior image is tagged `shabadverse-rollback:2026-09-07`. To roll back, use the current release compose file with an override selecting that image and `mem_limit: 1200m`, then recreate the service with the same `parkaran-helper` project. Check `/` and a known search; the old image does not expose the new readiness endpoint. The saved runtime-data snapshot is available if recovery of changes made inside the previous container is needed.
 
-Staging is running its earlier image again. Its data intentionally differs from the new production candidate; it is retained as a comparison baseline. The deployment receipt is `deployments/2026-09-07-evidence.json`.
+Staging at test.shabadverse.com runs the October 13 search candidate from `/opt/shabadverse-releases/2026-10-13-search/compose.staging.yml`, project `shabadverse-staging`, on loopback port 5051 with an 800 MiB limit and an out-of-memory score of 500. Its receipt, `deployments/2026-10-13-search-staging.json`, names the rollback to the alignment image.
 
 For the immediately preceding release, use `/opt/shabadverse-backups/2026-09-07-pre-sggs/compose.production.yml` with project `parkaran-helper`; its image is retained as `shabadverse:2026-09-07-evidence` and `shabadverse-rollback:2026-09-07-evidence`. Current release identity is recorded in `deployments/2026-09-07-sggs.json`.

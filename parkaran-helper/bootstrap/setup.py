@@ -1,7 +1,9 @@
 """Build a separate curated candidate from a preserved local dataset.
 
-Usage: python bootstrap/setup.py --source data --output releases/candidate
-No network, LLM calls, or replacement of the source dataset.
+Usage: python bootstrap/setup.py --source data --output releases/candidate [--vocabulary file]
+No network, LLM calls, or replacement of the source dataset. --vocabulary builds
+with revised concept definitions instead of the source's, so a preserved
+snapshot never needs editing.
 """
 import argparse
 import os
@@ -17,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 from release import create
 
 
-def build(source, output):
+def build(source, output, vocabulary=None):
     source, output = source.resolve(), output.resolve()
     if output.exists() or output == source or source in output.parents:
         raise ValueError('Choose a new output directory outside the source dataset')
@@ -32,6 +34,7 @@ def build(source, output):
         elif src.suffix == '.db':
             with closing(sqlite3.connect(src.as_uri() + '?mode=ro', uri=True)) as read, closing(sqlite3.connect(dst)) as write: read.backup(write)
         else: shutil.copy2(src, dst)
+    if vocabulary: shutil.copy2(Path(vocabulary).resolve(), output / 'draft_vocabulary.json')
     env = {**os.environ, 'SHABADVERSE_DATA_DIR': str(output), 'SHABADVERSE_BUILD': '1', 'SHABADVERSE_COMPARISON_SOURCE': str(source), 'ANONYMIZED_TELEMETRY': 'False', 'HF_HUB_OFFLINE': '1', 'PYTHONUNBUFFERED': '1'}
     for script in ('build_concept_tags.py', 'build_graph.py'):
         subprocess.run([sys.executable, '-B', str(ROOT / 'bootstrap' / script)], env=env, check=True)
@@ -44,6 +47,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--vocabulary', type=Path, help='concept definitions to build with, instead of the source copy')
     args = parser.parse_args()
-    try: build(args.source, args.output)
+    try: build(args.source, args.output, args.vocabulary)
     except (ValueError, OSError, subprocess.CalledProcessError) as error: parser.exit(1, str(error) + '\n')

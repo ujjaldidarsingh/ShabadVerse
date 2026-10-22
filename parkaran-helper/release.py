@@ -51,6 +51,8 @@ def validate(directory):
     for tag in vocab:
         expected = {str(row['banidb_shabad_id']) for row in rows if tag in row.get('tags', [])}
         if expected != set(graph['tag_index'].get(tag, [])) or len(expected) != vocab[tag]['count']: raise ValueError(f'Tag index mismatch: {tag}')
+    weighted = [a for group in concepts.values() for a in group if 'weight' in a]
+    if weighted and (len(weighted) != sum(map(len, concepts.values())) or any(not 0 <= a['weight'] <= 100 or not isinstance(a['central'], bool) for a in weighted)): raise ValueError('Invalid concept weights')
     review = data['concept_review.json']['concepts']
     if set(review) != set(vocab): raise ValueError('Review/concept mismatch')
     for tag, record in review.items():

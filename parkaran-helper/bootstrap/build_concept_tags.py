@@ -56,6 +56,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
+from database.corpus import is_heading, verse_record
 from database.vector_store import ShabadVectorStore
 
 VOCAB_PATH = Path(config.DATA_DIR) / "draft_vocabulary.json"
@@ -75,6 +76,19 @@ MIN_ANCHOR_LINES = 20
 DESC_WEIGHT, SEED_WEIGHT = 0.4, 0.6
 # Keep tag sets tight: a shabad's strongest concepts, not everything it brushes.
 MAX_PRESENTATION_TAGS = 6
+# Per-shabad weight (0 to 100): the share of a shabad's verses that express a
+# concept, with every verse of the rahao counted RAHAO_WEIGHT times because the
+# rahao states the shabad's central idea. A verse expresses a concept when the
+# concept's word appears in it, or when its translation passes the concept's
+# threshold and the concept is among the verse's CONCEPTS_PER_VERSE strongest by
+# standardized similarity. Without that limit a verse counted toward four
+# concepts on average and the broadest concepts outweighed everything else.
+# Interim rule: provisional until calibrated against reviewed verses.
+RAHAO_WEIGHT = 3.0
+CONCEPTS_PER_VERSE = 2
+# A concept is central to a shabad when it is among the shabad's CENTRAL_RANK
+# heaviest concepts and weighs at least CENTRAL_FLOOR.
+CENTRAL_RANK, CENTRAL_FLOOR = 2, 20.0
 
 
 def nfc(s: str) -> str:
@@ -90,13 +104,53 @@ def load_vocabulary(path: Path) -> dict:
     return included
 
 
-def lexical_line_positives(concepts: dict) -> dict[str, set[str]]:
+def load_word_senses(path: Path) -> list[dict]:
+    """Words whose sense, read from the verse's translation, decides the concept."""
+    return json.loads(path.read_text(encoding="utf-8")).get("word_senses", [])
+
+
+def compile_senses(word_senses: list[dict]) -> list[tuple[str, list[tuple]]]:
+    """Longest word first, so ਦਇਆਲ is decided before ਦਇਆ."""
+    def pattern(text):
+        return re.compile(text) if text else None
+    rules = [(w["word"], [(s.get("concept"), pattern(s.get("english_any")), pattern(s.get("english_none"))) for s in w["senses"]])
+             for w in word_senses]
+    return sorted(rules, key=lambda rule: -len(rule[0]))
+
+
+def sense_concept(token: str, english: str, senses) -> tuple[bool, str | None]:
+    """(covered, concept): whether a sense word covers the token, and the concept its sense supports.
+
+    The first sense whose english_any is found and whose english_none is absent
+    decides. A covered token with no matching sense counts for nothing.
+    """
+    for word, rules in senses:
+        if token.startswith(word):
+            for concept, wanted, unwanted in rules:
+                if (wanted is None or wanted.search(english)) and not (unwanted and unwanted.search(english)):
+                    return True, concept
+            return True, None
+    return False, None
+
+
+def concept_terms(name: str, concept: dict, word_senses: list[dict]) -> list[str]:
+    """Gurmukhi words that count for a concept, for display."""
+    routed = [w["word"] for w in word_senses if any(s.get("concept") == name for s in w["senses"])]
+    return list(dict.fromkeys(concept.get("anchors_accept", []) + routed))
+
+
+def lexical_line_positives(concepts: dict, word_senses: list[dict] = ()) -> dict[str, set[str]]:
     """Verse ids ("{shabad}:{index}") whose Gurmukhi carries a concept's anchor.
 
     Matching is on whitespace tokens with prefix rules, never raw substring:
     ਮੋਹ as a substring also matches ਮੋਹਨ (a name of God), and ਕਾਮ matches
     ਕਾਮਣਿ (the soul-bride). Those false positives would poison the prototypes.
+    A word listed in word_senses counts for the concept its sense supports,
+    judged from the verse's English translation, because one spelling can
+    carry two concepts (ਕਰਮ as deeds or as grace). Headings are skipped: the
+    invocation ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ heads hundreds of shabads without being their content.
     """
+    senses = compile_senses(list(word_senses))
     db = sqlite3.connect(Path(config.CACHE_DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)
     hits: dict[str, set[str]] = {c: set() for c in concepts}
     for shabad_id, response in db.execute("SELECT shabad_id, response FROM shabad_cache"):
@@ -106,30 +160,37 @@ def lexical_line_positives(concepts: dict) -> dict[str, set[str]]:
             continue
         for idx, verse in enumerate(data.get("verses", [])):
             gur = nfc((verse.get("verse") or {}).get("unicode", ""))
-            if not gur:
+            if not gur or is_heading(gur, idx):
                 continue
-            tokens = [t for t in re.sub(r"[॥।0-9੦-੯]", " ", gur).split() if t]
-            for name, c in concepts.items():
-                acc, rej = c.get("anchors_accept", []), c.get("anchors_reject", [])
-                if not acc:
+            line_id, english = f"{shabad_id}:{idx}", verse_record(verse, idx)["english"]
+            for t in (t for t in re.sub(r"[॥।0-9੦-੯]", " ", gur).split() if t):
+                covered, concept = sense_concept(t, english, senses)
+                if covered:
+                    if concept in hits:
+                        hits[concept].add(line_id)
                     continue
-                for t in tokens:
+                for name, c in concepts.items():
+                    acc, rej = c.get("anchors_accept", []), c.get("anchors_reject", [])
                     if any(t.startswith(a) for a in acc) and not any(t.startswith(r) for r in rej):
-                        hits[name].add(f"{shabad_id}:{idx}")
-                        break
+                        hits[name].add(line_id)
     db.close()
     return hits
 
 
 def load_line_vectors(store: ShabadVectorStore):
-    """All verse vectors, L2-normalized, paged (ChromaDB caps SQL variables)."""
+    """Verse vectors, L2-normalized, paged (ChromaDB caps SQL variables).
+
+    Headings are left out, so they never count as evidence, as verses in a weight
+    or in a concept's threshold.
+    """
     total = store.get_count()
     vecs, metas, ids = [], [], []
     for offset in range(0, total, 2000):
         page = store.collection.get(include=["embeddings", "metadatas"], limit=2000, offset=offset)
-        vecs.append(np.array(page["embeddings"], dtype=np.float32))
-        metas.extend(page["metadatas"])
-        ids.extend(page["ids"])
+        keep = [i for i, m in enumerate(page["metadatas"]) if not is_heading(m.get("gurmukhi", ""), m.get("line_index"))]
+        vecs.append(np.array(page["embeddings"], dtype=np.float32)[keep])
+        metas.extend(page["metadatas"][i] for i in keep)
+        ids.extend(page["ids"][i] for i in keep)
     E = np.vstack(vecs)
     E /= np.linalg.norm(E, axis=1, keepdims=True) + 1e-9
     return E, metas, ids
@@ -145,6 +206,54 @@ def build_prototype(desc_vec, seed_rows, E):
     return proto / (np.linalg.norm(proto) + 1e-9)
 
 
+def annotate_weights(assignments: dict, names: list[str], S: np.ndarray, thresholds: np.ndarray,
+                     anchors: dict[str, set[str]], row_of: dict[str, int]) -> None:
+    """Add weight, weight_verses and central to every assignment (see RAHAO_WEIGHT).
+
+    Membership is unchanged: every verse that adds weight also qualifies its
+    shabad for the concept under the membership rule, which is checked here.
+    """
+    from database.corpus import rahao_span, shabad as source_shabad
+
+    column = {name: j for j, name in enumerate(names)}
+    Z = (S - S.mean(axis=0)) / (S.std(axis=0) + 1e-9)
+    strongest = np.zeros(S.shape, dtype=bool)
+    np.put_along_axis(strongest, np.argsort(-Z, axis=1)[:, :CONCEPTS_PER_VERSE], True, axis=1)
+    inferred = strongest & (S >= thresholds)
+
+    lexical: dict[str, dict[int, set[int]]] = {}
+    for name, line_ids in anchors.items():
+        for line_id in line_ids:
+            sid, idx = line_id.split(":")
+            lexical.setdefault(sid, {}).setdefault(int(idx), set()).add(column[name])
+    rows: dict[str, dict[int, int]] = {}
+    for line_id, row in row_of.items():
+        sid, idx = line_id.split(":")
+        rows.setdefault(sid, {})[int(idx)] = row
+
+    for sid in set(rows) | set(lexical):
+        verse_rows, verse_words = rows.get(sid, {}), lexical.get(sid, {})
+        counted = sorted(set(verse_rows) | set(verse_words))
+        span = rahao_span([v["gurmukhi"] for v in source_shabad(sid)["verses"]])
+        omega = {v: RAHAO_WEIGHT if v in span else 1.0 for v in counted}
+        total = sum(omega.values())
+        support: dict[int, list[int]] = {}
+        for v in counted:
+            for j in verse_words.get(v, set()) | ({int(j) for j in np.flatnonzero(inferred[verse_rows[v]])} if v in verse_rows else set()):
+                support.setdefault(j, []).append(v)
+        group = assignments.get(sid, [])
+        missing = {names[j] for j in support} - {a["concept"] for a in group}
+        if missing:
+            raise ValueError(f"Weight evidence without membership in shabad {sid}: {sorted(missing)}")
+        for a in group:
+            verses = support.get(column[a["concept"]], [])
+            a["weight"] = round(100.0 * sum(omega[v] for v in verses) / total, 1)
+            a["weight_verses"] = verses
+        ranked = sorted(group, key=lambda a: (-a["weight"], not a["lexical"], -a["margin"]))
+        for rank, a in enumerate(ranked):
+            a["central"] = rank < CENTRAL_RANK and a["weight"] >= CENTRAL_FLOOR
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--vocab", type=Path, default=VOCAB_PATH)
@@ -156,7 +265,8 @@ def main() -> None:
     print(f"Vocabulary: {len(concepts)} concepts from {args.vocab.name}")
 
     print("Scanning corpus for lexical anchors...")
-    anchors = lexical_line_positives(concepts)
+    word_senses = load_word_senses(args.vocab)
+    anchors = lexical_line_positives(concepts, word_senses)
 
     print("Loading verse vectors...")
     store = ShabadVectorStore(collection_name=config.SGGS_LINES_COLLECTION_NAME)
@@ -169,6 +279,7 @@ def main() -> None:
     n_shabads = len(set(line_sid))
 
     assignments: dict[str, list[dict]] = {}
+    concept_sims, concept_thresholds = [], []
     report_rows = []
     comparison = {}
     baseline_path = os.environ.get('SHABADVERSE_COMPARISON_SOURCE')
@@ -178,19 +289,27 @@ def main() -> None:
     for name, c in concepts.items():
         desc_vec = np.array(fn([c["description"]])[0], dtype=np.float32)
         desc_vec /= np.linalg.norm(desc_vec) + 1e-9
-        seed_rows = [row_of[l] for l in anchors[name] if l in row_of]
+        anchor_rows = [row_of[l] for l in anchors[name] if l in row_of]
+        # calibration "description": the words still count as evidence but shape
+        # neither the prototype nor the threshold, because few or varied words
+        # make a generic centroid and a threshold that admits unrelated verses.
+        seed_rows = [] if c.get("calibration") == "description" else anchor_rows
         proto = build_prototype(desc_vec, seed_rows, E)
 
         sim = E @ proto
 
         # Calibrate: capture TARGET_ANCHOR_RECALL of this concept's anchor verses.
-        if len(seed_rows) >= MIN_ANCHOR_LINES:
+        if not c.get("infer", True):
+            thr, calib = 1.0, "word-only"  # cosine never exceeds 1: nothing is inferred
+        elif len(seed_rows) >= MIN_ANCHOR_LINES:
             anchor_scores = np.sort(sim[seed_rows])[::-1]
             thr = float(anchor_scores[int(len(anchor_scores) * TARGET_ANCHOR_RECALL) - 1])
             calib = "lexical"
         else:
             thr = float(np.quantile(sim, 0.995))  # description-only: top 0.5% of verses
             calib = "description-only"
+        concept_sims.append(sim)
+        concept_thresholds.append(thr)
 
         def best_line_over(rows) -> dict[str, tuple[float, int, str]]:
             out: dict[str, tuple[float, int, str]] = {}
@@ -202,7 +321,7 @@ def main() -> None:
 
         # Preserve literal occurrences as lexical evidence. Their thematic meaning
         # still depends on context. The prototype adds inferred associations.
-        anchor_best = best_line_over(seed_rows)
+        anchor_best = best_line_over(anchor_rows)
         thresholded = best_line_over(np.where(sim >= thr)[0])
         generalized = {s: v for s, v in thresholded.items() if s not in anchor_best}
 
@@ -236,7 +355,7 @@ def main() -> None:
                 assignments.setdefault(sid, []).append({
                     "concept": name,
                     "strength": round(score, 3),
-                    "margin": round(bonus + (score - thr) / span, 4),
+                    "margin": round(bonus + ((score - thr) / span if calib != "word-only" else 0.0), 4),
                     "lexical": bonus > 0,
                     "line_index": li,
                     "line_gurmukhi": gur,
@@ -276,6 +395,14 @@ def main() -> None:
     for sid, lst in assignments.items():
         lst.sort(key=lambda a: -a["margin"])
         # Full evidence survives. Only the graph proposal budget uses a smaller projection.
+
+    annotate_weights(assignments, list(concepts), np.column_stack(concept_sims),
+                     np.asarray(concept_thresholds, dtype=np.float32), anchors, row_of)
+    central_counts: dict[str, int] = {}
+    for lst in assignments.values():
+        for a in lst:
+            if a["central"]:
+                central_counts[a["concept"]] = central_counts.get(a["concept"], 0) + 1
 
     counts: dict[str, int] = {}
     for lst in assignments.values():
@@ -323,24 +450,29 @@ def main() -> None:
             "description": c["description"],
             "group": c.get("group", ""),
             "confidence": c.get("confidence", ""),
-            "gurbani_term": " ".join(c.get("anchors_accept", [])),
+            "gurbani_term": " ".join(concept_terms(name, c, word_senses)),
             "inference_threshold": comparison[name]['threshold'],
             "calibration": comparison[name]['calibration'],
             "review_status": "provisional",
             "previous_count": comparison[name]['previous_count'],
             "new_inferred": comparison[name]['new_inferred'],
+            "central_count": central_counts.get(name, 0),
         }
         for name, c in concepts.items()
         if counts.get(name, 0) > 0
     }
-    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads}}, ensure_ascii=False, indent=2), encoding="utf-8")
+    weights_policy = {"method": "rahao-weighted share of verses expressing the concept",
+                      "rahao_weight": RAHAO_WEIGHT, "concepts_per_verse": CONCEPTS_PER_VERSE,
+                      "central_rank": CENTRAL_RANK, "central_floor": CENTRAL_FLOOR,
+                      "review": "provisional"}
+    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads, "evidence": "verses only; headings and titles are excluded", "weights": weights_policy}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     lines = ["# Concept tagging report", "", f"{tagged_shabads} shabads tagged, avg {avg:.1f} tags each.", ""]
-    lines += ["| concept | group | calibration | says it | inferred | tagged | gen. recall |",
-              "|---|---|---|---:|---:|---:|---:|"]
+    lines += ["| concept | group | calibration | says it | inferred | tagged | central | gen. recall |",
+              "|---|---|---|---:|---:|---:|---:|---:|"]
     for r in sorted(report_rows, key=lambda r: -counts.get(r["concept"], 0)):
         lines.append(f"| {r['concept']} | {r['group']} | {r['calib']} | {r['anchor_shabads']} | "
-                     f"{r['generalized']} | {counts.get(r['concept'],0)} | {r['gen_recall']:.0%} |")
+                     f"{r['generalized']} | {counts.get(r['concept'],0)} | {central_counts.get(r['concept'], 0)} | {r['gen_recall']:.0%} |")
     REPORT_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\nwrote {TAGS_OUT.name}, {VOCAB_OUT.name}, {REPORT_OUT.name}")
 

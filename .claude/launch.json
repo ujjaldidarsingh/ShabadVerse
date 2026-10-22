@@ -6,6 +6,30 @@
       "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
       "runtimeArgs": ["-c", "import sys; sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5050)"],
       "port": 5050
+    },
+    {
+      "name": "parkaran-phase1",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-02-phase1'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5071)"],
+      "port": 5071
+    },
+    {
+      "name": "parkaran-concepts",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-13-alignment'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5072)"],
+      "port": 5072
+    },
+    {
+      "name": "parkaran-headings",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-15-headings'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5074)"],
+      "port": 5074
+    },
+    {
+      "name": "parkaran-evidence",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+      "runtimeArgs": ["-B", "-c", "import os, sys; os.environ['SHABADVERSE_DATA_DIR'] = os.path.abspath('parkaran-helper/releases/2026-10-15-evidence'); sys.path.insert(0, 'parkaran-helper'); from app import app; app.run(port=5075)"],
+      "port": 5075
     }
   ]
 }

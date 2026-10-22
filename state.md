@@ -1,4 +1,40 @@
-# ShabadVerse state, September 7, 2026
+# ShabadVerse state, October 13, 2026
+
+## Shared heading check (on staging)
+
+https://test.shabadverse.com runs this from image `shabadverse:2026-10-15-headings`, commit b3af363, with the alignment dataset. Both browser suites pass on the public test site, and production is untouched. The receipt and rollback command are in `deployments/2026-10-15-headings-staging.json`.
+
+`corpus.is_heading` now catches Bhagat and Vaar titles, composition labels and set labels (ਛਕਾ ੧ ॥): 132 more lines across all 60,403 verses, and no verse. Before the change, 17 shabads started line matching from a title, and those starts returned 84 matches that were themselves titles. Now no shabad does. Eleven BaniDB entries hold only a heading or set label; line mode for them falls back openly to whole-shabad matching. Candidate `parkaran-helper/releases/2026-10-15-headings` is the alignment data with this code. 63 Python checks and both browser suites pass, and the 60 test searches return the same results. At the next concept rebuild, titles also leave the rahao span in 17 shabads, so their verses stop counting three times there.
+
+Candidate `parkaran-helper/releases/2026-10-15-evidence` leaves headings out of concept evidence, weights and thresholds, as Ujjal chose on October 15. It awaits his review; see `audits/2026-10-15-heading-evidence/RESULTS.md`. The build change is uncommitted until then. Before it, the concept build counted every embedded line as a verse, headings included. ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ supplies Satguru evidence: 376 assignments rest only on heading lines (296 of them Satguru), 647 draw some weight from one (535 Satguru), and 2,908 cite a heading as their evidence verse. The heading is almost always ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ ॥ or the Mool Mantar. Excluding headings from evidence would change concept membership.
+
+## Meaning search rebuild (on staging, Claude reordering off)
+
+https://test.shabadverse.com runs the rebuilt ✨ search from image `shabadverse:2026-10-13-search`, commit f1d06b5, with the alignment dataset `97ad24e6…`. Both browser suites pass on the public test site. Production is untouched. The receipt and rollback command are in `deployments/2026-10-13-search-staging.json`. Staging has an out-of-memory score of 500 so the kernel stops it before production. With both sites in use the server had 160 MiB free and no swap; adding swap or a larger instance is Ujjal's call.
+
+The search is rebuilt in `parkaran-helper/api/meaning_search.py` (see `architecture.md`). Candidate `parkaran-helper/releases/2026-10-13-search` holds the alignment data with this code. On 60 test searches (`audits/2026-10-13-search/RESULTS.md`), remembered lines in the top 5 rose from 8 of 45 to 43 of 45: every line typed in English letters or Gurmukhi now comes first. Concept searches now return shabads on the concept in 0.83 of the top 5 results, up from 0.43. 61 Python checks and both browser suites pass against the candidate. The browser suites now include a typed line opening line matching.
+
+Claude Haiku 5.5 reordering is built but off. The local API key's account has no credit, so no live reordering has run. Ujjal will add credit and a spending limit; then `audits/2026-10-13-search/eval_search.py --rerank` compares it with the local order for about 3 cents. Enabling it on staging needs the key in the server environment and `SHABADVERSE_RERANK=1`; the image already has the SDK.
+
+## Concept alignment (on staging)
+
+Candidate `2026-10-13-alignment` runs on https://test.shabadverse.com from image `shabadverse:2026-10-13-alignment`, committed as e4c4331 (dataset `97ad24e6…`). 40 Python checks and both browser suites pass locally and on the public test site. Production is untouched and still serves the September 7 release. The receipt and rollback command are in `deployments/2026-10-13-alignment-staging.json`.
+
+Ujjal confirmed all 44 concept cards on October 13 (39 agreed, 5 changed). `audits/2026-10-09-concept-alignment/RESULTS.md` records what changed and why. The curated vocabulary, `parkaran-helper/data/draft_vocabulary.json`, now holds 48 concepts with dated rulings: Daya, Daan and Sach split into (human) and (divine), Sahaj into (poise) and (ease), and seven words are judged by their sense in the verse's translation. Candidate `parkaran-helper/releases/2026-10-13-alignment` is built from the phase 1 snapshot with `bootstrap/setup.py --vocabulary`. Its runtime code is the committed phase 1 code. Kaam's members fell from 4,769 to 320, and word evidence scores 93% against Ujjal's earlier verse labels, up from 89%. Agreement with his central-concept picks is unchanged at about a third; calibrating thresholds and the per-verse rule against his labels is the next step.
+
+## Matching redesign phase 1 (on staging, inside the alignment candidate)
+
+Production is unchanged; see the September 7 release below. This work follows `audits/2026-09-30-matching-strategy/STRATEGY.md` and is committed on branch `phase1-line-matching-topic-weights`.
+
+- `shabad_cache.db` was restored from the host into all four release directories (SHA-256 `fdbaecd8…`, matching every manifest). Keep a second copy off the host.
+- Line matching is now its own algorithm: cosine similarity of verse translations only, the best verse per shabad, no concept prior and no concept clusters. Matches group under a rare Gurmukhi word shared with the anchor when at least two share it, otherwise under "Similar translation". The default anchor is the marked rahao, skipping headings. A searched verse opens line matching. Each mode keeps its own strictness (whole shabad 0.35, line 0.5).
+- Every concept assignment carries a provisional weight (0 to 100, rahao verses counted three times, each verse counting toward at most its two strongest concepts) and a central flag (top two by weight, at least 20). Membership, presentation tags and the graph are unchanged.
+- Topic lists start with shabads that center on the topic. Within each tier, shabads that use the word come before inferred ones, then heavier weights. Random topic starts draw from central shabads when there are any. Kaam now opens with Ang 1358 (ਹੇ ਕਾਮੰ ਨਰਕ ਬਿਸ੍ਰਾਮੰ); shabad 1 is 4,474th of 4,769.
+- Candidate `parkaran-helper/releases/2026-10-02-phase1` (dataset `dd79bddf182e6cf7…`) was built with `bootstrap/setup.py` from `2026-09-07-explore`. Membership, assignment order and graph neighbors match `2026-09-07-sggs`. The only differences are float32 noise in thresholds (at most 1.2e-7), the order inside `shared_tags` lists, and one tied evidence verse (shabad 4603, Satguru).
+- 36 Python checks, including the dataset checks, and both browser suites pass against the candidate on phone, tablet and desktop.
+- Ujjal's review sets: `audits/2026-10-02-review-sets/`, served as a private page (https://claude.ai/artifact/Fdo93Mwweb7DTDSniuY7iW). All 458 judgments were complete on October 9; see `RESULTS.md` there. Line matching: translation-only ties the live method (68% same or related for both). Central concepts from verse evidence agree with Ujjal in 35% of shabads against a 75% bar, and 21 of his 69 picks were never assigned. Word matches are 90% right, and inferred evidence is reliable only as each verse's strongest concept.
+
+## September 7 production release
 
 Current production release: `parkaran-helper/releases/2026-09-07-sggs`, merged through PR #22. AK preference, AK-only filtering, badges, chapter labels and topic membership counts are removed. Old source preferences and query parameters no longer affect results. The dataset is byte-identical to the evidence candidate; archived source membership remains preserved. The new runtime SHA-256 is `3f2480975ddd3681ebb1b85d77e2d03a898b8a2166dd337b7124332ba2c80269`. The deployment and rollback record is `deployments/2026-09-07-sggs.json`.
 

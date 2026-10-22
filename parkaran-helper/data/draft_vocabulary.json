@@ -6,15 +6,18 @@
       "description: this exact English text is embedded. Lines are embedded on their English translation, so write it the way BaniDB renders the idea.",
       "anchors_accept: Gurmukhi token PREFIXES. Any word starting with these counts as a lexical positive.",
       "anchors_reject: prefixes to exclude. This is where the traps live (see notes).",
-      "open_question: I need your ruling. Answer inline by editing, or just tell me.",
       "confirmed_by_ujjal: flip to true when you're happy with a concept. I won't build until you say go.",
-      "ADD concepts freely: copy the shape of any entry. lexical_shabads is recomputed by the builder."
+      "ADD concepts freely: copy the shape of any entry. lexical_shabads is recomputed by the builder.",
+      "rulings: dated decisions by Ujjal that shaped the entry.",
+      "word_senses: words whose sense decides the concept. For a token starting with the word (longest word first), the first sense whose english_any pattern is found and whose english_none pattern is absent in the verse's BaniDB English decides the concept; concept null, or no matching sense, means the word counts for nothing. Patterns are regular expressions; (?i) makes one case-insensitive.",
+      "infer: false counts word evidence only; nothing is inferred from translation similarity. For word senses such as Sahaj (ease).",
+      "calibration: description sets the threshold from the description alone, as for description-only concepts, while the words still count as evidence. For concepts whose words are few or varied."
     ],
     "anchors_are_seeds_not_rules": "Anchors only seed each concept's prototype vector and calibrate its threshold. Final tagging is by embedding similarity, so a shabad that teaches ego without saying ਹਉਮੈ still gets tagged.",
     "counts": {
-      "concepts": 44,
-      "lexically_anchored": 40,
-      "description_only": 4
+      "concepts": 48,
+      "lexically_anchored": 47,
+      "description_only": 1
     }
   },
   "concepts": {
@@ -22,19 +25,24 @@
       "group": "Panj Chor",
       "include": true,
       "confidence": "lexical",
-      "description": "lust, sexual craving, being consumed by desire",
-      "anchors_accept": [
-        "ਕਾਮ"
-      ],
-      "anchors_reject": [
-        "ਕਾਮਣਿ",
-        "ਕਾਮਣੀ",
-        "ਕਾਮਣ"
-      ],
+      "description": "Lust: sexual desire and the pull of sensual pleasure.",
+      "anchors_accept": [],
+      "anchors_reject": [],
       "lexical_shabads": 422,
-      "note": "reject ਕਾਮਣਿ = soul-bride, not lust",
-      "open_question": "Rejecting ਕਾਮਣਿ/ਕਾਮਣੀ (soul-bride). Confirm — this is the biggest single trap.",
-      "confirmed_by_ujjal": true
+      "note": "ਕਾਮ counts only when the translation means lust; ਕਾਮਣਿ (the soul-bride) and ਕਾਮਨਾ (a wish) never count. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep ਕਾਮਣਿ/ਕਾਮਣੀ out. Only the lust sense counts. Leave ਕਾਮਨਾ out."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Krodh": {
       "group": "Panj Chor",
@@ -47,42 +55,73 @@
       "anchors_reject": [],
       "lexical_shabads": 208,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Lobh": {
       "group": "Panj Chor",
       "include": true,
       "confidence": "lexical",
-      "description": "greed, avarice, craving wealth, never satisfied",
+      "description": "Greed: avarice for wealth and possessions.",
       "anchors_accept": [
         "ਲੋਭ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 254,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Moh": {
       "group": "Panj Chor",
       "include": true,
       "confidence": "lexical",
-      "description": "worldly attachment, entanglement with family and possessions, clinging to the transient",
+      "description": "Attachment: the mind's clinging to family, possessions and what passes away.",
       "anchors_accept": [
         "ਮੋਹ"
       ],
       "anchors_reject": [
-        "ਮੋਹਨ"
+        "ਮੋਹਨ",
+        "ਮੋਹਣੀ"
       ],
       "lexical_shabads": 738,
-      "note": "reject ਮੋਹਨ = name of God. ਮੋਹਣੀ (enticer/maya) — your call",
-      "open_question": "Include ਮੋਹਣੀ (enticer)? It usually means Maya's allure — attachment, or its own thing?",
-      "confirmed_by_ujjal": true
+      "note": "ਮੋਹਨ is a name of God and does not count. ਮੋਹਣੀ, the enticer, counts as Maya.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "ਮੋਹਣੀ counts as Maya. ਮੋਹਿਆ and ਮੋਹੇ count as Moh."
+        },
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Close to Maya but a separate concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Ahankar": {
       "group": "Panj Chor",
       "include": true,
       "confidence": "lexical",
-      "description": "pride, arrogance, conceit, self-importance",
+      "description": "Pride: arrogance, conceit and self-importance.",
       "anchors_accept": [
         "ਅਹੰਕਾਰ",
         "ਗਰਬ",
@@ -91,21 +130,39 @@
       "anchors_reject": [],
       "lexical_shabads": 328,
       "note": "three words for one vice; merge or split?",
-      "open_question": "Merging ਅਹੰਕਾਰ + ਗਰਬ + ਅਭਿਮਾਨ per your call. Confirm ਗਰਬ/ਅਭਿਮਾਨ belong here and not as worldly-pride separate.",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "ਅਹੰਕਾਰ, ਗਰਬ and ਅਭਿਮਾਨ are all Ahankar."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Haumai": {
       "group": "Panj Chor",
       "include": true,
       "confidence": "lexical",
-      "description": "egotism, the 'I am', self-conceit that separates the soul from God",
+      "description": "Ego as a separate self: the sense of 'I, me, mine' that separates the soul from God.",
       "anchors_accept": [
         "ਹਉਮੈ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 463,
       "note": "distinct from Ahankar, or same?",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Nindaa": {
       "group": "Vice",
@@ -118,21 +175,39 @@
       "anchors_reject": [],
       "lexical_shabads": 171,
       "note": "ਨਿੰਦਕ = the slanderer (person) — include?",
-      "open_question": "Include ਨਿੰਦਕ / ਨਿੰਦਕੁ (the slanderer, the person) alongside ਨਿੰਦਾ (the act)?",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "ਨਿੰਦਕ, the slanderer, counts."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Trishna": {
       "group": "Vice",
       "include": true,
       "confidence": "lexical",
-      "description": "craving, thirst, unquenchable desire",
+      "description": "Thirst that is never quenched: endless desire for more.",
       "anchors_accept": [
         "ਤ੍ਰਿਸਨ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 195,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Bharam": {
       "group": "Vice",
@@ -145,7 +220,14 @@
       "anchors_reject": [],
       "lexical_shabads": 479,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Pakhand": {
       "group": "Vice",
@@ -158,7 +240,14 @@
       "anchors_reject": [],
       "lexical_shabads": 42,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Santokh": {
       "group": "Virtue",
@@ -171,51 +260,126 @@
       "anchors_reject": [],
       "lexical_shabads": 149,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
-    "Daya": {
+    "Daya (human)": {
       "group": "Virtue",
       "include": true,
       "confidence": "lexical",
-      "description": "compassion, mercy shown to others, kindness",
-      "anchors_accept": [
-        "ਦਇਆ"
-      ],
-      "anchors_reject": [
-        "ਦਇਆਲ",
-        "ਦਇਆਰ"
-      ],
-      "lexical_shabads": 187,
-      "note": "reject ਦਇਆਲ = 'the Merciful One' (epithet of God)",
-      "open_question": "Rejecting ਦਇਆਲ/ਦਇਆਲੁ ('the Merciful One'). Should divine mercy be its own concept, separate from human compassion?",
-      "confirmed_by_ujjal": true
-    },
-    "Sach": {
-      "group": "Virtue",
-      "include": true,
-      "confidence": "lexical",
-      "description": "truth, truthful living, the True One",
-      "anchors_accept": [
-        "ਸਚੁ"
-      ],
+      "description": "Compassion that people show: kindness and mercy toward other beings.",
+      "anchors_accept": [],
       "anchors_reject": [],
-      "lexical_shabads": 626,
-      "note": "very broad (626) — keep?",
-      "open_question": "626 shabads. Truth is nearly everywhere in SGGS — keep as a tag, or is it too structural to be useful?",
-      "confirmed_by_ujjal": true
+      "lexical_shabads": 0,
+      "note": "Split from Daya. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep ਦਇਆਲ out of human compassion; divine mercy is its own concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts: Daya (human) and Daya (divine). ਦਇਆਲ, the Merciful One, goes to Daya (divine)."
+        }
+      ]
+    },
+    "Daya (divine)": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "Divine mercy: the compassion of God or the Guru toward beings, the Merciful One.",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "Split from Daya. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep ਦਇਆਲ out of human compassion; divine mercy is its own concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts: Daya (human) and Daya (divine). ਦਇਆਲ, the Merciful One, goes to Daya (divine)."
+        }
+      ]
+    },
+    "Sach (human)": {
+      "group": "Virtue",
+      "include": true,
+      "confidence": "lexical",
+      "description": "Truth as people live it: truthfulness and truthful living.",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "Split from Sach. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep; weights decide where it is central."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts, as with Daya: truth as people live it, and the True One."
+        }
+      ]
+    },
+    "Sach (divine)": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "The True One: God as eternal Truth.",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "Split from Sach. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep; weights decide where it is central."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts, as with Daya: truth as people live it, and the True One."
+        }
+      ]
     },
     "Prem": {
       "group": "Virtue",
       "include": true,
       "confidence": "lexical",
-      "description": "loving devotion, love for the Divine",
+      "description": "Love: the heart's love for the Divine Beloved.",
       "anchors_accept": [
         "ਪ੍ਰੇਮ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 182,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Bhau": {
       "group": "Virtue",
@@ -230,47 +394,99 @@
       ],
       "lexical_shabads": 278,
       "note": "reject ਭਉਜਲ = world-ocean (own concept)",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Ordinary fear, such as fear of death, also counts as Bhau."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Naam": {
       "group": "Practice",
       "include": true,
       "confidence": "lexical",
-      "description": "the Divine Name, dwelling on the Name",
+      "description": "The Divine Name itself.",
       "anchors_accept": [
         "ਨਾਮੁ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 1864,
       "note": "1,864 shabads — structural, may be too broad to label clusters",
-      "open_question": "1,864 shabads (34%). Will be tagged but auto-barred from titling clusters by the >25% coverage rule. Keep?",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep; weights decide where it is central."
+        },
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Naam is the Name itself; Simran is the active practice."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Simran": {
       "group": "Practice",
       "include": true,
       "confidence": "lexical",
-      "description": "remembrance, repetition of the Name",
+      "description": "Active remembrance: remembering, repeating and meditating on the Name.",
       "anchors_accept": [
         "ਸਿਮਰ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 482,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Simran is active remembrance; Naam is the Name itself."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Seva": {
       "group": "Practice",
       "include": true,
       "confidence": "lexical",
-      "description": "selfless service to others",
+      "description": "Selfless service: serving the Guru and the Lord, and serving others.",
       "anchors_accept": [
         "ਸੇਵਾ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 362,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Seva includes serving the Guru and the Lord, and serving others."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Sangat": {
       "group": "Practice",
@@ -285,20 +501,34 @@
       "anchors_reject": [],
       "lexical_shabads": 371,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Kirtan": {
       "group": "Practice",
       "include": true,
       "confidence": "lexical",
-      "description": "singing the Guru's praise, devotional music",
+      "description": "Singing praise of the Lord and the Guru: devotional singing of Gurbani.",
       "anchors_accept": [
         "ਕੀਰਤਨ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 131,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Ardas": {
       "group": "Practice",
@@ -311,33 +541,75 @@
       "anchors_reject": [],
       "lexical_shabads": 102,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
-    "Daan": {
+    "Daan (human)": {
       "group": "Practice",
       "include": true,
       "confidence": "lexical",
-      "description": "charity, giving to those in need",
-      "anchors_accept": [
-        "ਦਾਨੁ"
-      ],
+      "description": "Charity: giving to those in need.",
+      "anchors_accept": [],
       "anchors_reject": [],
-      "lexical_shabads": 210,
-      "note": "",
-      "confirmed_by_ujjal": true
+      "lexical_shabads": 0,
+      "note": "Split from Daan. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts, as with Daya: Daan (human) is charity; Daan (divine) is what the Lord gives."
+        }
+      ]
+    },
+    "Daan (divine)": {
+      "group": "Theology",
+      "include": true,
+      "confidence": "lexical",
+      "description": "The Lord's gift: what God or the Guru gives, such as the gift of the Name.",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "Split from Daan. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts, as with Daya: Daan (human) is charity; Daan (divine) is what the Lord gives."
+        }
+      ]
     },
     "Vichar": {
       "group": "Practice",
       "include": true,
       "confidence": "lexical",
-      "description": "contemplation, reflection on the Guru's word",
+      "description": "Contemplation: reflecting deeply in order to understand.",
       "anchors_accept": [
         "ਵੀਚਾਰ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 294,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Overlaps Shabad but stays a distinct concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Hukam": {
       "group": "Theology",
@@ -350,33 +622,66 @@
       "anchors_reject": [],
       "lexical_shabads": 290,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Maya": {
       "group": "Theology",
       "include": true,
       "confidence": "lexical",
-      "description": "illusion, the material world's grip",
+      "description": "The world's illusion and wealth, which pull the mind away from the Divine.",
       "anchors_accept": [
-        "ਮਾਇਆ"
+        "ਮਾਇਆ",
+        "ਮੋਹਣੀ",
+        "ਮੋਹਨੀ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 635,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "ਮੋਹਣੀ, the enticer, counts as Maya."
+        },
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Close to Moh but a separate concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Gurmukh": {
       "group": "Theology",
       "include": true,
       "confidence": "lexical",
-      "description": "one who faces the Guru, lives by the Guru's word",
+      "description": "One who faces the Guru: a person whose life is turned toward the Guru.",
       "anchors_accept": [
         "ਗੁਰਮੁਖਿ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 860,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Manmukh": {
       "group": "Theology",
@@ -389,7 +694,14 @@
       "anchors_reject": [],
       "lexical_shabads": 151,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Mukti": {
       "group": "Theology",
@@ -402,21 +714,37 @@
       "anchors_reject": [],
       "lexical_shabads": 220,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Karma": {
       "group": "Theology",
       "include": true,
       "confidence": "lexical",
-      "description": "deeds and their consequences, action and reward",
-      "anchors_accept": [
-        "ਕਰਮ"
-      ],
+      "description": "Deeds and their consequences: actions and what they bring.",
+      "anchors_accept": [],
       "anchors_reject": [],
       "lexical_shabads": 578,
-      "note": "ਕਰਮ also = grace/mercy in some contexts — ambiguous",
-      "open_question": "ਕਰਮ means both 'deeds' and 'grace/mercy' depending on context. Split into Karma (deeds) and fold the grace sense into Kirpa?",
-      "confirmed_by_ujjal": true
+      "note": "ਕਰਮ meaning deeds counts here; ਕਰਮ meaning grace counts as Kirpa. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Split: deeds stay in Karma; the grace sense of ਕਰਮ moves to Kirpa."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Janam-Maran": {
       "group": "Theology",
@@ -424,31 +752,56 @@
       "confidence": "lexical",
       "description": "the cycle of birth and death, reincarnation",
       "anchors_accept": [
-        "ਜਨਮ",
         "ਮਰਣ",
         "ਮਰਨ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 811,
-      "note": "",
-      "confirmed_by_ujjal": true
+      "note": "ਜਨਮ counts, except where it means this human life (ਜਨਮੁ ਪਦਾਰਥੁ). See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "ਜਨਮ meaning this human life does not count."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Kirpa": {
       "group": "Theology",
       "include": true,
       "confidence": "lexical",
-      "description": "divine grace, God's mercy freely given",
+      "description": "Grace: the favour and glance of grace of the Guru or the Creator, freely given.",
       "anchors_accept": [
         "ਕਿਰਪਾ",
         "ਨਦਰਿ"
       ],
-      "anchors_reject": [
-        "ਕਿਰਪਾਲ"
-      ],
+      "anchors_reject": [],
       "lexical_shabads": 845,
-      "note": "reject ਕਿਰਪਾਲ = 'the Merciful One' (epithet)",
-      "open_question": "Merges ਕਿਰਪਾ + ਨਦਰਿ (845). Rejects ਕਿਰਪਾਲ (epithet). Split nadar out?",
-      "confirmed_by_ujjal": true
+      "note": "ਕਿਰਪਾ, ਨਦਰਿ and ਕਿਰਪਾਲ count, and so does ਕਰਮ meaning grace. Divine mercy and ਦਇਆਲ are Daya (divine).",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep ਨਦਰਿ in Kirpa. Count ਕਿਰਪਾਲ."
+        },
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Kirpa and divine grace are one concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Kirpa is what remains after divine mercy: ਦਇਆਲ goes to Daya (divine)."
+        }
+      ]
     },
     "Shabad": {
       "group": "Theology",
@@ -461,7 +814,19 @@
       "anchors_reject": [],
       "lexical_shabads": 458,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-09",
+          "by": "Ujjal",
+          "ruling": "Overlaps Vichar but stays a distinct concept."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Satguru": {
       "group": "Theology",
@@ -474,8 +839,19 @@
       "anchors_reject": [],
       "lexical_shabads": 1539,
       "note": "1,538 — structural",
-      "open_question": "1,539 shabads (28%). Same as Naam — tagged but never a cluster label. Keep?",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-03",
+          "by": "Ujjal",
+          "ruling": "Keep; weights decide where it is central."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Jot": {
       "group": "Theology",
@@ -488,7 +864,14 @@
       "anchors_reject": [],
       "lexical_shabads": 257,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Bhaujal": {
       "group": "Theology",
@@ -501,20 +884,51 @@
       "anchors_reject": [],
       "lexical_shabads": 61,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
-    "Sahaj": {
+    "Sahaj (poise)": {
       "group": "State",
       "include": true,
       "confidence": "lexical",
-      "description": "intuitive poise, effortless equipoise, natural balance",
-      "anchors_accept": [
-        "ਸਹਜ"
-      ],
+      "description": "Intuitive poise: effortless equipoise, the state of natural balance.",
+      "anchors_accept": [],
       "anchors_reject": [],
-      "lexical_shabads": 715,
-      "note": "",
-      "confirmed_by_ujjal": true
+      "lexical_shabads": 0,
+      "note": "Split from Sahaj. The sense of the shared word decides which concept a verse supports. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts: Sahaj (poise), the state, and Sahaj (ease), translated 'easily' or 'naturally'."
+        }
+      ]
+    },
+    "Sahaj (ease)": {
+      "group": "State",
+      "include": true,
+      "confidence": "lexical",
+      "description": "Ease: happening naturally, easily and without strain.",
+      "anchors_accept": [],
+      "anchors_reject": [],
+      "lexical_shabads": 0,
+      "note": "Split from Sahaj. Counts only where ਸਹਜ is translated 'easily' or 'naturally'; nothing is inferred, because similar English is not the same sense. See word_senses.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Two concepts: Sahaj (poise), the state, and Sahaj (ease), translated 'easily' or 'naturally'."
+        }
+      ],
+      "infer": false
     },
     "Anand": {
       "group": "State",
@@ -528,20 +942,34 @@
       "anchors_reject": [],
       "lexical_shabads": 566,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Bhagti": {
       "group": "State",
       "include": true,
       "confidence": "lexical",
-      "description": "loving devotion, worship, the devotee's path",
+      "description": "Devotion lived as worship: the devotee's path.",
       "anchors_accept": [
         "ਭਗਤਿ"
       ],
       "anchors_reject": [],
       "lexical_shabads": 510,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Jaat": {
       "group": "Social",
@@ -554,7 +982,14 @@
       "anchors_reject": [],
       "lexical_shabads": 103,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Tirath": {
       "group": "Social",
@@ -567,29 +1002,67 @@
       "anchors_reject": [],
       "lexical_shabads": 169,
       "note": "",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Vismad": {
       "group": "State",
       "include": true,
-      "confidence": "description-only",
+      "confidence": "lexical",
       "description": "wonder, awe at the vastness of creation",
-      "anchors_accept": [],
+      "anchors_accept": [
+        "ਵਿਸਮਾਦ"
+      ],
       "anchors_reject": [],
       "lexical_shabads": 0,
-      "note": "NO LEXICAL ANCHOR: ਵਿਸਮਾਦੁ in only 4 shabads | kept per your call; will be flagged lower-confidence in /about",
-      "confirmed_by_ujjal": true
+      "note": "ਵਿਸਮਾਦ appears in 18 indexed verses, fewer than the 20 needed to calibrate on words, so its threshold still comes from the description.",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "ਵਿਸਮਾਦ counts."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Birha": {
       "group": "State",
       "include": true,
-      "confidence": "description-only",
+      "confidence": "lexical",
       "description": "the pain of separation from the Beloved",
-      "anchors_accept": [],
+      "anchors_accept": [
+        "ਬਿਰਹ",
+        "ਵਿਛੁੜ",
+        "ਵਿਛੋੜ",
+        "ਬਿਛੁਰ"
+      ],
       "anchors_reject": [],
       "lexical_shabads": 0,
-      "note": "NO LEXICAL ANCHOR: ਬਿਰਹ* in 29; also ਵਿਛੋੜਾ | kept per your call; will be flagged lower-confidence in /about",
-      "confirmed_by_ujjal": true
+      "note": "",
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "ਬਿਰਹ and ਵਿਛੁੜ, ਵਿਛੋੜ, ਬਿਛੁਰ count."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Chardi Kala": {
       "group": "State",
@@ -600,18 +1073,158 @@
       "anchors_reject": [],
       "lexical_shabads": 0,
       "note": "NO LEXICAL ANCHOR: phrase absent from SGGS | kept per your call; will be flagged lower-confidence in /about",
-      "confirmed_by_ujjal": true
+      "confirmed_by_ujjal": true,
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Keep: Gurbani expresses the idea, although the phrase ਚੜ੍ਹਦੀ ਕਲਾ is not in the SGGS."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     },
     "Nimrata": {
       "group": "Virtue",
       "include": true,
-      "confidence": "description-only",
+      "confidence": "lexical",
       "description": "humility, lowliness, meekness",
-      "anchors_accept": [],
+      "anchors_accept": [
+        "ਗਰੀਬੀ",
+        "ਨਿਮਾਣ",
+        "ਨੀਵ"
+      ],
       "anchors_reject": [],
       "lexical_shabads": 0,
-      "note": "NO LEXICAL ANCHOR: no single anchor word | kept per your call; will be flagged lower-confidence in /about",
-      "confirmed_by_ujjal": true
+      "note": "The words count as evidence, but the threshold still comes from the description: the words are few and varied (ਨਿਮਾਣ often speaks of God honouring the lowly), and calibrating on them spread Nimrata to a quarter of all shabads with unrelated verses.",
+      "confirmed_by_ujjal": true,
+      "calibration": "description",
+      "rulings": [
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "ਗਰੀਬੀ, ਨਿਮਾਣ and ਨੀਵ count."
+        },
+        {
+          "date": "2026-10-13",
+          "by": "Ujjal",
+          "ruling": "Definition, word rules and lines against neighbours confirmed on the alignment page."
+        }
+      ]
     }
-  }
+  },
+  "word_senses": [
+    {
+      "word": "ਦਇਆ",
+      "senses": [
+        {
+          "concept": "Daya (divine)",
+          "english_any": "\\b(Lord|God|Guru|Master|His|Him|You|Your|Thou|Thy|Merciful|Creator|Husband|Beloved|Giver|Please|please|He Himself)\\b|[Tt]ake pity|[Bb]e kind to me|[Bb]e merciful|[Hh]ave mercy"
+        },
+        {
+          "concept": "Daya (human)"
+        }
+      ]
+    },
+    {
+      "word": "ਦਇਆਲ",
+      "senses": [
+        {
+          "concept": "Daya (divine)"
+        }
+      ]
+    },
+    {
+      "word": "ਦਇਆਰ",
+      "senses": [
+        {
+          "concept": "Daya (divine)"
+        }
+      ]
+    },
+    {
+      "word": "ਦਾਨੁ",
+      "senses": [
+        {
+          "concept": "Daan (divine)",
+          "english_any": "(?i)\\b(gift\\w*|gives|give me|grant\\w*|bless\\w*|bestow\\w*)\\b"
+        },
+        {
+          "concept": "Daan (human)",
+          "english_any": "(?i)\\b(charit\\w*|donat\\w*|alms|offering\\w*|give to|giving|give it to)\\b"
+        }
+      ]
+    },
+    {
+      "word": "ਸਚੁ",
+      "senses": [
+        {
+          "concept": "Sach (divine)",
+          "english_any": "\\bTrue,? (\\w+ )?(Lord|One|Master|Name|Guru|King|Creator|Husband|Court)\\b|\\bthe Truth\\b|\\bTruest\\b"
+        },
+        {
+          "concept": "Sach (human)",
+          "english_any": "(?i)\\b(truth\\w*|honest\\w*)\\b"
+        }
+      ]
+    },
+    {
+      "word": "ਸਹਜ",
+      "senses": [
+        {
+          "concept": "Sahaj (ease)",
+          "english_any": "(?i)\\b(easily|naturally|with ease|automatically|spontaneously)\\b"
+        },
+        {
+          "concept": "Sahaj (poise)"
+        }
+      ]
+    },
+    {
+      "word": "ਕਾਮ",
+      "senses": [
+        {
+          "concept": "Kaam",
+          "english_any": "(?i)\\b(lust\\w*|sexual\\w*|sex)\\b"
+        }
+      ]
+    },
+    {
+      "word": "ਕਾਮਣ",
+      "senses": []
+    },
+    {
+      "word": "ਕਾਮਨ",
+      "senses": []
+    },
+    {
+      "word": "ਕਰਮ",
+      "senses": [
+        {
+          "concept": "Kirpa",
+          "english_any": "(?i)\\b(grace|mercy|merciful|blessing\\w*|blessed|kindness)\\b",
+          "english_none": "(?i)\\b(deed\\w*|action\\w*|karma)\\b"
+        },
+        {
+          "concept": "Karma"
+        }
+      ]
+    },
+    {
+      "word": "ਜਨਮ",
+      "senses": [
+        {
+          "concept": null,
+          "english_any": "(?i)human (life|birth|body)|this (life|birth)|precious",
+          "english_none": "(?i)reincarnat\\w*|incarnation\\w*|births|birth and death|coming and going|womb"
+        },
+        {
+          "concept": "Janam-Maran"
+        }
+      ]
+    }
+  ]
 }
