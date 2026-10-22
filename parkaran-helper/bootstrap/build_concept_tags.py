@@ -56,7 +56,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
-from database.corpus import verse_record
+from database.corpus import is_heading, verse_record
 from database.vector_store import ShabadVectorStore
 
 VOCAB_PATH = Path(config.DATA_DIR) / "draft_vocabulary.json"
@@ -147,7 +147,8 @@ def lexical_line_positives(concepts: dict, word_senses: list[dict] = ()) -> dict
     ਕਾਮਣਿ (the soul-bride). Those false positives would poison the prototypes.
     A word listed in word_senses counts for the concept its sense supports,
     judged from the verse's English translation, because one spelling can
-    carry two concepts (ਕਰਮ as deeds or as grace).
+    carry two concepts (ਕਰਮ as deeds or as grace). Headings are skipped: the
+    invocation ੴ ਸਤਿਗੁਰ ਪ੍ਰਸਾਦਿ heads hundreds of shabads without being their content.
     """
     senses = compile_senses(list(word_senses))
     db = sqlite3.connect(Path(config.CACHE_DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)
@@ -159,7 +160,7 @@ def lexical_line_positives(concepts: dict, word_senses: list[dict] = ()) -> dict
             continue
         for idx, verse in enumerate(data.get("verses", [])):
             gur = nfc((verse.get("verse") or {}).get("unicode", ""))
-            if not gur:
+            if not gur or is_heading(gur, idx):
                 continue
             line_id, english = f"{shabad_id}:{idx}", verse_record(verse, idx)["english"]
             for t in (t for t in re.sub(r"[॥।0-9੦-੯]", " ", gur).split() if t):
@@ -177,14 +178,19 @@ def lexical_line_positives(concepts: dict, word_senses: list[dict] = ()) -> dict
 
 
 def load_line_vectors(store: ShabadVectorStore):
-    """All verse vectors, L2-normalized, paged (ChromaDB caps SQL variables)."""
+    """Verse vectors, L2-normalized, paged (ChromaDB caps SQL variables).
+
+    Headings are left out, so they never count as evidence, as verses in a weight
+    or in a concept's threshold.
+    """
     total = store.get_count()
     vecs, metas, ids = [], [], []
     for offset in range(0, total, 2000):
         page = store.collection.get(include=["embeddings", "metadatas"], limit=2000, offset=offset)
-        vecs.append(np.array(page["embeddings"], dtype=np.float32))
-        metas.extend(page["metadatas"])
-        ids.extend(page["ids"])
+        keep = [i for i, m in enumerate(page["metadatas"]) if not is_heading(m.get("gurmukhi", ""), m.get("line_index"))]
+        vecs.append(np.array(page["embeddings"], dtype=np.float32)[keep])
+        metas.extend(page["metadatas"][i] for i in keep)
+        ids.extend(page["ids"][i] for i in keep)
     E = np.vstack(vecs)
     E /= np.linalg.norm(E, axis=1, keepdims=True) + 1e-9
     return E, metas, ids
@@ -459,7 +465,7 @@ def main() -> None:
                       "rahao_weight": RAHAO_WEIGHT, "concepts_per_verse": CONCEPTS_PER_VERSE,
                       "central_rank": CENTRAL_RANK, "central_floor": CENTRAL_FLOOR,
                       "review": "provisional"}
-    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads, "weights": weights_policy}}, ensure_ascii=False, indent=2), encoding="utf-8")
+    VOCAB_OUT.write_text(json.dumps({"theme_tags": theme_tags, "mood_tags": {}, "generation_policy": {"version": 2, "method": "concept_threshold", "membership_quota": None, "threshold_review": "provisional", "indexed_shabads": n_shabads, "evidence": "verses only; headings and titles are excluded", "weights": weights_policy}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     lines = ["# Concept tagging report", "", f"{tagged_shabads} shabads tagged, avg {avg:.1f} tags each.", ""]
     lines += ["| concept | group | calibration | says it | inferred | tagged | central | gen. recall |",
