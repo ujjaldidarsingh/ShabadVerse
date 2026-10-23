@@ -1,5 +1,9 @@
 # ShabadVerse state, October 22, 2026
 
+## Shabad titles (candidate, not deployed)
+
+Half the shabad titles held English translations, headings or summaries from the source's `display_name` field, such as "Truth Is The Name" taken from the Mool Mantar. The graph build now writes each title as the transliteration of the verse its Gurmukhi line shows, moving both off a heading; Japji keeps the Mool Mantar by Ujjal's ruling. The 18 heading-only BaniDB entries no longer appear in any whole-shabad connection list. Candidate `parkaran-helper/releases/2026-10-22-titles` was built from the same source and vocabulary as production: 2,867 titles and 13 Gurmukhi lines change, concept assignments and review samples are identical, and the only connection change is the label-only entries leaving. 69 Python checks and both browser suites pass. See `audits/2026-10-22-shabad-titles/`.
+
 ## Production (October 22)
 
 https://shabadverse.com runs the October 15 evidence release, merged through PR #23: the matching redesign, Ujjal's concept alignment, the rebuilt ✨ search, the shared heading check and concept evidence without headings. Image `shabadverse:2026-10-15-evidence`, runtime code `8168105e…`, dataset `d0e928d2…`. Both browser suites pass on the public site. The receipt and rollback command are in `deployments/2026-10-15-evidence-production.json`; staging runs the same image.

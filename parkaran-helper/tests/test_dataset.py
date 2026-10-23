@@ -88,6 +88,23 @@ class DatasetTests(unittest.TestCase):
             self.assertIn('newly_admitted',{r['category'] for r in revealed['samples']})
             self.assertEqual(blind['dataset_id'],revealed['dataset_id'])
 
+    def test_titles_and_heading_only_entries(self):
+        from bootstrap.build_graph import heading_only
+        from database import corpus
+        with patch.object(config, 'CACHE_DB_PATH', str(self.path / 'shabad_cache.db')):
+            corpus.shabad.cache_clear()
+            try:
+                labels = {sid for sid in self.graph['metadata'] if heading_only(sid)}
+            finally:
+                corpus.shabad.cache_clear()
+        self.assertTrue(labels)
+        self.assertTrue(all(not self.graph['neighbors'].get(sid) for sid in labels), 'heading-only entries have no connections')
+        self.assertFalse({n['id'] for ns in self.graph['neighbors'].values() for n in ns} & labels, 'heading-only entries are never a connection')
+        titles = {sid: m['title'] for sid, m in self.graph['metadata'].items()}
+        self.assertTrue(all(titles.values()))
+        self.assertNotIn('Truth Is The Name', titles.values())
+        self.assertTrue(self.graph['metadata']['1']['gurmukhi'].startswith('ੴ'), 'Japji keeps the Mool Mantar')
+
     def test_no_stale_consensus_attribution(self):
         self.assertTrue(all(r['tags_source'] == 'curated_concepts_v2' for r in self.rows))
 
