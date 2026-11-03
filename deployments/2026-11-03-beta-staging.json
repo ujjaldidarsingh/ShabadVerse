@@ -1,0 +1,23 @@
+{
+  "verified_utc": "2026-11-03T20:47:11+00:00",
+  "environment": "staging",
+  "staging_url": "https://test.shabadverse.com",
+  "approval": "Ujjal approved the November 3 tour for the About page on 2026-11-03 and asked for the remaining release work and Haiku reordering; staging, then production after he looks.",
+  "branch": "feature/november-beta",
+  "runtime_commit": "7ea63e9dff926e1d2808483a82ea5f097c902b13",
+  "runtime_sha256": "7f04235069723fea0918c73dd97fa69c8022a785f4387be154c2e8d4ee96e5c3",
+  "dataset_id": "14e3b1b248c4101058513ff5a73a9f6feb0dce989f78fa22efe98f6b2466397c",
+  "candidate": "parkaran-helper/releases/2026-11-03-beta (the 2026-10-22-titles data with this code)",
+  "server_release_dir": "/opt/shabadverse-releases/2026-11-03-beta",
+  "image_tag": "shabadverse:2026-11-03-beta",
+  "image_id": "sha256:ad8e183a8c73a12e5a9f35e20114a46f19c5aac26756685667e18a5b50ab60ff",
+  "compose_file": "/opt/shabadverse-releases/2026-11-03-beta/compose.staging.yml",
+  "compose_project": "shabadverse-staging",
+  "oom_score_adj": 500,
+  "claude_reordering": "SHABADVERSE_RERANK=1; the key is read from /opt/shabadverse-secrets/anthropic.env when present (env_file required: false). Until Ujjal places it, the ✨ search keeps the local order.",
+  "media": "Caddy serves /static/media/* on test.shabadverse.com from /opt/shabadverse-media; the three files match the release by SHA-256 (video 41baa07e…). Caddyfile backup: /etc/caddy/Caddyfile.bak-2026-11-03.",
+  "rollback": "sudo docker compose -p shabadverse-staging -f /opt/shabadverse-releases/2026-10-22-titles/compose.staging.yml up -d",
+  "python_tests": 70,
+  "browser_tests": "Both suites passed on the local candidate and on https://test.shabadverse.com at phone, tablet and desktop sizes, with external requests blocked. The tour plays on the public test site and answers range requests with 206.",
+  "production": "Untouched: shabadverse:2026-10-15-evidence, healthy, zero restarts"
+}

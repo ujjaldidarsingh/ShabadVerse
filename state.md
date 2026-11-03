@@ -1,6 +1,20 @@
-# ShabadVerse state, October 22, 2026
+# ShabadVerse state, November 3, 2026
 
-## Shabad titles (candidate, not deployed)
+## November 3 beta (staging, waiting for Ujjal's look)
+
+https://test.shabadverse.com runs image `shabadverse:2026-11-03-beta`, commit 7ea63e9, runtime code `7f042350…`, with the titles dataset `14e3b1b2…`. It is the titles candidate below plus three changes:
+
+- The About page plays the two-minute tour Ujjal approved on November 3 (`audits/2026-11-03-public-demo/`, SHA-256 `41baa07e…`). On the test site Caddy serves `/static/media/` itself from `/opt/shabadverse-media`, so a slow video download never holds one of the app's two request threads.
+- Shortened Gurmukhi lines in tooltips, the verse picker and the ✨ list end on a whole word with an ellipsis.
+- The SPREAD readout starts at the slider's real value, 250.
+
+Claude Haiku 5.5 reordering is switched on in staging's compose file and waits for the API key, which Ujjal places in `/opt/shabadverse-secrets/anthropic.env`. Until then the ✨ search keeps the local order and `/about` does not mention Anthropic. Measured on November 3 (`audits/2026-10-13-search/RESULTS.md`): English paraphrases found first rose from 9 to 17 of 20, all 45 remembered lines reached the top 5, and concept searches held steady, at about $0.0006 a search.
+
+70 Python checks and both browser suites pass locally and on the public test site. Production is untouched. The receipt and rollback command are in `deployments/2026-11-03-beta-staging.json`.
+
+Kept as they are, with reasons given to Ujjal: a tooltip stays open after + ADD so EXPLORE is one tap away; a shabad keeps the label of the verse you searched or picked, even in whole-shabad matching; labels still crowd the top and bottom of a full line-matching ring, which needs a layout change.
+
+## Shabad titles (in the November 3 beta)
 
 Half the shabad titles held English translations, headings or summaries from the source's `display_name` field, such as "Truth Is The Name" taken from the Mool Mantar. The graph build now writes each title as the transliteration of the verse its Gurmukhi line shows, moving both off a heading; Japji keeps the Mool Mantar by Ujjal's ruling. The 18 heading-only BaniDB entries no longer appear in any whole-shabad connection list. Candidate `parkaran-helper/releases/2026-10-22-titles` was built from the same source and vocabulary as production: 2,867 titles and 13 Gurmukhi lines change, concept assignments and review samples are identical, and the only connection change is the label-only entries leaving. 69 Python checks and both browser suites pass. See `audits/2026-10-22-shabad-titles/`.
 
@@ -8,7 +22,7 @@ Half the shabad titles held English translations, headings or summaries from the
 
 https://shabadverse.com runs the October 15 evidence release, merged through PR #23: the matching redesign, Ujjal's concept alignment, the rebuilt ✨ search, the shared heading check and concept evidence without headings. Image `shabadverse:2026-10-15-evidence`, runtime code `8168105e…`, dataset `d0e928d2…`. Both browser suites pass on the public site. The receipt and rollback command are in `deployments/2026-10-15-evidence-production.json`; staging runs the same image.
 
-Next: the About page demo video. A silent public cut is being recorded from the current site for Ujjal to watch before it ships as its own release.
+Next: the November 3 beta above, once Ujjal has looked at staging.
 
 ## Shared heading check (released October 22)
 
@@ -24,7 +38,7 @@ https://test.shabadverse.com runs the rebuilt ✨ search from image `shabadverse
 
 The search is rebuilt in `parkaran-helper/api/meaning_search.py` (see `architecture.md`). Candidate `parkaran-helper/releases/2026-10-13-search` holds the alignment data with this code. On 60 test searches (`audits/2026-10-13-search/RESULTS.md`), remembered lines in the top 5 rose from 8 of 45 to 43 of 45: every line typed in English letters or Gurmukhi now comes first. Concept searches now return shabads on the concept in 0.83 of the top 5 results, up from 0.43. 61 Python checks and both browser suites pass against the candidate. The browser suites now include a typed line opening line matching.
 
-Claude Haiku 5.5 reordering is built but off. The local API key's account has no credit, so no live reordering has run. Ujjal will add credit and a spending limit; then `audits/2026-10-13-search/eval_search.py --rerank` compares it with the local order for about 3 cents. Enabling it on staging needs the key in the server environment and `SHABADVERSE_RERANK=1`; the image already has the SDK.
+Claude Haiku 5.5 reordering was measured on November 3, once the account had credit; see the November 3 beta above.
 
 ## Concept alignment (released October 22)
 
