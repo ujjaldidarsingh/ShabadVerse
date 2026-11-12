@@ -772,14 +772,14 @@ function showTooltip(shabadId, nodeEl) {
 
     // Selected tuk for this shabad (if any)
     const tuk = State.selectedTuk[sid];
-    const tukHtml = tuk ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:rgba(16,185,129,0.6);font-size:10px;margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.04);border-radius:3px;border-left:2px solid rgba(16,185,129,0.3);">${escapeHtml((tuk.gurmukhi || "").substring(0, 50))}</div>` : "";
+    const tukHtml = tuk ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:rgba(16,185,129,0.6);font-size:10px;margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.04);border-radius:3px;border-left:2px solid rgba(16,185,129,0.3);">${escapeHtml(truncWords(tuk.gurmukhi || "", 50))}</div>` : "";
 
     // If this shabad is already the graph center, EXPLORE would be a no-op — disable it
     const isCurrentCenter = String(State.centerNode) === sid;
 
     tooltip.innerHTML = `
         <div class="tt-body">
-            ${meta.gurmukhi ? `<div class="tt-gurmukhi">${isRep ? "&#9733; " : ""}${escapeHtml(meta.gurmukhi.substring(0, 45))}</div>` : ""}
+            ${meta.gurmukhi ? `<div class="tt-gurmukhi">${isRep ? "&#9733; " : ""}${escapeHtml(truncWords(meta.gurmukhi, 45))}</div>` : ""}
             ${tukHtml}
             <div class="tt-meta">${escapeHtml([meta.raag, meta.writer, meta.ang ? "ANG " + meta.ang : ""].filter(Boolean).join(" / "))}</div>
             ${summary ? `<div class="tt-summary"><small>Machine-assisted summary</small><br>${escapeHtml(truncSentence(summary, 160))}</div>` : ""}
@@ -1024,7 +1024,7 @@ async function loadVerseSelector(shabadId, nodeEl) {
             <div data-action="select-verse" data-sid="${escAttr(sid)}" data-vidx="${i}"
                  style="padding:3px 6px;margin-bottom:2px;cursor:pointer;border-left:2px solid ${borderColor};background:${bg};border-radius:0 2px 2px 0;"
                  onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='${bg}'">
-                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:${isSelected ? 'rgba(16,185,129,0.7)' : 'rgba(251,191,36,0.5)'};font-size:10px;">${escapeHtml(v.gurmukhi.substring(0, 45))}</div>
+                <div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:${isSelected ? 'rgba(16,185,129,0.7)' : 'rgba(251,191,36,0.5)'};font-size:10px;">${escapeHtml(truncWords(v.gurmukhi, 45))}</div>
                 ${isRahao ? '<span style="font-family:\'IBM Plex Mono\';font-size:7px;color:rgba(245,158,11,0.3);">RAHAO</span>' : ""}
             </div>
         `;
@@ -1359,7 +1359,7 @@ function searchResultHTML(sid, m, matchedVerse, matchedEnglish, lineIndex = -1) 
     return `
         <button type="button" class="autocomplete-item" data-action="select-search" data-line-index="${lineIndex}" data-sid="${escAttr(sid)}" data-verse="${verseAttr}" data-english="${engAttr}">
             ${badge}
-            ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:13px;">${escapeHtml(m.gurmukhi.substring(0, 45))}</div>` : ""}
+            ${m.gurmukhi ? `<div lang="pa-Guru" style="font-family:'Noto Sans Gurmukhi';color:var(--star-glow);font-size:13px;">${escapeHtml(truncWords(m.gurmukhi, 45))}</div>` : ""}
             <div style="font-family:'IBM Plex Mono';color:var(--text-faint);font-size:9px;">
                 ${escapeHtml([m.raag, m.writer, m.ang ? "ANG " + m.ang : ""].filter(Boolean).join(" / "))}
                 ${m.is_repertoire ? " &#9733;" : ""}
@@ -2147,7 +2147,7 @@ function withTimeout(promise, ms) {
     ]);
 }
 
-/** Truncate English prose at a word boundary. Cutting mid-word ("will be h")
+/** Truncate at a word boundary. Cutting mid-word ("will be h", "ਹਉਮੈ ਰ")
  *  reads as a rendering bug; cutting at a space reads as an ellipsis. */
 function truncWords(text, max) {
     if (!text || text.length <= max) return text || "";

@@ -128,4 +128,17 @@ class HeadingTests(unittest.TestCase):
             self.assertFalse(corpus.is_heading(line,index),line)
 
 
+class AboutTests(unittest.TestCase):
+    def test_tour_video_streams_in_ranges(self):
+        client=app.test_client()
+        demo={'verses':[{},{'gurmukhi':'ਵਾਹਿਗੁਰੂ'}],'writer':'','raag':'','ang':1}
+        with patch('database.corpus.shabad',return_value=demo),patch.object(api,'_graph_data',{'metadata':{},'neighbors':{}}),\
+                patch.object(api,'_tag_vocab',{'theme_tags':{}}):
+            self.assertIn('media/shabadverse-demo.mp4',client.get('/about').get_data(as_text=True))
+        # Safari plays video only from range responses.
+        response=client.get('/static/media/shabadverse-demo.mp4',headers={'Range':'bytes=0-1023'})
+        self.assertEqual((response.status_code,len(response.data)),(206,1024))
+        response.close()
+
+
 if __name__=='__main__': unittest.main()

@@ -1,10 +1,41 @@
-# ShabadVerse state, October 22, 2026
+# ShabadVerse state, November 11, 2026
 
-## Production (October 22)
+## November 6 to 9 outage (fixed November 9)
 
-https://shabadverse.com runs the October 15 evidence release, merged through PR #23: the matching redesign, Ujjal's concept alignment, the rebuilt ✨ search, the shared heading check and concept evidence without headings. Image `shabadverse:2026-10-15-evidence`, runtime code `8168105e…`, dataset `d0e928d2…`. Both browser suites pass on the public site. The receipt and rollback command are in `deployments/2026-10-15-evidence-production.json`; staging runs the same image.
+Both sites were unreachable from about 06:12 UTC on November 6 until a reboot at 19:08 UTC on November 9. Ubuntu's nightly security update started at 06:11 while the two app copies held most of the 2 GB of memory and the host had no swap. The host stalled: Docker health checks, containerd and snapd timed out, and at 06:15 systemd-networkd could not set a route for `ens5`, marked the link failed and never retried. The server kept running with no network, so Lightsail's instance status check failed for three days while its hardware check passed. The kernel logged no out-of-memory kills.
 
-Next: the About page demo video. A silent public cut is being recorded from the current site for Ujjal to watch before it ships as its own release.
+The reboot restored both sites. Then, with Ujjal's approval:
+
+- A 2 GB swap file, `/swapfile`, is active and listed in `/etc/fstab` (backup `/etc/fstab.bak-2026-11-09`). After the browser suites warmed both sites, the host had 288 MiB of memory available and 118 MiB in swap.
+- Ubuntu's security updates are installed, including the two the stalled run never reached, `ca-certificates` and `python3-twisted`. No restart was needed. PHP is not installed, so Lightsail's PHP notice does not apply.
+- Docker 29.9.3 (compose 5.7.0, containerd 2.4.2) and Caddy 2.11.9 replaced 29.4.0, 5.1.2, 2.2.2 and 2.11.2. The Caddyfile is unchanged (backup `/etc/caddy/Caddyfile.bak-2026-11-09`) and validates.
+- Both browser suites pass on both public sites at phone, tablet and desktop sizes, run one site at a time. Run together right after a reboot, the discovery suite timed out on both sites while they warmed up; alone it passes.
+
+Still open: 36 non-security Ubuntu updates, including kernel 6.8.0-1069, which needs a reboot, and an alert on Lightsail's status check so an outage shows up within minutes.
+
+## November 3 beta (production since November 11)
+
+https://shabadverse.com and https://test.shabadverse.com run image `shabadverse:2026-11-03-beta`, commit 7ea63e9, runtime code `7f042350…`, with the titles dataset `14e3b1b2…`. It is the titles candidate below plus three changes:
+
+- The About page plays the two-minute tour Ujjal approved on November 3 (`audits/2026-11-03-public-demo/`, SHA-256 `41baa07e…`). On both sites Caddy serves `/static/media/` itself from `/opt/shabadverse-media`, so a slow video download never holds one of the app's two request threads.
+- Shortened Gurmukhi lines in tooltips, the verse picker and the ✨ list end on a whole word with an ellipsis.
+- The SPREAD readout starts at the slider's real value, 250.
+
+Claude Haiku 5.5 reordering has been live on staging since November 9 and on production since November 11. Ujjal placed the API key in `/opt/shabadverse-secrets/anthropic.env`, and the container was recreated to read it. A ✨ search with `rerank=1` returns `reordered: true` with a short note on each verse in 4 to 7 seconds, and `/about` names Anthropic. Measured on November 3 (`audits/2026-10-13-search/RESULTS.md`): English paraphrases found first rose from 9 to 17 of 20, all 45 remembered lines reached the top 5, and concept searches held steady, at about $0.0006 a search.
+
+70 Python checks pass, and both browser suites pass locally and on both public sites. The receipts are `deployments/2026-11-03-beta-staging.json` and `deployments/2026-11-11-beta-production.json`, which holds the rollback command.
+
+Kept as they are, with reasons given to Ujjal: a tooltip stays open after + ADD so EXPLORE is one tap away; a shabad keeps the label of the verse you searched or picked, even in whole-shabad matching; labels still crowd the top and bottom of a full line-matching ring, which needs a layout change.
+
+## Shabad titles (in the November 3 beta)
+
+Half the shabad titles held English translations, headings or summaries from the source's `display_name` field, such as "Truth Is The Name" taken from the Mool Mantar. The graph build now writes each title as the transliteration of the verse its Gurmukhi line shows, moving both off a heading; Japji keeps the Mool Mantar by Ujjal's ruling. The 18 heading-only BaniDB entries no longer appear in any whole-shabad connection list. Candidate `parkaran-helper/releases/2026-10-22-titles` was built from the same source and vocabulary as production: 2,867 titles and 13 Gurmukhi lines change, concept assignments and review samples are identical, and the only connection change is the label-only entries leaving. 69 Python checks and both browser suites pass. See `audits/2026-10-22-shabad-titles/`.
+
+## Previous production (October 22 to November 11)
+
+https://shabadverse.com ran the October 15 evidence release, merged through PR #23: the matching redesign, Ujjal's concept alignment, the rebuilt ✨ search, the shared heading check and concept evidence without headings. Image `shabadverse:2026-10-15-evidence`, runtime code `8168105e…`, dataset `d0e928d2…`. Both browser suites pass on the public site. The receipt and rollback command are in `deployments/2026-10-15-evidence-production.json`; staging ran the same image.
+
+The November 3 beta replaced it on November 11. Its image stays on the server as the rollback.
 
 ## Shared heading check (released October 22)
 
@@ -20,7 +51,7 @@ https://test.shabadverse.com runs the rebuilt ✨ search from image `shabadverse
 
 The search is rebuilt in `parkaran-helper/api/meaning_search.py` (see `architecture.md`). Candidate `parkaran-helper/releases/2026-10-13-search` holds the alignment data with this code. On 60 test searches (`audits/2026-10-13-search/RESULTS.md`), remembered lines in the top 5 rose from 8 of 45 to 43 of 45: every line typed in English letters or Gurmukhi now comes first. Concept searches now return shabads on the concept in 0.83 of the top 5 results, up from 0.43. 61 Python checks and both browser suites pass against the candidate. The browser suites now include a typed line opening line matching.
 
-Claude Haiku 5.5 reordering is built but off. The local API key's account has no credit, so no live reordering has run. Ujjal will add credit and a spending limit; then `audits/2026-10-13-search/eval_search.py --rerank` compares it with the local order for about 3 cents. Enabling it on staging needs the key in the server environment and `SHABADVERSE_RERANK=1`; the image already has the SDK.
+Claude Haiku 5.5 reordering was measured on November 3, once the account had credit; see the November 3 beta above.
 
 ## Concept alignment (released October 22)
 

@@ -13,17 +13,66 @@ import sys
 import os
 import json
 import math
+import re
+import unicodedata
 import numpy as np
 from collections import defaultdict
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
+from bootstrap.clean_display_names import strip_trailing_digits
+from database import corpus
 
 GRAPH_PATH = os.path.join(config.DATA_DIR, "similarity_graph.json")
 
 # Tags that are visual markers, not thematic connectors
 NON_CONNECTOR_TAGS = {"Repertoire"}
+
+# A title is the BaniDB transliteration of the verse the Gurmukhi line shows, so
+# the two read as one verse in two scripts. The source display_name held English
+# translations, headings and summaries for half the corpus.
+VERSE_END = re.compile(r"\s*\|\|.*$")
+MIN_TITLE_WORDS = 2  # a bare marker such as ॥ ਜਪੁ ॥ is not a display verse
+# Ujjal, 2026-10-22: the Mool Mantar opens Japji, so shabad 1 keeps it as its
+# Gurmukhi line.
+KEEP_GURMUKHI_LINE = {"1"}
+
+
+def _core(gurmukhi):
+    return re.sub(r"[॥।੦-੯0-9\s]+", " ", unicodedata.normalize("NFC", gurmukhi or "")).strip()
+
+
+def _transliteration(verse):
+    text = VERSE_END.sub("", verse["transliteration"]).strip()
+    return text or verse["transliteration"].replace("|", " ").strip()
+
+
+def _displayable(verse):
+    words = VERSE_END.sub("", verse["transliteration"]).split()
+    return not corpus.is_heading(verse["gurmukhi"], verse["index"]) and len(words) >= MIN_TITLE_WORDS
+
+
+def heading_only(sid):
+    """BaniDB entries that hold nothing but headings or set labels (ਛਕਾ ੧ ॥)."""
+    verses = corpus.shabad(sid)["verses"]
+    return all(corpus.is_heading(v["gurmukhi"], v["index"]) for v in verses)
+
+
+def display_lines(sid, shown_gurmukhi):
+    """(Gurmukhi line, title) for a shabad.
+
+    The verse the Gurmukhi display line shows, unless it is a heading or a bare
+    marker; then the first verse that is neither. An entry holding only headings
+    keeps the line it shows.
+    """
+    verses = corpus.shabad(sid)["verses"]
+    key = _core(shown_gurmukhi)[:20]
+    shown = next((v for v in verses if _core(v["gurmukhi"]).startswith(key)), verses[0])
+    verse = shown if _displayable(shown) else next((v for v in verses if _displayable(v)), shown)
+    if verse is shown or sid in KEEP_GURMUKHI_LINE:
+        return shown_gurmukhi, _transliteration(verse)
+    return strip_trailing_digits(verse["gurmukhi"]), _transliteration(verse)
 
 
 def jaccard_similarity(set_a, set_b):
@@ -159,6 +208,10 @@ def build_graph():
 
     sids = list(shabad_tags.keys())
     total = len(sids)
+    # Entries holding only headings have nothing to read, so they are never a
+    # connection and get none of their own. They stay readable if opened.
+    label_only = {sid for sid in sids if heading_only(sid)}
+    print(f"  Heading-only entries left out of connections: {len(label_only)}")
     embed_hits = 0
     embed_misses = 0
     empty_tag_clusters = 0
@@ -171,7 +224,7 @@ def build_graph():
         my_emb = embedding_lookup.get(sid)
         n_tags = len(my_tags)
 
-        if n_tags == 0:
+        if n_tags == 0 or sid in label_only:
             neighbors[sid] = []
             continue
 
@@ -187,7 +240,7 @@ def build_graph():
             branch_pool = []   # Different-direction candidates
 
             for cid in tag_candidates:
-                if cid == sid:
+                if cid == sid or cid in label_only:
                     continue
                 their_tags = shabad_tags.get(cid, set())
                 shared = my_tags & their_tags
@@ -281,9 +334,9 @@ def build_graph():
     # are no tags to share. Score is the raw cosine (comparable in magnitude to
     # tagged edge scores), shared_tags empty by construction.
     EMBED_ONLY_K = 12
-    untagged_sids = [s for s in sids if not shabad_tags[s]]
+    untagged_sids = [s for s in sids if not shabad_tags[s] and s not in label_only]
     if untagged_sids:
-        emb_sids = [s for s in sids if embedding_lookup.get(s) is not None]
+        emb_sids = [s for s in sids if embedding_lookup.get(s) is not None and s not in label_only]
         matrix = np.asarray([embedding_lookup[s] for s in emb_sids], dtype=np.float32)
         matrix /= np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-9
         row_of = {s: i for i, s in enumerate(emb_sids)}
@@ -313,9 +366,10 @@ def build_graph():
     metadata = {}
     for s in sggs_shabads:
         sid = str(s["banidb_shabad_id"])
+        gurmukhi, title = display_lines(sid, s.get("display_gurmukhi") or "")
         metadata[sid] = {
-            "title": s.get("display_name") or (s.get("transliteration") or "")[:80],
-            "gurmukhi": s.get("display_gurmukhi") or "",
+            "title": title,
+            "gurmukhi": gurmukhi,
             "raag": s.get("sggs_raag", ""),
             "writer": s.get("writer", ""),
             "ang": s.get("ang_number", 0),

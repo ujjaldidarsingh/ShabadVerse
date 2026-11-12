@@ -1,0 +1,22 @@
+{
+  "verified_utc": "2026-10-23T01:38:30+00:00",
+  "environment": "staging",
+  "staging_url": "https://test.shabadverse.com",
+  "approval": "Ujjal chose to apply the title rule, keep the Mool Mantar for Japji, and drop heading-only entries from connections on 2026-10-22; staging, then production after he looks.",
+  "branch": "fix/shabad-titles",
+  "runtime_commit": "67b075e925649e87032e5b5c508eab4fb6722016",
+  "runtime_sha256": "8168105ef2b20008880b2ad703f48b2dc89944f77bb7d6faca9b2168614dcd3b",
+  "dataset_id": "14e3b1b248c4101058513ff5a73a9f6feb0dce989f78fa22efe98f6b2466397c",
+  "candidate": "parkaran-helper/releases/2026-10-22-titles (built from 2026-10-02-phase1 with data/draft_vocabulary.json, like production)",
+  "server_release_dir": "/opt/shabadverse-releases/2026-10-22-titles",
+  "image_tag": "shabadverse:2026-10-22-titles",
+  "image_id": "sha256:374bd896120ea484b72dc7e9ecbfad506f5c70f0233422d673c8292c17987b9d",
+  "compose_file": "/opt/shabadverse-releases/2026-10-22-titles/compose.staging.yml",
+  "compose_project": "shabadverse-staging",
+  "oom_score_adj": 500,
+  "rollback": "sudo docker compose -p shabadverse-staging -f /opt/shabadverse-releases/2026-10-15-evidence/compose.staging.yml up -d",
+  "candidate_check": "audits/2026-10-22-shabad-titles/candidate-check.json: concept assignments, topic index and review samples identical to production; 2,867 titles and 13 Gurmukhi lines change; heading-only entries appear 0 times as connections, down from 139",
+  "python_tests": 69,
+  "browser_tests": "Both suites passed on the local candidate and on https://test.shabadverse.com at phone, tablet and desktop sizes, with external requests blocked",
+  "production": "Untouched: shabadverse:2026-10-15-evidence, healthy, zero restarts"
+}

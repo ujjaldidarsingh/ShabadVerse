@@ -13,6 +13,14 @@
 
     <section id="walkthrough" class="walkthrough">
         <div class="walkthrough-heading"><span class="eyebrow">A short walkthrough</span><h2>Search. Explore. Bring it together.</h2></div>
+        <figure class="walkthrough-video">
+            <video controls playsinline preload="metadata" poster="{{ url_for('static', filename='media/shabadverse-demo-poster.jpg') }}" aria-describedby="walkthroughVideoNote">
+                <source src="{{ url_for('static', filename='media/shabadverse-demo.mp4') }}" type="video/mp4">
+                <track kind="captions" src="{{ url_for('static', filename='media/shabadverse-demo.vtt') }}" srclang="en" label="English">
+                <a href="{{ url_for('static', filename='media/shabadverse-demo.mp4') }}">Download the two-minute tour</a>
+            </video>
+            <figcaption id="walkthroughVideoNote">A two-minute tour. There’s no sound; the captions are on screen.</figcaption>
+        </figure>
         <div class="walkthrough-tabs" role="tablist" aria-label="Walkthrough steps">
             <button role="tab" aria-selected="true" aria-controls="demo-search" id="step-search" data-step="search">01 · Find a shabad</button>
             <button role="tab" aria-selected="false" aria-controls="demo-explore" id="step-explore" data-step="explore">02 · Follow a connection</button>
